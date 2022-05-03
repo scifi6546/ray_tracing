@@ -1,11 +1,29 @@
-use super::{Image, RgbColor};
+use super::{Image, RgbColor, RgbImage};
+
 use cgmath::{InnerSpace, Point3, Vector3};
+use miniquad::rand;
 use rand::prelude::*;
 use std::{
     sync::mpsc::{channel, Receiver, Sender},
     thread,
-    time::Duration,
 };
+
+pub fn rand_vec_in_unit_sphere() -> Vector3<f32> {
+    loop {
+        let v = 2.0 * (rand_vec() - Vector3::new(0.5, 0.5, 0.5));
+        if v.dot(v) < 1.0 {
+            return v;
+        }
+    }
+}
+/// generates random vec with all components in range [0,1)
+pub fn rand_vec() -> Vector3<f32> {
+    Vector3 {
+        x: rand::random(),
+        y: rand::random(),
+        z: rand::random(),
+    }
+}
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
@@ -17,28 +35,37 @@ impl Ray {
         self.origin + t * self.direction.normalize()
     }
 }
-fn ray_color(ray: &Ray, world: &World) -> RgbColor {
-    if let Some(record) = world.nearest_hit(ray) {
-        return RgbColor {
-            red: 0.5 * (record.normal.x + 1.0),
-            green: 0.5 * (record.normal.y + 1.0),
-            blue: 0.5 * (record.normal.z + 1.0),
+fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
+    if let Some(record) = world.nearest_hit(&ray) {
+        let target = record.position + record.normal + rand_vec_in_unit_sphere();
+        let new_ray = Ray {
+            origin: record.position,
+            direction: target - record.position,
         };
+        if depth > 0 {
+            0.5 * ray_color(new_ray, world, depth - 1)
+        } else {
+            RgbColor {
+                red: 0.0,
+                green: 0.0,
+                blue: 0.0,
+            }
+        }
+    } else {
+        let unit = ray.direction.normalize();
+        let t = 0.5 * (unit.y + 1.0);
+        (1.0 - t)
+            * RgbColor {
+                red: 1.0,
+                blue: 1.0,
+                green: 1.0,
+            }
+            + t * RgbColor {
+                red: 0.5,
+                green: 0.7,
+                blue: 1.0,
+            }
     }
-
-    let unit = ray.direction.normalize();
-    let t = 0.5 * (unit.y + 1.0);
-    (1.0 - t)
-        * RgbColor {
-            red: 1.0,
-            blue: 1.0,
-            green: 1.0,
-        }
-        + t * RgbColor {
-            red: 0.5,
-            green: 0.7,
-            blue: 1.0,
-        }
 }
 #[derive(Clone, Copy, Debug)]
 pub struct HitRecord {
@@ -151,11 +178,50 @@ impl World {
             .reduce(|acc, x| if acc.t < x.t { acc } else { x })
     }
 }
+#[derive(Clone, Debug)]
+pub struct Camera {
+    origin: Point3<f32>,
+    world_width: f32,
+    world_height: f32,
+    focal_length: f32,
+    image_width: u32,
+    image_height: u32,
+}
+impl Camera {
+    pub fn new(
+        image_width: u32,
+        image_height: u32,
+        world_height: f32,
+        focal_length: f32,
+        origin: Point3<f32>,
+    ) -> Self {
+        let aspect_ratio = image_width as f32 / image_height as f32;
+        Self {
+            origin,
+            world_width: aspect_ratio * world_height,
+            world_height,
+            focal_length,
+            image_width,
+            image_height,
+        }
+    }
+    pub fn get_ray(&self, u: f32, v: f32) -> Ray {
+        Ray {
+            origin: self.origin,
+            direction: Vector3 {
+                x: (u - 0.5) * self.world_height,
+                y: (v - 0.5) * self.world_width,
+                z: -1.0 * self.focal_length,
+            },
+        }
+    }
+}
 pub struct RayTracer {
     sender: Sender<Image>,
 }
 
 impl RayTracer {
+    const SAMPLES_PER_PIXEL: usize = 80;
     pub fn new() -> Receiver<Image> {
         let (sender, recvier) = channel();
         let s = Self { sender };
@@ -170,13 +236,19 @@ impl RayTracer {
         const IMAGE_HEIGHT: u32 = 1000;
         const IMAGE_WIDTH: u32 = 1000;
         const FOCAL_LENGTH: f32 = 1.0;
-        const ASPECT_RATIO: f32 = IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32;
-        let camera_origin = Point3 {
-            x: 0.0f32,
-            y: 0.0f32,
-            z: 0.0f32,
-        };
 
+        let image_world_height = 2.0;
+        let camera = Camera::new(
+            IMAGE_WIDTH,
+            IMAGE_HEIGHT,
+            image_world_height,
+            FOCAL_LENGTH,
+            Point3 {
+                x: 0.0f32,
+                y: 0.0f32,
+                z: 0.0f32,
+            },
+        );
         let world = World {
             spheres: vec![
                 Sphere {
@@ -197,25 +269,21 @@ impl RayTracer {
                 },
             ],
         };
-        let image_world_height = 2.0;
-        let image_world_width = ASPECT_RATIO * image_world_height;
-        let mut img = Image::from_fn(|_, _| [0, 0, 0, 0xff], 1000, 1000);
-        for x in 0..IMAGE_WIDTH {
-            for y in 0..IMAGE_WIDTH {
-                let u = x as f32 / (IMAGE_WIDTH as f32 - 1.0);
-                let v = y as f32 / (IMAGE_HEIGHT as f32 - 1.0);
-                let r = Ray {
-                    origin: camera_origin,
-                    direction: Vector3 {
-                        x: (u - 0.5) * image_world_height,
-                        y: (v - 0.5) * image_world_width,
-                        z: -1.0 * FOCAL_LENGTH,
-                    },
-                };
-                img.set_xy_color(x, y, ray_color(&r, &world));
-            }
-        }
 
-        self.sender.send(img).expect("failed to send");
+        let mut rgb_img = RgbImage::new_black(1000, 1000);
+        for num_s in 0..Self::SAMPLES_PER_PIXEL {
+            for x in 0..IMAGE_WIDTH {
+                for y in 0..IMAGE_WIDTH {
+                    let u = (x as f32 + rand::random::<f32>()) / (IMAGE_WIDTH as f32 - 1.0);
+                    let v = (y as f32 + rand::random::<f32>()) / (IMAGE_HEIGHT as f32 - 1.0);
+                    let r = camera.get_ray(u, v);
+                    let c = ray_color(r, &world, 5);
+                    rgb_img.add_xy(x, y, ray_color(r, &world, 5));
+                }
+            }
+
+            self.sender
+                .send(Image::from_rgb_image(&(rgb_img.clone() / num_s as f32)));
+        }
     }
 }

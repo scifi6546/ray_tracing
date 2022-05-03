@@ -6,15 +6,56 @@ use miniquad::{
     Shader, Texture, UserData, VertexAttribute, VertexFormat,
 };
 use std::{
-    ops::{Add, Mul},
+    ops::{Add, AddAssign, Div, Mul},
     sync::mpsc::Receiver,
 };
-#[repr(C)]
-struct Vec2 {
-    x: f32,
-    y: f32,
-}
 
+pub fn clamp(x: f32, min: f32, max: f32) -> f32 {
+    if x < min {
+        min
+    } else if x > max {
+        max
+    } else {
+        x
+    }
+}
+#[derive(Clone)]
+pub struct RgbImage {
+    buffer: Vec<RgbColor>,
+    width: u32,
+    height: u32,
+}
+impl RgbImage {
+    pub fn new_black(width: u32, height: u32) -> Self {
+        let buffer = (0..(width as usize * height as usize))
+            .map(|_| RgbColor {
+                red: 0.0,
+                blue: 0.0,
+                green: 0.0,
+            })
+            .collect();
+
+        RgbImage {
+            buffer,
+            width,
+            height,
+        }
+    }
+    pub fn add_xy(&mut self, x: u32, y: u32, color: RgbColor) {
+        self.buffer[y as usize * self.width as usize + x as usize] += color;
+    }
+}
+impl Div<f32> for RgbImage {
+    type Output = RgbImage;
+
+    fn div(mut self, rhs: f32) -> Self::Output {
+        Self {
+            buffer: self.buffer.drain(..).map(|c| c / rhs).collect(),
+            width: self.width,
+            height: self.height,
+        }
+    }
+}
 #[repr(C)]
 struct Vertex {
     pos: Vector2<f32>,
@@ -26,6 +67,14 @@ pub struct RgbColor {
     pub red: f32,
     pub green: f32,
     pub blue: f32,
+}
+impl RgbColor {
+    pub fn to_rgba_u8(&self) -> [u8; 4] {
+        let r = (clamp(self.red.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
+        let g = (clamp(self.green.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
+        let b = (clamp(self.blue.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
+        [r, g, b, 0xff]
+    }
 }
 impl Mul<f32> for RgbColor {
     type Output = Self;
@@ -43,6 +92,16 @@ impl Mul<RgbColor> for f32 {
         rhs * self
     }
 }
+impl Div<f32> for RgbColor {
+    type Output = Self;
+    fn div(self, rhs: f32) -> Self::Output {
+        Self {
+            red: self.red / rhs,
+            green: self.green / rhs,
+            blue: self.blue / rhs,
+        }
+    }
+}
 impl Add for RgbColor {
     type Output = RgbColor;
 
@@ -52,6 +111,25 @@ impl Add for RgbColor {
             green: self.green + rhs.green,
             blue: self.blue + rhs.blue,
         }
+    }
+}
+impl AddAssign for RgbColor {
+    fn add_assign(&mut self, rhs: Self) {
+        self.red += rhs.red;
+        self.green += rhs.green;
+        self.blue += rhs.blue;
+    }
+}
+impl std::iter::Sum for RgbColor {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(
+            RgbColor {
+                red: 0.0,
+                green: 0.0,
+                blue: 0.0,
+            },
+            |acc, x| acc + x,
+        )
     }
 }
 struct Handler {
@@ -84,13 +162,6 @@ impl Handler {
         let indices: [u16; 6] = [0, 1, 2, 0, 2, 3];
         let index_buffer = Buffer::immutable(ctx, BufferType::IndexBuffer, &indices);
 
-        let pixels: [u8; 4 * 4 * 4] = [
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
-            0x00, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0xFF,
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF,
-            0xFF, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-        ];
         let img = Image::from_fn(
             |x, y| [((y as f32 / 100.0) * 255.0) as u8, 0, 200, 0xff],
             100,
@@ -152,6 +223,14 @@ pub struct Image {
     height: u32,
 }
 impl Image {
+    pub fn from_rgb_image(image: &RgbImage) -> Self {
+        let buffer = image.buffer.iter().flat_map(|c| c.to_rgba_u8()).collect();
+        Self {
+            buffer,
+            width: image.width,
+            height: image.height,
+        }
+    }
     pub fn new(buffer: Vec<u8>, width: u32, height: u32) -> Self {
         assert_eq!(buffer.len(), width as usize * height as usize * 4);
         Self {
@@ -176,10 +255,7 @@ impl Image {
         }
     }
     pub fn set_xy_color(&mut self, x: u32, y: u32, pixel: RgbColor) {
-        let r = (pixel.red * 255.0).round() as u8;
-        let g = (pixel.green * 255.0).round() as u8;
-        let b = (pixel.blue * 255.0).round() as u8;
-        self.set_xy(x, y, [r, g, b, 0xff]);
+        self.set_xy(x, y, pixel.to_rgba_u8());
     }
     pub fn make_texture(&self, ctx: &mut Context) -> Texture {
         Texture::from_rgba8(ctx, self.width as u16, self.height as u16, &self.buffer)
