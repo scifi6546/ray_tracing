@@ -1,5 +1,6 @@
 use super::{Image, RgbColor};
 use cgmath::{InnerSpace, Point3, Vector3};
+use rand::prelude::*;
 use std::{
     sync::mpsc::{channel, Receiver, Sender},
     thread,
@@ -7,7 +8,7 @@ use std::{
 };
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
-struct Ray {
+pub struct Ray {
     pub origin: Point3<f32>,
     pub direction: Vector3<f32>,
 }
@@ -17,21 +18,12 @@ impl Ray {
     }
 }
 fn ray_color(ray: &Ray, world: &World) -> RgbColor {
-    for s in world.spheres.iter() {
-        if s.did_intercept(ray) {
-            let t = s.intercept_t(ray).unwrap();
-            let normal = ray.at(t)
-                - Vector3 {
-                    x: 0.0,
-                    y: 0.0,
-                    z: -1.0,
-                };
-            return RgbColor {
-                red: 0.5 * (normal.x + 1.0),
-                green: 0.5 * (normal.y + 1.0),
-                blue: 0.5 * (normal.z + 1.0),
-            };
-        }
+    if let Some(record) = world.nearest_hit(ray) {
+        return RgbColor {
+            red: 0.5 * (record.normal.x + 1.0),
+            green: 0.5 * (record.normal.y + 1.0),
+            blue: 0.5 * (record.normal.z + 1.0),
+        };
     }
 
     let unit = ray.direction.normalize();
@@ -53,6 +45,36 @@ pub struct HitRecord {
     pub position: Point3<f32>,
     pub normal: Vector3<f32>,
     pub t: f32,
+    front_face: bool,
+}
+impl Default for HitRecord {
+    fn default() -> Self {
+        Self {
+            position: Point3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            normal: Vector3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            t: 0.0,
+            front_face: false,
+        }
+    }
+}
+impl HitRecord {
+    pub fn new(ray: &Ray, position: Point3<f32>, normal: Vector3<f32>, t: f32) -> Self {
+        let front_face = ray.direction.dot(normal) < 0.0;
+        Self {
+            position,
+            normal: if front_face { normal } else { -1.0 * normal },
+            t,
+            front_face,
+        }
+    }
 }
 pub trait Hittable {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
@@ -96,16 +118,38 @@ impl Hittable for Sphere {
         let half_b = rel_origin.dot(ray.direction);
         let c = rel_origin.dot(rel_origin) - self.radius * self.radius;
 
-        let discriminant = half_b * half_b - 4.0 * a * c;
+        let discriminant = half_b * half_b - a * c;
         if discriminant < 0.0 {
             return None;
         }
-        todo!()
+        let sqrt_d = discriminant.sqrt();
+        let mut root = (-1.0 * half_b - sqrt_d) / a;
+        if root < t_min || t_max < root {
+            root = (-1.0 * half_b + sqrt_d) / a;
+            if root < t_min || t_max < root {
+                return None;
+            }
+        }
+        let position = ray.at(root);
+        return Some(HitRecord::new(
+            ray,
+            position,
+            (position - self.origin) / self.radius,
+            root,
+        ));
     }
 }
 #[derive(Clone, Debug)]
-struct World {
+pub struct World {
     spheres: Vec<Sphere>,
+}
+impl World {
+    pub fn nearest_hit(&self, ray: &Ray) -> Option<HitRecord> {
+        self.spheres
+            .iter()
+            .filter_map(|s| s.hit(ray, 0.0, f32::MAX))
+            .reduce(|acc, x| if acc.t < x.t { acc } else { x })
+    }
 }
 pub struct RayTracer {
     sender: Sender<Image>,
@@ -136,19 +180,19 @@ impl RayTracer {
         let world = World {
             spheres: vec![
                 Sphere {
-                    radius: 1.0,
+                    radius: 0.5,
                     origin: Point3 {
                         x: 0.0,
                         y: 0.0,
-                        z: -2.0,
+                        z: -1.0,
                     },
                 },
                 Sphere {
-                    radius: 0.5,
+                    radius: 100.0,
                     origin: Point3 {
-                        x: 0.6,
-                        y: 0.8,
-                        z: -2.0,
+                        x: 0.0,
+                        y: -100.5,
+                        z: -1.0,
                     },
                 },
             ],
