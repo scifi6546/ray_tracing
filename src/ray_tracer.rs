@@ -9,6 +9,7 @@ struct Ray {
     origin: Vector3<f32>,
     direction: Vector3<f32>,
 }
+
 pub struct RayTracer {
     sender: Sender<Image>,
 }

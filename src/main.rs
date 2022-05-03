@@ -16,6 +16,12 @@ struct Vertex {
     pos: Vector2<f32>,
     uv: Vector2<f32>,
 }
+#[repr(C)]
+pub struct RgbColor {
+    pub red: f32,
+    pub green: f32,
+    pub blue: f32,
+}
 struct Handler {
     pipeline: Pipeline,
     bindings: Bindings,
@@ -136,6 +142,12 @@ impl Image {
         for i in 0..4 {
             self.buffer[(offset + i) as usize] = pixel[i as usize];
         }
+    }
+    pub fn set_xy_color(&mut self, x: u32, y: u32, pixel: RgbColor) {
+        let r = (pixel.red * 255.0).round() as u8;
+        let g = (pixel.green * 255.0).round() as u8;
+        let b = (pixel.blue * 255.0).round() as u8;
+        self.set_xy(x, y, [r, g, b, 0xff]);
     }
     pub fn make_texture(&self, ctx: &mut Context) -> Texture {
         Texture::from_rgba8(ctx, self.width as u16, self.height as u16, &self.buffer)
