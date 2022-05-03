@@ -5,22 +5,54 @@ use miniquad::{
     conf, date, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline,
     Shader, Texture, UserData, VertexAttribute, VertexFormat,
 };
-use std::sync::mpsc::Receiver;
+use std::{
+    ops::{Add, Mul},
+    sync::mpsc::Receiver,
+};
 #[repr(C)]
 struct Vec2 {
     x: f32,
     y: f32,
 }
+
 #[repr(C)]
 struct Vertex {
     pos: Vector2<f32>,
     uv: Vector2<f32>,
 }
 #[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgbColor {
     pub red: f32,
     pub green: f32,
     pub blue: f32,
+}
+impl Mul<f32> for RgbColor {
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self {
+            red: self.red * rhs,
+            green: self.green * rhs,
+            blue: self.blue * rhs,
+        }
+    }
+}
+impl Mul<RgbColor> for f32 {
+    type Output = RgbColor;
+    fn mul(self, rhs: RgbColor) -> Self::Output {
+        rhs * self
+    }
+}
+impl Add for RgbColor {
+    type Output = RgbColor;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            red: self.red + rhs.red,
+            green: self.green + rhs.green,
+            blue: self.blue + rhs.blue,
+        }
+    }
 }
 struct Handler {
     pipeline: Pipeline,
