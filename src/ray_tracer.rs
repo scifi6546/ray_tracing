@@ -1,14 +1,60 @@
-use super::{Image, RgbColor, RgbImage};
+use super::{vec_near_zero, Image, RgbColor, RgbImage};
 
+use crate::reflect;
 use cgmath::{InnerSpace, Point3, Vector3};
 use miniquad::rand;
 use rand::prelude::*;
 use std::{
+    cell::RefCell,
+    rc::Rc,
     sync::mpsc::{channel, Receiver, Sender},
     thread,
 };
 
-pub fn rand_vec_in_unit_sphere() -> Vector3<f32> {
+trait Material {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)>;
+}
+struct Lambertian {
+    albedo: RgbColor,
+}
+impl Material for Lambertian {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
+        let scatter_direction = record_in.normal + rand_unit_vec();
+
+        Some((
+            self.albedo,
+            Ray {
+                origin: record_in.position,
+                direction: if !vec_near_zero(scatter_direction) {
+                    scatter_direction
+                } else {
+                    record_in.normal
+                },
+            },
+        ))
+    }
+}
+struct Metal {
+    albedo: RgbColor,
+    fuzz: f32,
+}
+impl Material for Metal {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
+        let reflected = reflect(ray_in.direction.normalize(), record_in.normal);
+        if reflected.dot(record_in.normal) > 0.0 {
+            Some((
+                self.albedo,
+                Ray {
+                    origin: record_in.position,
+                    direction: reflected + self.fuzz * rand_unit_vec(),
+                },
+            ))
+        } else {
+            None
+        }
+    }
+}
+pub fn rand_unit_vec() -> Vector3<f32> {
     loop {
         let v = 2.0 * (rand_vec() - Vector3::new(0.5, 0.5, 0.5));
         if v.dot(v) < 1.0 {
@@ -24,6 +70,7 @@ pub fn rand_vec() -> Vector3<f32> {
         z: rand::random(),
     }
 }
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
@@ -36,14 +83,21 @@ impl Ray {
     }
 }
 fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
+    if depth == 0 {
+        return RgbColor {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+        };
+    }
     if let Some(record) = world.nearest_hit(&ray) {
-        let target = record.position + record.normal + rand_vec_in_unit_sphere();
+        let target = record.position + record.normal + rand_unit_vec();
         let new_ray = Ray {
             origin: record.position,
             direction: target - record.position,
         };
-        if depth > 0 {
-            0.5 * ray_color(new_ray, world, depth - 1)
+        if let Some((color, scattered_ray)) = record.material.borrow().scatter(ray, &record) {
+            return color * ray_color(scattered_ray, world, depth - 1);
         } else {
             RgbColor {
                 red: 0.0,
@@ -67,49 +121,41 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
             }
     }
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone)]
 pub struct HitRecord {
     pub position: Point3<f32>,
     pub normal: Vector3<f32>,
     pub t: f32,
     front_face: bool,
+    material: Rc<RefCell<dyn Material>>,
 }
-impl Default for HitRecord {
-    fn default() -> Self {
-        Self {
-            position: Point3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            normal: Vector3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            t: 0.0,
-            front_face: false,
-        }
-    }
-}
+
 impl HitRecord {
-    pub fn new(ray: &Ray, position: Point3<f32>, normal: Vector3<f32>, t: f32) -> Self {
+    pub fn new(
+        ray: &Ray,
+        position: Point3<f32>,
+        normal: Vector3<f32>,
+        t: f32,
+        material: Rc<RefCell<dyn Material>>,
+    ) -> Self {
         let front_face = ray.direction.dot(normal) < 0.0;
         Self {
             position,
             normal: if front_face { normal } else { -1.0 * normal },
             t,
             front_face,
+            material,
         }
     }
 }
 pub trait Hittable {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone)]
 struct Sphere {
     pub radius: f32,
     pub origin: Point3<f32>,
+    pub material: Rc<RefCell<dyn Material>>,
 }
 impl Sphere {
     pub fn did_intercept(&self, ray: &Ray) -> bool {
@@ -163,10 +209,11 @@ impl Hittable for Sphere {
             position,
             (position - self.origin) / self.radius,
             root,
+            self.material.clone(),
         ));
     }
 }
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct World {
     spheres: Vec<Sphere>,
 }
@@ -252,12 +299,51 @@ impl RayTracer {
         let world = World {
             spheres: vec![
                 Sphere {
-                    radius: 0.5,
+                    radius: 0.3,
                     origin: Point3 {
                         x: 0.0,
-                        y: 0.0,
+                        y: -0.1,
                         z: -1.0,
                     },
+                    material: Rc::new(RefCell::new(Lambertian {
+                        albedo: RgbColor {
+                            red: 0.5,
+                            green: 0.5,
+                            blue: 0.5,
+                        },
+                    })),
+                },
+                Sphere {
+                    radius: 0.3,
+                    origin: Point3 {
+                        x: -0.7,
+                        y: -0.1,
+                        z: -1.0,
+                    },
+                    material: Rc::new(RefCell::new(Metal {
+                        albedo: RgbColor {
+                            red: 0.8,
+                            green: 0.6,
+                            blue: 0.2,
+                        },
+                        fuzz: 0.1,
+                    })),
+                },
+                Sphere {
+                    radius: 0.3,
+                    origin: Point3 {
+                        x: 0.7,
+                        y: -0.1,
+                        z: -1.0,
+                    },
+                    material: Rc::new(RefCell::new(Metal {
+                        albedo: RgbColor {
+                            red: 0.9,
+                            green: 0.6,
+                            blue: 0.2,
+                        },
+                        fuzz: 0.6,
+                    })),
                 },
                 Sphere {
                     radius: 100.0,
@@ -266,6 +352,13 @@ impl RayTracer {
                         y: -100.5,
                         z: -1.0,
                     },
+                    material: Rc::new(RefCell::new(Lambertian {
+                        albedo: RgbColor {
+                            red: 0.1,
+                            green: 0.5,
+                            blue: 0.1,
+                        },
+                    })),
                 },
             ],
         };
@@ -278,7 +371,7 @@ impl RayTracer {
                     let v = (y as f32 + rand::random::<f32>()) / (IMAGE_HEIGHT as f32 - 1.0);
                     let r = camera.get_ray(u, v);
                     let c = ray_color(r, &world, 5);
-                    rgb_img.add_xy(x, y, ray_color(r, &world, 5));
+                    rgb_img.add_xy(x, y, ray_color(r, &world, 20));
                 }
             }
 

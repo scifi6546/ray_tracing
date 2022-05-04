@@ -1,6 +1,6 @@
 mod ray_tracer;
 
-use cgmath::Vector2;
+use cgmath::{InnerSpace, Vector2, Vector3};
 use miniquad::{
     conf, date, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline,
     Shader, Texture, UserData, VertexAttribute, VertexFormat,
@@ -9,7 +9,9 @@ use std::{
     ops::{Add, AddAssign, Div, Mul},
     sync::mpsc::Receiver,
 };
-
+pub fn vec_near_zero(v: Vector3<f32>) -> bool {
+    v.dot(v) < 1e-8
+}
 pub fn clamp(x: f32, min: f32, max: f32) -> f32 {
     if x < min {
         min
@@ -18,6 +20,9 @@ pub fn clamp(x: f32, min: f32, max: f32) -> f32 {
     } else {
         x
     }
+}
+pub fn reflect(v: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
+    v - 2.0 * v.dot(normal) * normal
 }
 #[derive(Clone)]
 pub struct RgbImage {
@@ -99,6 +104,17 @@ impl Div<f32> for RgbColor {
             red: self.red / rhs,
             green: self.green / rhs,
             blue: self.blue / rhs,
+        }
+    }
+}
+impl Mul for RgbColor {
+    type Output = RgbColor;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self {
+            red: self.red * rhs.red,
+            green: self.green * rhs.green,
+            blue: self.blue * rhs.blue,
         }
     }
 }
