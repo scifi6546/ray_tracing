@@ -1,16 +1,22 @@
+mod camera;
 use super::{vec_near_zero, Image, RgbColor, RgbImage};
+use camera::Camera;
 
 use crate::reflect;
 use cgmath::{InnerSpace, Point3, Vector3};
 use miniquad::rand;
+use miniquad::KeyCode::Space;
 use rand::prelude::*;
+use std::cell::Ref;
+use std::fmt::Alignment::Center;
 use std::{
     cell::RefCell,
     rc::Rc,
     sync::mpsc::{channel, Receiver, Sender},
     thread,
 };
-
+const IMAGE_HEIGHT: u32 = 1000;
+const IMAGE_WIDTH: u32 = 1000;
 trait Material {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)>;
 }
@@ -62,7 +68,7 @@ impl Dielectric {
         let cos_theta = n.dot(-1.0 * uv).min(1.0);
 
         let r_out_perp = etai_over_etat * (uv + cos_theta * n);
-        let r_out_parallel = -1.0 * (1.0 - r_out_perp.dot(r_out_perp)).abs().sqrt() * n;
+        let r_out_parallel = -1.0 * n * (1.0 - (r_out_perp.dot(r_out_perp))).abs().sqrt();
         r_out_perp + r_out_parallel
     }
     fn reflectance(cosine: f32, ref_idx: f32) -> f32 {
@@ -127,7 +133,7 @@ pub struct Ray {
 }
 impl Ray {
     pub fn at(&self, t: f32) -> Point3<f32> {
-        self.origin + t * self.direction.normalize()
+        self.origin + t * self.direction
     }
 }
 fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
@@ -138,12 +144,9 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
             blue: 0.0,
         };
     }
-    if let Some(record) = world.nearest_hit(&ray) {
+    if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
         let target = record.position + record.normal + rand_unit_vec();
-        let new_ray = Ray {
-            origin: record.position,
-            direction: target - record.position,
-        };
+
         if let Some((color, scattered_ray)) = record.material.borrow().scatter(ray, &record) {
             return color * ray_color(scattered_ray, world, depth - 1);
         } else {
@@ -266,85 +269,122 @@ pub struct World {
     spheres: Vec<Sphere>,
 }
 impl World {
-    pub fn nearest_hit(&self, ray: &Ray) -> Option<HitRecord> {
+    pub fn nearest_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         self.spheres
             .iter()
-            .filter_map(|s| s.hit(ray, 0.0, f32::MAX))
+            .filter_map(|s| s.hit(ray, t_min, t_max))
             .reduce(|acc, x| if acc.t < x.t { acc } else { x })
     }
 }
-#[derive(Clone, Debug)]
-pub struct Camera {
-    origin: Point3<f32>,
-    world_width: f32,
-    world_height: f32,
-    focal_length: f32,
-    image_width: u32,
-    image_height: u32,
-}
-impl Camera {
-    pub fn new(
-        image_width: u32,
-        image_height: u32,
-        world_height: f32,
-        focal_length: f32,
-        origin: Point3<f32>,
-    ) -> Self {
-        let aspect_ratio = image_width as f32 / image_height as f32;
-        Self {
-            origin,
-            world_width: aspect_ratio * world_height,
-            world_height,
-            focal_length,
-            image_width,
-            image_height,
-        }
-    }
-    pub fn get_ray(&self, u: f32, v: f32) -> Ray {
-        Ray {
-            origin: self.origin,
-            direction: Vector3 {
-                x: (u - 0.5) * self.world_height,
-                y: (v - 0.5) * self.world_width,
-                z: -1.0 * self.focal_length,
+fn random_scene() -> (World, Camera) {
+    let ground_mat = Rc::new(RefCell::new(Lambertian {
+        albedo: RgbColor {
+            red: 0.5,
+            green: 0.5,
+            blue: 0.5,
+        },
+    }));
+
+    let spheres = (-11..11)
+        .flat_map(|a| {
+            (-11..11).filter_map(move |b| {
+                let choose_mat = rand::random::<f32>();
+                let center = Point3::new(
+                    a as f32 + 0.9 * rand::random::<f32>(),
+                    0.2,
+                    b as f32 + 0.9 * rand::random::<f32>(),
+                );
+                let check = center - Point3::new(4.0, 0.2, 0.0);
+                if check.dot(check).sqrt() > 0.9 {
+                    if choose_mat < 0.8 {
+                        let mat = Rc::new(RefCell::new(Lambertian {
+                            albedo: RgbColor::random(),
+                        }));
+
+                        Some(Sphere {
+                            radius: 0.2,
+                            origin: center,
+                            material: Rc::new(RefCell::new(Lambertian {
+                                albedo: RgbColor::random(),
+                            })),
+                        })
+                    } else if choose_mat < 0.95 {
+                        Some(Sphere {
+                            radius: 0.2,
+                            origin: center,
+                            material: Rc::new(RefCell::new(Metal {
+                                albedo: RgbColor::random(),
+                                fuzz: rand::random::<f32>() * 0.5 + 0.5,
+                            })),
+                        })
+                    } else {
+                        Some(Sphere {
+                            radius: 0.2,
+                            origin: center,
+                            material: Rc::new(RefCell::new(Dielectric {
+                                index_refraction: 1.5,
+                            })),
+                        })
+                    }
+                } else {
+                    None
+                }
+            })
+        })
+        .chain([
+            Sphere {
+                radius: 1000.0,
+                origin: Point3::new(0.0, -1000.0, 1000.0),
+                material: Rc::new(RefCell::new(Lambertian {
+                    albedo: RgbColor {
+                        red: 0.5,
+                        green: 0.5,
+                        blue: 0.5,
+                    },
+                })),
             },
-        }
-    }
-}
-pub struct RayTracer {
-    sender: Sender<Image>,
-}
-
-impl RayTracer {
-    const SAMPLES_PER_PIXEL: usize = 80;
-    pub fn new() -> Receiver<Image> {
-        let (sender, recvier) = channel();
-        let s = Self { sender };
-        thread::spawn(move || s.start_tracing());
-        recvier
-    }
-    pub fn start_tracing(&self) {
-        self.sender
-            .send(Image::from_fn(|x, y| [0, 0, 0, 0xff], 1000, 1000))
-            .expect("failed to send");
-
-        const IMAGE_HEIGHT: u32 = 1000;
-        const IMAGE_WIDTH: u32 = 1000;
-        const FOCAL_LENGTH: f32 = 1.0;
-
-        let image_world_height = 2.0;
-        let camera = Camera::new(
-            IMAGE_WIDTH,
-            IMAGE_HEIGHT,
-            image_world_height,
-            FOCAL_LENGTH,
-            Point3 {
-                x: 0.0f32,
-                y: 0.0f32,
-                z: 0.0f32,
+            Sphere {
+                radius: 1.0,
+                origin: Point3::new(0.0, 1.0, 0.0),
+                material: Rc::new(RefCell::new(Dielectric {
+                    index_refraction: 1.5,
+                })),
             },
-        );
-        let world = World {
+            Sphere {
+                radius: 1.0,
+                origin: Point3::new(-4.0, 1.0, 0.0),
+                material: Rc::new(RefCell::new(Lambertian {
+                    albedo: RgbColor::new(0.4, 0.2, 0.1),
+                })),
+            },
+            Sphere {
+                radius: 1.0,
+                origin: Point3::new(4.0, 1.0, 0.0),
+                material: Rc::new(RefCell::new(Metal {
+                    albedo: RgbColor::new(0.4, 0.2, 0.1),
+                    fuzz: 0.0,
+                })),
+            },
+        ])
+        .collect();
+    (
+        World { spheres },
+        Camera::new(
+            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
+            20.0,
+            Point3::new(13.0, 2.0, 3.0),
+            Point3::new(0.0, 0.0, 0.0),
+            Vector3::new(0.0, 1.0, 0.0),
+            0.05,
+            10.0,
+        ),
+    )
+}
+fn easy_scene() -> (World, Camera) {
+    let look_at = Point3::new(0.0, 0.0, -1.0);
+    let origin = Point3::new(-2.0, 2.0, 1.0);
+    (
+        World {
             spheres: vec![
                 Sphere {
                     radius: 0.3,
@@ -389,6 +429,17 @@ impl RayTracer {
                     })),
                 },
                 Sphere {
+                    radius: 0.3,
+                    origin: Point3 {
+                        x: 1.0,
+                        y: -0.1,
+                        z: -1.5,
+                    },
+                    material: Rc::new(RefCell::new(Dielectric {
+                        index_refraction: 1.5,
+                    })),
+                },
+                Sphere {
                     radius: 100.0,
                     origin: Point3 {
                         x: 0.0,
@@ -404,7 +455,41 @@ impl RayTracer {
                     })),
                 },
             ],
-        };
+        },
+        Camera::new(
+            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
+            90.0,
+            origin,
+            look_at,
+            Vector3::new(0.0, 1.0, 0.0),
+            0.01,
+            {
+                let t = look_at - origin;
+                (t.dot(t)).sqrt()
+            },
+        ),
+    )
+}
+pub struct RayTracer {
+    sender: Sender<Image>,
+}
+
+impl RayTracer {
+    const SAMPLES_PER_PIXEL: usize = 500;
+    pub fn new() -> Receiver<Image> {
+        let (sender, recvier) = channel();
+        let s = Self { sender };
+        thread::spawn(move || s.start_tracing());
+        recvier
+    }
+    pub fn start_tracing(&self) {
+        self.sender
+            .send(Image::from_fn(|x, y| [0, 0, 0, 0xff], 1000, 1000))
+            .expect("failed to send");
+
+        const FOCAL_LENGTH: f32 = 1.0;
+
+        let (world, camera) = random_scene();
 
         let mut rgb_img = RgbImage::new_black(1000, 1000);
         for num_s in 0..Self::SAMPLES_PER_PIXEL {
@@ -414,7 +499,7 @@ impl RayTracer {
                     let v = (y as f32 + rand::random::<f32>()) / (IMAGE_HEIGHT as f32 - 1.0);
                     let r = camera.get_ray(u, v);
                     let c = ray_color(r, &world, 5);
-                    rgb_img.add_xy(x, y, ray_color(r, &world, 20));
+                    rgb_img.add_xy(x, y, ray_color(r, &world, 50));
                 }
             }
 

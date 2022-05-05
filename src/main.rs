@@ -74,6 +74,16 @@ pub struct RgbColor {
     pub blue: f32,
 }
 impl RgbColor {
+    pub fn new(red: f32, green: f32, blue: f32) -> Self {
+        Self { red, green, blue }
+    }
+    pub fn random() -> Self {
+        Self {
+            red: rand::random(),
+            green: rand::random(),
+            blue: rand::random(),
+        }
+    }
     pub fn to_rgba_u8(&self) -> [u8; 4] {
         let r = (clamp(self.red.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
         let g = (clamp(self.green.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
