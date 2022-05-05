@@ -2,8 +2,8 @@ mod ray_tracer;
 
 use cgmath::{InnerSpace, Vector2, Vector3};
 use miniquad::{
-    conf, date, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline,
-    Shader, Texture, UserData, VertexAttribute, VertexFormat,
+    conf, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline, Shader,
+    Texture, UserData, VertexAttribute, VertexFormat,
 };
 use std::{
     ops::{Add, AddAssign, Div, Mul},
@@ -189,7 +189,7 @@ impl Handler {
         let index_buffer = Buffer::immutable(ctx, BufferType::IndexBuffer, &indices);
 
         let img = Image::from_fn(
-            |x, y| [((y as f32 / 100.0) * 255.0) as u8, 0, 200, 0xff],
+            |_x, y| [((y as f32 / 100.0) * 255.0) as u8, 0, 200, 0xff],
             100,
             100,
         );
@@ -197,7 +197,7 @@ impl Handler {
 
         let bindings = Bindings {
             vertex_buffers: vec![vertex_buffer],
-            index_buffer: index_buffer,
+            index_buffer,
             images: vec![texture],
         };
         let shader = Shader::new(ctx, shader::VERTEX, shader::FRAGMENT, shader::meta());
@@ -228,8 +228,6 @@ impl EventHandler for Handler {
     }
 
     fn draw(&mut self, ctx: &mut Context) {
-        let t = date::now();
-
         ctx.begin_default_pass(Default::default());
 
         ctx.apply_pipeline(&self.pipeline);

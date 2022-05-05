@@ -4,11 +4,7 @@ use camera::Camera;
 
 use crate::reflect;
 use cgmath::{InnerSpace, Point3, Vector3};
-use miniquad::rand;
-use miniquad::KeyCode::Space;
-use rand::prelude::*;
-use std::cell::Ref;
-use std::fmt::Alignment::Center;
+
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -17,14 +13,14 @@ use std::{
 };
 const IMAGE_HEIGHT: u32 = 1000;
 const IMAGE_WIDTH: u32 = 1000;
-trait Material {
+pub trait Material {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)>;
 }
 struct Lambertian {
     albedo: RgbColor,
 }
 impl Material for Lambertian {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
+    fn scatter(&self, _ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
         let scatter_direction = record_in.normal + rand_unit_vec();
 
         Some((
@@ -95,7 +91,7 @@ impl Material for Dielectric {
             Self::refract(unit_direction, record_in.normal, refraction_ratio)
         };
 
-        return Some((
+        Some((
             RgbColor {
                 red: 1.0,
                 green: 1.0,
@@ -105,7 +101,7 @@ impl Material for Dielectric {
                 origin: record_in.position,
                 direction,
             },
-        ));
+        ))
     }
 }
 pub fn rand_unit_vec() -> Vector3<f32> {
@@ -145,10 +141,8 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
         };
     }
     if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
-        let target = record.position + record.normal + rand_unit_vec();
-
         if let Some((color, scattered_ray)) = record.material.borrow().scatter(ray, &record) {
-            return color * ray_color(scattered_ray, world, depth - 1);
+            color * ray_color(scattered_ray, world, depth - 1)
         } else {
             RgbColor {
                 red: 0.0,
@@ -208,33 +202,7 @@ struct Sphere {
     pub origin: Point3<f32>,
     pub material: Rc<RefCell<dyn Material>>,
 }
-impl Sphere {
-    pub fn did_intercept(&self, ray: &Ray) -> bool {
-        let rel_origin = ray.origin - self.origin;
-        let a = ray.direction.dot(ray.direction);
-        let b = 2.0 * (rel_origin.dot(ray.direction));
-        let c = rel_origin.dot(rel_origin) - self.radius * self.radius;
-        let discriminant = b * b - 4.0 * a * c;
-        if discriminant > 0.0 {
-            true
-        } else {
-            false
-        }
-    }
-    /// gets distance along ray where intercept occurred
-    pub fn intercept_t(&self, ray: &Ray) -> Option<f32> {
-        let rel_origin = ray.origin - self.origin;
-        let a = ray.direction.dot(ray.direction);
-        let b = 2.0 * (rel_origin.dot(ray.direction));
-        let c = rel_origin.dot(rel_origin) - self.radius * self.radius;
-        let discriminant = b * b - 4.0 * a * c;
-        if discriminant < 0.0 {
-            None
-        } else {
-            Some((-1.0 * b - discriminant.sqrt()) / (2.0 * a))
-        }
-    }
-}
+
 impl Hittable for Sphere {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let rel_origin = ray.origin - self.origin;
@@ -255,13 +223,13 @@ impl Hittable for Sphere {
             }
         }
         let position = ray.at(root);
-        return Some(HitRecord::new(
+        Some(HitRecord::new(
             ray,
             position,
             (position - self.origin) / self.radius,
             root,
             self.material.clone(),
-        ));
+        ))
     }
 }
 #[derive(Clone)]
@@ -277,14 +245,6 @@ impl World {
     }
 }
 fn random_scene() -> (World, Camera) {
-    let ground_mat = Rc::new(RefCell::new(Lambertian {
-        albedo: RgbColor {
-            red: 0.5,
-            green: 0.5,
-            blue: 0.5,
-        },
-    }));
-
     let spheres = (-11..11)
         .flat_map(|a| {
             (-11..11).filter_map(move |b| {
@@ -297,10 +257,6 @@ fn random_scene() -> (World, Camera) {
                 let check = center - Point3::new(4.0, 0.2, 0.0);
                 if check.dot(check).sqrt() > 0.9 {
                     if choose_mat < 0.8 {
-                        let mat = Rc::new(RefCell::new(Lambertian {
-                            albedo: RgbColor::random(),
-                        }));
-
                         Some(Sphere {
                             radius: 0.2,
                             origin: center,
@@ -380,6 +336,7 @@ fn random_scene() -> (World, Camera) {
         ),
     )
 }
+#[allow(dead_code)]
 fn easy_scene() -> (World, Camera) {
     let look_at = Point3::new(0.0, 0.0, -1.0);
     let origin = Point3::new(-2.0, 2.0, 1.0);
@@ -476,6 +433,7 @@ pub struct RayTracer {
 
 impl RayTracer {
     const SAMPLES_PER_PIXEL: usize = 500;
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> Receiver<Image> {
         let (sender, recvier) = channel();
         let s = Self { sender };
@@ -484,10 +442,12 @@ impl RayTracer {
     }
     pub fn start_tracing(&self) {
         self.sender
-            .send(Image::from_fn(|x, y| [0, 0, 0, 0xff], 1000, 1000))
+            .send(Image::from_fn(
+                |_x, _y| [0, 0, 0, 0xff],
+                IMAGE_WIDTH,
+                IMAGE_HEIGHT,
+            ))
             .expect("failed to send");
-
-        const FOCAL_LENGTH: f32 = 1.0;
 
         let (world, camera) = random_scene();
 
@@ -498,13 +458,14 @@ impl RayTracer {
                     let u = (x as f32 + rand::random::<f32>()) / (IMAGE_WIDTH as f32 - 1.0);
                     let v = (y as f32 + rand::random::<f32>()) / (IMAGE_HEIGHT as f32 - 1.0);
                     let r = camera.get_ray(u, v);
-                    let c = ray_color(r, &world, 5);
+
                     rgb_img.add_xy(x, y, ray_color(r, &world, 50));
                 }
             }
 
             self.sender
-                .send(Image::from_rgb_image(&(rgb_img.clone() / num_s as f32)));
+                .send(Image::from_rgb_image(&(rgb_img.clone() / num_s as f32)))
+                .expect("channel failed");
         }
     }
 }

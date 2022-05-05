@@ -1,5 +1,5 @@
 use super::Ray;
-use cgmath::{num_traits::FloatConst, prelude::*, InnerSpace, Point3, Vector3};
+use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
 #[derive(Clone, Debug)]
 pub struct Camera {
     origin: Point3<f32>,
@@ -8,7 +8,7 @@ pub struct Camera {
     vertical: Vector3<f32>,
     u: Vector3<f32>,
     v: Vector3<f32>,
-    w: Vector3<f32>,
+
     lens_radius: f32,
 }
 impl Camera {
@@ -40,7 +40,6 @@ impl Camera {
             lower_left_corner: origin - horizontal / 2.0 - vertical / 2.0 - focus_distance * w,
             u,
             v,
-            w,
             lens_radius: aperture / 2.0,
         }
     }
