@@ -1,4 +1,5 @@
 use super::Ray;
+use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
 #[derive(Clone, Debug)]
 pub struct Camera {
@@ -22,7 +23,8 @@ impl Camera {
         focus_distance: f32,
     ) -> Self {
         let theta = fov * f32::PI() / 180.0;
-        let world_height = 2.0 * (theta / 2.0).tan();
+        let h = (theta / 2.0).tan();
+        let world_height = 2.0 * h;
 
         let world_width = aspect_ratio * world_height;
 
@@ -55,11 +57,7 @@ impl Camera {
     }
     fn random_in_unit_disk() -> Vector3<f32> {
         loop {
-            let p = Vector3::new(
-                (rand::random::<f32>() - 0.5) * 2.0,
-                (rand::random::<f32>() - 0.5) * 2.0,
-                0.0,
-            );
+            let p = Vector3::new(rand_f32(-1.0, 1.0), rand_f32(-1.0, 1.0), 0.0);
             if p.dot(p) < 1.0 {
                 return p;
             }

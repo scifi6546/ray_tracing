@@ -1,5 +1,5 @@
 mod camera;
-use super::{vec_near_zero, Image, RgbColor, RgbImage};
+use super::{prelude::*, vec_near_zero, Image, RgbColor, RgbImage};
 use camera::Camera;
 
 use crate::reflect;
@@ -244,6 +244,7 @@ impl World {
             .reduce(|acc, x| if acc.t < x.t { acc } else { x })
     }
 }
+#[allow(dead_code)]
 fn random_scene() -> (World, Camera) {
     let spheres = (-11..11)
         .flat_map(|a| {
@@ -331,71 +332,23 @@ fn random_scene() -> (World, Camera) {
             Point3::new(13.0, 2.0, 3.0),
             Point3::new(0.0, 0.0, 0.0),
             Vector3::new(0.0, 1.0, 0.0),
-            0.05,
+            0.0005,
             10.0,
         ),
     )
 }
 #[allow(dead_code)]
 fn easy_scene() -> (World, Camera) {
-    let look_at = Point3::new(0.0, 0.0, -1.0);
-    let origin = Point3::new(-2.0, 2.0, 1.0);
+    let look_at = Point3::new(0.0f32, 0.0, -1.0);
+    let origin = Point3::new(3.0f32, 3.0, 2.0);
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+    println!("focus distance: {}", focus_distance);
     (
         World {
             spheres: vec![
-                Sphere {
-                    radius: 0.3,
-                    origin: Point3 {
-                        x: 0.0,
-                        y: -0.1,
-                        z: -1.0,
-                    },
-                    material: Rc::new(RefCell::new(Lambertian {
-                        albedo: RgbColor {
-                            red: 0.5,
-                            green: 0.5,
-                            blue: 0.5,
-                        },
-                    })),
-                },
-                Sphere {
-                    radius: 0.3,
-                    origin: Point3 {
-                        x: -0.7,
-                        y: -0.1,
-                        z: -1.0,
-                    },
-                    material: Rc::new(RefCell::new(Metal {
-                        albedo: RgbColor {
-                            red: 0.8,
-                            green: 0.6,
-                            blue: 0.2,
-                        },
-                        fuzz: 0.1,
-                    })),
-                },
-                Sphere {
-                    radius: 0.3,
-                    origin: Point3 {
-                        x: 0.7,
-                        y: -0.1,
-                        z: -1.0,
-                    },
-                    material: Rc::new(RefCell::new(Dielectric {
-                        index_refraction: 1.5,
-                    })),
-                },
-                Sphere {
-                    radius: 0.3,
-                    origin: Point3 {
-                        x: 1.0,
-                        y: -0.1,
-                        z: -1.5,
-                    },
-                    material: Rc::new(RefCell::new(Dielectric {
-                        index_refraction: 1.5,
-                    })),
-                },
                 Sphere {
                     radius: 100.0,
                     origin: Point3 {
@@ -405,25 +358,71 @@ fn easy_scene() -> (World, Camera) {
                     },
                     material: Rc::new(RefCell::new(Lambertian {
                         albedo: RgbColor {
-                            red: 0.1,
-                            green: 0.5,
-                            blue: 0.1,
+                            red: 0.8,
+                            green: 0.8,
+                            blue: 0.0,
                         },
+                    })),
+                },
+                Sphere {
+                    radius: 0.5,
+                    origin: Point3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: -1.0,
+                    },
+                    material: Rc::new(RefCell::new(Lambertian {
+                        albedo: RgbColor {
+                            red: 0.1,
+                            green: 0.2,
+                            blue: 0.5,
+                        },
+                    })),
+                },
+                Sphere {
+                    radius: 0.5,
+                    origin: Point3 {
+                        x: -1.0,
+                        y: 0.0,
+                        z: -1.0,
+                    },
+                    material: Rc::new(RefCell::new(Dielectric {
+                        index_refraction: 1.5,
+                    })),
+                },
+                Sphere {
+                    radius: -0.45,
+                    origin: Point3 {
+                        x: -1.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                    material: Rc::new(RefCell::new(Dielectric {
+                        index_refraction: 1.5,
+                    })),
+                },
+                Sphere {
+                    radius: 0.5,
+                    origin: Point3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: -1.0,
+                    },
+                    material: Rc::new(RefCell::new(Metal {
+                        albedo: RgbColor::new(0.8, 0.6, 0.2),
+                        fuzz: 0.0,
                     })),
                 },
             ],
         },
         Camera::new(
             IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
-            90.0,
+            20.0,
             origin,
             look_at,
             Vector3::new(0.0, 1.0, 0.0),
-            0.01,
-            {
-                let t = look_at - origin;
-                (t.dot(t)).sqrt()
-            },
+            0.00001,
+            focus_distance,
         ),
     )
 }
@@ -455,8 +454,8 @@ impl RayTracer {
         for num_s in 0..Self::SAMPLES_PER_PIXEL {
             for x in 0..IMAGE_WIDTH {
                 for y in 0..IMAGE_WIDTH {
-                    let u = (x as f32 + rand::random::<f32>()) / (IMAGE_WIDTH as f32 - 1.0);
-                    let v = (y as f32 + rand::random::<f32>()) / (IMAGE_HEIGHT as f32 - 1.0);
+                    let u = (x as f32 + rand_f32(0.0, 1.0)) / (IMAGE_WIDTH as f32 - 1.0);
+                    let v = (y as f32 + rand_f32(0.0, 1.0)) / (IMAGE_HEIGHT as f32 - 1.0);
                     let r = camera.get_ray(u, v);
 
                     rgb_img.add_xy(x, y, ray_color(r, &world, 50));

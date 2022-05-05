@@ -1,3 +1,4 @@
+mod prelude;
 mod ray_tracer;
 
 use cgmath::{InnerSpace, Vector2, Vector3};
