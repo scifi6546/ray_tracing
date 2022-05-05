@@ -9,8 +9,9 @@ pub struct Camera {
     vertical: Vector3<f32>,
     u: Vector3<f32>,
     v: Vector3<f32>,
-
     lens_radius: f32,
+    start_time: f32,
+    end_time: f32,
 }
 impl Camera {
     pub fn new(
@@ -21,6 +22,8 @@ impl Camera {
         up_vector: Vector3<f32>,
         aperture: f32,
         focus_distance: f32,
+        start_time: f32,
+        end_time: f32,
     ) -> Self {
         let theta = fov * f32::PI() / 180.0;
         let h = (theta / 2.0).tan();
@@ -43,6 +46,8 @@ impl Camera {
             u,
             v,
             lens_radius: aperture / 2.0,
+            start_time,
+            end_time,
         }
     }
     pub fn get_ray(&self, u: f32, v: f32) -> Ray {
@@ -53,6 +58,7 @@ impl Camera {
             direction: self.lower_left_corner + u * self.horizontal + v * self.vertical
                 - self.origin
                 - offset,
+            time: rand_f32(self.start_time, self.end_time),
         }
     }
     fn random_in_unit_disk() -> Vector3<f32> {

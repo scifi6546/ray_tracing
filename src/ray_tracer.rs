@@ -1,6 +1,10 @@
 mod camera;
+mod hittable;
+mod material;
 use super::{prelude::*, vec_near_zero, Image, RgbColor, RgbImage};
 use camera::Camera;
+use hittable::{Hittable, MovingSphere, Sphere};
+use material::{Dielectric, Lambertian, Material, Metal};
 
 use crate::reflect;
 use cgmath::{InnerSpace, Point3, Vector3};
@@ -13,97 +17,7 @@ use std::{
 };
 const IMAGE_HEIGHT: u32 = 1000;
 const IMAGE_WIDTH: u32 = 1000;
-pub trait Material {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)>;
-}
-struct Lambertian {
-    albedo: RgbColor,
-}
-impl Material for Lambertian {
-    fn scatter(&self, _ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
-        let scatter_direction = record_in.normal + rand_unit_vec();
 
-        Some((
-            self.albedo,
-            Ray {
-                origin: record_in.position,
-                direction: if !vec_near_zero(scatter_direction) {
-                    scatter_direction
-                } else {
-                    record_in.normal
-                },
-            },
-        ))
-    }
-}
-struct Metal {
-    albedo: RgbColor,
-    fuzz: f32,
-}
-impl Material for Metal {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
-        let reflected = reflect(ray_in.direction.normalize(), record_in.normal);
-        if reflected.dot(record_in.normal) > 0.0 {
-            Some((
-                self.albedo,
-                Ray {
-                    origin: record_in.position,
-                    direction: reflected + self.fuzz * rand_unit_vec(),
-                },
-            ))
-        } else {
-            None
-        }
-    }
-}
-struct Dielectric {
-    pub index_refraction: f32,
-}
-impl Dielectric {
-    fn refract(uv: Vector3<f32>, n: Vector3<f32>, etai_over_etat: f32) -> Vector3<f32> {
-        let cos_theta = n.dot(-1.0 * uv).min(1.0);
-
-        let r_out_perp = etai_over_etat * (uv + cos_theta * n);
-        let r_out_parallel = -1.0 * n * (1.0 - (r_out_perp.dot(r_out_perp))).abs().sqrt();
-        r_out_perp + r_out_parallel
-    }
-    fn reflectance(cosine: f32, ref_idx: f32) -> f32 {
-        let r0 = ((1.0 - ref_idx) / (1.0 + ref_idx)).powi(2);
-        r0 + (1.0 - r0) * ((1.0 - cosine).powi(5))
-    }
-}
-impl Material for Dielectric {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
-        let refraction_ratio = if record_in.front_face {
-            1.0 / self.index_refraction
-        } else {
-            self.index_refraction
-        };
-        let unit_direction = ray_in.direction.normalize();
-        let cos_theta = record_in.normal.dot(-1.0 * unit_direction).min(1.0);
-        let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
-        let can_not_refract = (refraction_ratio * sin_theta) > 1.0;
-        let direction = if can_not_refract
-            || Self::reflectance(cos_theta, refraction_ratio) > rand::random::<f32>()
-        {
-            reflect(unit_direction, record_in.normal)
-        } else {
-            Self::refract(unit_direction, record_in.normal, refraction_ratio)
-        };
-
-        Some((
-            RgbColor {
-                red: 1.0,
-                green: 1.0,
-                blue: 1.0,
-            },
-            Ray {
-                origin: record_in.position,
-                direction,
-            },
-        ))
-    }
-}
 pub fn rand_unit_vec() -> Vector3<f32> {
     loop {
         let v = 2.0 * (rand_vec() - Vector3::new(0.5, 0.5, 0.5));
@@ -126,6 +40,7 @@ pub fn rand_vec() -> Vector3<f32> {
 pub struct Ray {
     pub origin: Point3<f32>,
     pub direction: Vector3<f32>,
+    pub time: f32,
 }
 impl Ray {
     pub fn at(&self, t: f32) -> Point3<f32> {
@@ -193,48 +108,9 @@ impl HitRecord {
         }
     }
 }
-pub trait Hittable {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
-}
-#[derive(Clone)]
-struct Sphere {
-    pub radius: f32,
-    pub origin: Point3<f32>,
-    pub material: Rc<RefCell<dyn Material>>,
-}
 
-impl Hittable for Sphere {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let rel_origin = ray.origin - self.origin;
-        let a = ray.direction.dot(ray.direction);
-        let half_b = rel_origin.dot(ray.direction);
-        let c = rel_origin.dot(rel_origin) - self.radius * self.radius;
-
-        let discriminant = half_b * half_b - a * c;
-        if discriminant < 0.0 {
-            return None;
-        }
-        let sqrt_d = discriminant.sqrt();
-        let mut root = (-1.0 * half_b - sqrt_d) / a;
-        if root < t_min || t_max < root {
-            root = (-1.0 * half_b + sqrt_d) / a;
-            if root < t_min || t_max < root {
-                return None;
-            }
-        }
-        let position = ray.at(root);
-        Some(HitRecord::new(
-            ray,
-            position,
-            (position - self.origin) / self.radius,
-            root,
-            self.material.clone(),
-        ))
-    }
-}
-#[derive(Clone)]
 pub struct World {
-    spheres: Vec<Sphere>,
+    spheres: Vec<Box<dyn Hittable>>,
 }
 impl World {
     pub fn nearest_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
@@ -246,9 +122,44 @@ impl World {
 }
 #[allow(dead_code)]
 fn random_scene() -> (World, Camera) {
+    let big: [Box<dyn Hittable>; 4] = [
+        Box::new(Sphere {
+            radius: 1000.0,
+            origin: Point3::new(0.0, -1000.0, 1000.0),
+            material: Rc::new(RefCell::new(Lambertian {
+                albedo: RgbColor {
+                    red: 0.5,
+                    green: 0.5,
+                    blue: 0.5,
+                },
+            })),
+        }),
+        Box::new(Sphere {
+            radius: 1.0,
+            origin: Point3::new(0.0, 1.0, 0.0),
+            material: Rc::new(RefCell::new(Dielectric {
+                index_refraction: 1.5,
+            })),
+        }),
+        Box::new(Sphere {
+            radius: 1.0,
+            origin: Point3::new(-4.0, 1.0, 0.0),
+            material: Rc::new(RefCell::new(Lambertian {
+                albedo: RgbColor::new(0.4, 0.2, 0.1),
+            })),
+        }),
+        Box::new(Sphere {
+            radius: 1.0,
+            origin: Point3::new(4.0, 1.0, 0.0),
+            material: Rc::new(RefCell::new(Metal {
+                albedo: RgbColor::new(0.4, 0.2, 0.1),
+                fuzz: 0.0,
+            })),
+        }),
+    ];
     let spheres = (-11..11)
         .flat_map(|a| {
-            (-11..11).filter_map(move |b| {
+            (-11..11).filter_map::<Box<dyn Hittable>, _>(move |b| {
                 let choose_mat = rand::random::<f32>();
                 let center = Point3::new(
                     a as f32 + 0.9 * rand::random::<f32>(),
@@ -258,71 +169,40 @@ fn random_scene() -> (World, Camera) {
                 let check = center - Point3::new(4.0, 0.2, 0.0);
                 if check.dot(check).sqrt() > 0.9 {
                     if choose_mat < 0.8 {
-                        Some(Sphere {
+                        Some(Box::new(MovingSphere {
                             radius: 0.2,
-                            origin: center,
+                            center_0: center,
+                            center_1: center + Vector3::new(0.0, rand_f32(0.0, 0.5), 0.0),
+                            time_0: 0.0,
+                            time_1: 1.0,
                             material: Rc::new(RefCell::new(Lambertian {
                                 albedo: RgbColor::random(),
                             })),
-                        })
+                        }))
                     } else if choose_mat < 0.95 {
-                        Some(Sphere {
+                        Some(Box::new(Sphere {
                             radius: 0.2,
                             origin: center,
                             material: Rc::new(RefCell::new(Metal {
                                 albedo: RgbColor::random(),
                                 fuzz: rand::random::<f32>() * 0.5 + 0.5,
                             })),
-                        })
+                        }))
                     } else {
-                        Some(Sphere {
+                        Some(Box::new(Sphere {
                             radius: 0.2,
                             origin: center,
                             material: Rc::new(RefCell::new(Dielectric {
                                 index_refraction: 1.5,
                             })),
-                        })
+                        }))
                     }
                 } else {
                     None
                 }
             })
         })
-        .chain([
-            Sphere {
-                radius: 1000.0,
-                origin: Point3::new(0.0, -1000.0, 1000.0),
-                material: Rc::new(RefCell::new(Lambertian {
-                    albedo: RgbColor {
-                        red: 0.5,
-                        green: 0.5,
-                        blue: 0.5,
-                    },
-                })),
-            },
-            Sphere {
-                radius: 1.0,
-                origin: Point3::new(0.0, 1.0, 0.0),
-                material: Rc::new(RefCell::new(Dielectric {
-                    index_refraction: 1.5,
-                })),
-            },
-            Sphere {
-                radius: 1.0,
-                origin: Point3::new(-4.0, 1.0, 0.0),
-                material: Rc::new(RefCell::new(Lambertian {
-                    albedo: RgbColor::new(0.4, 0.2, 0.1),
-                })),
-            },
-            Sphere {
-                radius: 1.0,
-                origin: Point3::new(4.0, 1.0, 0.0),
-                material: Rc::new(RefCell::new(Metal {
-                    albedo: RgbColor::new(0.4, 0.2, 0.1),
-                    fuzz: 0.0,
-                })),
-            },
-        ])
+        .chain(big)
         .collect();
     (
         World { spheres },
@@ -334,6 +214,8 @@ fn random_scene() -> (World, Camera) {
             Vector3::new(0.0, 1.0, 0.0),
             0.0005,
             10.0,
+            0.0,
+            1.0,
         ),
     )
 }
@@ -349,7 +231,7 @@ fn easy_scene() -> (World, Camera) {
     (
         World {
             spheres: vec![
-                Sphere {
+                Box::new(Sphere {
                     radius: 100.0,
                     origin: Point3 {
                         x: 0.0,
@@ -363,8 +245,8 @@ fn easy_scene() -> (World, Camera) {
                             blue: 0.0,
                         },
                     })),
-                },
-                Sphere {
+                }),
+                Box::new(Sphere {
                     radius: 0.5,
                     origin: Point3 {
                         x: 0.0,
@@ -378,8 +260,8 @@ fn easy_scene() -> (World, Camera) {
                             blue: 0.5,
                         },
                     })),
-                },
-                Sphere {
+                }),
+                Box::new(Sphere {
                     radius: 0.5,
                     origin: Point3 {
                         x: -1.0,
@@ -389,8 +271,8 @@ fn easy_scene() -> (World, Camera) {
                     material: Rc::new(RefCell::new(Dielectric {
                         index_refraction: 1.5,
                     })),
-                },
-                Sphere {
+                }),
+                Box::new(Sphere {
                     radius: -0.45,
                     origin: Point3 {
                         x: -1.0,
@@ -400,8 +282,8 @@ fn easy_scene() -> (World, Camera) {
                     material: Rc::new(RefCell::new(Dielectric {
                         index_refraction: 1.5,
                     })),
-                },
-                Sphere {
+                }),
+                Box::new(Sphere {
                     radius: 0.5,
                     origin: Point3 {
                         x: 1.0,
@@ -412,7 +294,7 @@ fn easy_scene() -> (World, Camera) {
                         albedo: RgbColor::new(0.8, 0.6, 0.2),
                         fuzz: 0.0,
                     })),
-                },
+                }),
             ],
         },
         Camera::new(
@@ -423,6 +305,8 @@ fn easy_scene() -> (World, Camera) {
             Vector3::new(0.0, 1.0, 0.0),
             0.00001,
             focus_distance,
+            0.0,
+            0.0,
         ),
     )
 }
