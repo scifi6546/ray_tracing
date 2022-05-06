@@ -1,13 +1,15 @@
+mod bvh;
 mod camera;
 mod hittable;
 mod material;
+
 use super::{prelude::*, vec_near_zero, Image, RgbColor, RgbImage};
+use crate::reflect;
+use bvh::AABB;
 use camera::Camera;
+use cgmath::{InnerSpace, Point3, Vector3};
 use hittable::{Hittable, MovingSphere, Sphere};
 use material::{Dielectric, Lambertian, Material, Metal};
-
-use crate::reflect;
-use cgmath::{InnerSpace, Point3, Vector3};
 
 use std::{
     cell::RefCell,
@@ -227,7 +229,7 @@ fn easy_scene() -> (World, Camera) {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-    println!("focus distance: {}", focus_distance);
+
     (
         World {
             spheres: vec![

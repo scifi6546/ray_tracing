@@ -1,8 +1,9 @@
-use super::{HitRecord, Material, Ray};
-use cgmath::{InnerSpace, Point3};
+use super::{HitRecord, Material, Ray, AABB};
+use cgmath::{InnerSpace, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
 pub trait Hittable {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
+    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB>;
 }
 #[derive(Clone)]
 pub struct Sphere {
@@ -38,6 +39,12 @@ impl Hittable for Sphere {
             root,
             self.material.clone(),
         ))
+    }
+    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
+        Some(AABB {
+            minimum: self.origin - Vector3::new(self.radius, self.radius, self.radius),
+            maximum: self.origin + Vector3::new(self.radius, self.radius, self.radius),
+        })
     }
 }
 pub struct MovingSphere {
@@ -81,5 +88,18 @@ impl Hittable for MovingSphere {
             root,
             self.material.clone(),
         ))
+    }
+
+    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
+        Some(
+            AABB {
+                minimum: self.center(time_0) - Vector3::new(self.radius, self.radius, self.radius),
+                maximum: self.center(time_0) + Vector3::new(self.radius, self.radius, self.radius),
+            }
+            .surrounding_box(AABB {
+                minimum: self.center(time_1) - Vector3::new(self.radius, self.radius, self.radius),
+                maximum: self.center(time_1) + Vector3::new(self.radius, self.radius, self.radius),
+            }),
+        )
     }
 }
