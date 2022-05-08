@@ -42,12 +42,35 @@ impl AABB {
         }
     }
 }
-struct BVH_Node {
+struct BvhNode {
     left: Box<dyn Hittable>,
     right: Box<dyn Hittable>,
 }
-impl BVH_Node {
-    pub fn new(objects: Vec<Box<dyn Hittable>>, start: usize) -> Self {
+impl BvhNode {
+    pub fn new(objects: Vec<Box<dyn Hittable>>, start: usize, end: usize) -> Self {
+        let axis = rand_u32(0, 2);
+        let span = end - start;
+
         todo!()
+    }
+    fn box_compare(a: Box<dyn Hittable>, b: Box<dyn Hittable>, axis: usize) -> bool {
+        let a_box = a.bounding_box(0.0, 0.0);
+        let b_box = b.bounding_box(0.0, 0.0);
+        if a_box.is_none() || b_box.is_none() {
+            panic!("bvh node does not have bounding box")
+        } else {
+            let a_box = a_box.unwrap();
+            let b_box = b_box.unwrap();
+            a_box.minimum[axis] < b_box.minimum[axis]
+        }
+    }
+    fn box_x_compare(a: Box<dyn Hittable>, b: Box<dyn Hittable>) -> bool {
+        Self::box_compare(a, b, 0)
+    }
+    fn box_y_compare(a: Box<dyn Hittable>, b: Box<dyn Hittable>) -> bool {
+        Self::box_compare(a, b, 1)
+    }
+    fn box_z_compare(a: Box<dyn Hittable>, b: Box<dyn Hittable>) -> bool {
+        Self::box_compare(a, b, 2)
     }
 }
