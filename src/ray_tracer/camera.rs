@@ -69,4 +69,10 @@ impl Camera {
             }
         }
     }
+    pub fn start_time(&self) -> f32 {
+        self.start_time
+    }
+    pub fn end_time(&self) -> f32 {
+        self.end_time
+    }
 }

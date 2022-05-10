@@ -112,7 +112,7 @@ impl HitRecord {
 }
 
 pub struct World {
-    spheres: Vec<Box<dyn Hittable>>,
+    spheres: Vec<Rc<dyn Hittable>>,
 }
 impl World {
     pub fn nearest_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
@@ -121,11 +121,23 @@ impl World {
             .filter_map(|s| s.hit(ray, t_min, t_max))
             .reduce(|acc, x| if acc.t < x.t { acc } else { x })
     }
+    pub fn to_bvh(self, time_0: f32, time_1: f32) -> Self {
+        let sphere_len = self.spheres.len();
+        Self {
+            spheres: vec![Rc::new(bvh::BvhNode::new(
+                self.spheres,
+                0,
+                sphere_len,
+                time_0,
+                time_1,
+            ))],
+        }
+    }
 }
 #[allow(dead_code)]
 fn random_scene() -> (World, Camera) {
-    let big: [Box<dyn Hittable>; 4] = [
-        Box::new(Sphere {
+    let big: [Rc<dyn Hittable>; 4] = [
+        Rc::new(Sphere {
             radius: 1000.0,
             origin: Point3::new(0.0, -1000.0, 1000.0),
             material: Rc::new(RefCell::new(Lambertian {
@@ -136,21 +148,21 @@ fn random_scene() -> (World, Camera) {
                 },
             })),
         }),
-        Box::new(Sphere {
+        Rc::new(Sphere {
             radius: 1.0,
             origin: Point3::new(0.0, 1.0, 0.0),
             material: Rc::new(RefCell::new(Dielectric {
                 index_refraction: 1.5,
             })),
         }),
-        Box::new(Sphere {
+        Rc::new(Sphere {
             radius: 1.0,
             origin: Point3::new(-4.0, 1.0, 0.0),
             material: Rc::new(RefCell::new(Lambertian {
                 albedo: RgbColor::new(0.4, 0.2, 0.1),
             })),
         }),
-        Box::new(Sphere {
+        Rc::new(Sphere {
             radius: 1.0,
             origin: Point3::new(4.0, 1.0, 0.0),
             material: Rc::new(RefCell::new(Metal {
@@ -161,7 +173,7 @@ fn random_scene() -> (World, Camera) {
     ];
     let spheres = (-11..11)
         .flat_map(|a| {
-            (-11..11).filter_map::<Box<dyn Hittable>, _>(move |b| {
+            (-11..11).filter_map::<Rc<dyn Hittable>, _>(move |b| {
                 let choose_mat = rand::random::<f32>();
                 let center = Point3::new(
                     a as f32 + 0.9 * rand::random::<f32>(),
@@ -171,7 +183,7 @@ fn random_scene() -> (World, Camera) {
                 let check = center - Point3::new(4.0, 0.2, 0.0);
                 if check.dot(check).sqrt() > 0.9 {
                     if choose_mat < 0.8 {
-                        Some(Box::new(MovingSphere {
+                        Some(Rc::new(MovingSphere {
                             radius: 0.2,
                             center_0: center,
                             center_1: center + Vector3::new(0.0, rand_f32(0.0, 0.5), 0.0),
@@ -182,7 +194,7 @@ fn random_scene() -> (World, Camera) {
                             })),
                         }))
                     } else if choose_mat < 0.95 {
-                        Some(Box::new(Sphere {
+                        Some(Rc::new(Sphere {
                             radius: 0.2,
                             origin: center,
                             material: Rc::new(RefCell::new(Metal {
@@ -191,7 +203,7 @@ fn random_scene() -> (World, Camera) {
                             })),
                         }))
                     } else {
-                        Some(Box::new(Sphere {
+                        Some(Rc::new(Sphere {
                             radius: 0.2,
                             origin: center,
                             material: Rc::new(RefCell::new(Dielectric {
@@ -233,7 +245,7 @@ fn easy_scene() -> (World, Camera) {
     (
         World {
             spheres: vec![
-                Box::new(Sphere {
+                Rc::new(Sphere {
                     radius: 100.0,
                     origin: Point3 {
                         x: 0.0,
@@ -248,7 +260,7 @@ fn easy_scene() -> (World, Camera) {
                         },
                     })),
                 }),
-                Box::new(Sphere {
+                Rc::new(Sphere {
                     radius: 0.5,
                     origin: Point3 {
                         x: 0.0,
@@ -263,7 +275,7 @@ fn easy_scene() -> (World, Camera) {
                         },
                     })),
                 }),
-                Box::new(Sphere {
+                Rc::new(Sphere {
                     radius: 0.5,
                     origin: Point3 {
                         x: -1.0,
@@ -274,7 +286,7 @@ fn easy_scene() -> (World, Camera) {
                         index_refraction: 1.5,
                     })),
                 }),
-                Box::new(Sphere {
+                Rc::new(Sphere {
                     radius: -0.45,
                     origin: Point3 {
                         x: -1.0,
@@ -285,7 +297,7 @@ fn easy_scene() -> (World, Camera) {
                         index_refraction: 1.5,
                     })),
                 }),
-                Box::new(Sphere {
+                Rc::new(Sphere {
                     radius: 0.5,
                     origin: Point3 {
                         x: 1.0,
@@ -334,7 +346,8 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        let (world, camera) = random_scene();
+        let (world, camera) = easy_scene();
+        let world = world.to_bvh(camera.start_time(), camera.end_time());
 
         let mut rgb_img = RgbImage::new_black(1000, 1000);
         for num_s in 0..Self::SAMPLES_PER_PIXEL {

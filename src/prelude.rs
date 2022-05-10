@@ -30,4 +30,11 @@ mod test {
             assert!(r <= 1.0);
         }
     }
+    #[test]
+    pub fn test_rand_u32() {
+        for i in 100..10_000 {
+            let r = rand_u32(0, i / 100);
+            assert!(r <= i / 100 && r >= 0)
+        }
+    }
 }
