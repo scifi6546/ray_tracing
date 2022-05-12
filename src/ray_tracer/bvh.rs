@@ -8,7 +8,7 @@ use std::{
     cmp::{max, min, Ordering},
     rc::Rc,
 };
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct AABB {
     pub minimum: Point3<f32>,
     pub maximum: Point3<f32>,
@@ -152,8 +152,12 @@ impl Hittable for BvhNode {
         if !self.bounding_box.hit(ray.clone(), t_min, t_max) {
             None
         } else {
-            if let Some(hit) = self.left.hit(ray, t_min, t_max) {
-                Some(hit)
+            if let Some(left_hit) = self.left.hit(ray, t_min, t_max) {
+                if let Some(right_hit) = self.right.hit(ray, t_min, left_hit.t) {
+                    Some(right_hit)
+                } else {
+                    Some(left_hit)
+                }
             } else if let Some(hit) = self.right.hit(ray, t_min, t_max) {
                 Some(hit)
             } else {
