@@ -1,5 +1,6 @@
 use crate::prelude::*;
-use cgmath::{Point2, Point3};
+use crate::ray_tracer::rand_vec;
+use cgmath::{InnerSpace, Point2, Point3, Vector3};
 
 pub trait Texture {
     fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor;
@@ -27,7 +28,7 @@ impl Texture for CheckerTexture {
     }
 }
 pub struct Perlin {
-    ran_float: [f32; Self::POINT_COUNT],
+    ran_float: [Vector3<f32>; Self::POINT_COUNT],
     perm_x: [usize; Self::POINT_COUNT],
     perm_y: [usize; Self::POINT_COUNT],
     perm_z: [usize; Self::POINT_COUNT],
@@ -48,18 +49,20 @@ impl Perlin {
             a.swap(i, target);
         }
     }
-    fn trilinear_interp(c: &[[[f32; 2]; 2]; 2], u: f32, v: f32, w: f32) -> f32 {
-        let u = u * u * (3.0 - 2.0 * u);
-        let v = v * v * (3.0 - 2.0 * v);
-        let w = w * w * (3.0 - 2.0 * w);
+    fn trilinear_interp(c: &[[[Vector3<f32>; 2]; 2]; 2], u: f32, v: f32, w: f32) -> f32 {
+        let uu = u * u * (3.0 - 2.0 * u);
+        let vv = v * v * (3.0 - 2.0 * v);
+        let ww = w * w * (3.0 - 2.0 * w);
+
         let mut accum = 0.0;
         for i in 0..2 {
             for j in 0..2 {
                 for k in 0..2 {
-                    accum += (i as f32 * u + (1 - i) as f32 * (1.0 - u))
-                        * (j as f32 * v + (1 - j) as f32 * (1.0 - v))
-                        * (k as f32 * w + (1 - k) as f32 * (1.0 - w))
-                        * c[i][j][k];
+                    let weight_v = Vector3::new(u - i as f32, v - j as f32, w - k as f32);
+                    accum += (i as f32 * uu + (1 - i) as f32 * (1.0 - uu))
+                        * (j as f32 * vv + (1 - j) as f32 * (1.0 - vv))
+                        * (k as f32 * ww + (1 - k) as f32 * (1.0 - ww))
+                        * c[i][j][k].dot(weight_v);
                 }
             }
         }
@@ -71,7 +74,11 @@ impl Perlin {
         let v = point.y - point.y.floor();
         let w = point.z - point.z.floor();
 
-        let mut c = [[[0.0f32; 2]; 2]; 2];
+        let mut c = [[[Vector3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }; 2]; 2]; 2];
 
         let i = point.x.floor() as i32;
         let j = point.y.floor() as i32;
@@ -88,10 +95,25 @@ impl Perlin {
         }
         Self::trilinear_interp(&c, u, v, w)
     }
+    pub fn turbulence(&self, point: Point3<f32>, depth: u32) -> f32 {
+        let mut acum = 0.0;
+        let mut temp_point = point;
+        let mut weight = 1.0;
+        for i in 0..depth {
+            acum += weight * self.noise(temp_point);
+            weight *= 0.5;
+            temp_point *= 2.0;
+        }
+        return acum.abs();
+    }
     pub fn new() -> Self {
-        let mut ran_float = [0.0; Self::POINT_COUNT];
+        let mut ran_float = [Vector3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }; Self::POINT_COUNT];
         for i in 0..Self::POINT_COUNT {
-            ran_float[i] = rand_f32(0.0, 1.0);
+            ran_float[i] = rand_vec().normalize();
         }
         Self {
             ran_float,
@@ -103,7 +125,8 @@ impl Perlin {
 }
 impl Texture for Perlin {
     fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
-        let f = self.noise(20.0 * pos);
+        let f = self.turbulence(2.0 * pos, 7);
+
         RgbColor::new(f, f, f)
     }
 }
