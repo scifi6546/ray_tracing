@@ -70,18 +70,19 @@ impl Perlin {
         let u = point.x - point.x.floor();
         let v = point.y - point.y.floor();
         let w = point.z - point.z.floor();
+
         let mut c = [[[0.0f32; 2]; 2]; 2];
 
-        let i = point.x.floor() as usize;
-        let j = point.y.floor() as usize;
-        let k = point.z.floor() as usize;
+        let i = point.x.floor() as i32;
+        let j = point.y.floor() as i32;
+        let k = point.z.floor() as i32;
 
         for di in 0..2 {
             for dj in 0..2 {
                 for dk in 0..2 {
-                    c[di][dj][dk] = self.ran_float[self.perm_x[(i + di) & 255]
-                        ^ self.perm_y[(j + dj) & 255]
-                        ^ self.perm_z[(k + dk) & 255]];
+                    c[di][dj][dk] = self.ran_float[self.perm_x[((i + di as i32) & 255) as usize]
+                        ^ self.perm_y[((j + dj as i32) & 255) as usize]
+                        ^ self.perm_z[((k + dk as i32) & 255) as usize]];
                 }
             }
         }
