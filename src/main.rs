@@ -6,6 +6,7 @@ use miniquad::{
     conf, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline, Shader,
     Texture, UserData, VertexAttribute, VertexFormat,
 };
+use prelude::RgbColor;
 use std::{
     ops::{Add, AddAssign, Div, Mul},
     sync::mpsc::Receiver,
@@ -13,15 +14,7 @@ use std::{
 pub fn vec_near_zero(v: Vector3<f32>) -> bool {
     v.dot(v) < 1e-8
 }
-pub fn clamp(x: f32, min: f32, max: f32) -> f32 {
-    if x < min {
-        min
-    } else if x > max {
-        max
-    } else {
-        x
-    }
-}
+
 pub fn reflect(v: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
     v - 2.0 * v.dot(normal) * normal
 }
@@ -67,98 +60,7 @@ struct Vertex {
     pos: Vector2<f32>,
     uv: Vector2<f32>,
 }
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RgbColor {
-    pub red: f32,
-    pub green: f32,
-    pub blue: f32,
-}
-impl RgbColor {
-    pub fn new(red: f32, green: f32, blue: f32) -> Self {
-        Self { red, green, blue }
-    }
-    pub fn random() -> Self {
-        Self {
-            red: rand::random(),
-            green: rand::random(),
-            blue: rand::random(),
-        }
-    }
-    pub fn to_rgba_u8(&self) -> [u8; 4] {
-        let r = (clamp(self.red.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
-        let g = (clamp(self.green.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
-        let b = (clamp(self.blue.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
-        [r, g, b, 0xff]
-    }
-}
-impl Mul<f32> for RgbColor {
-    type Output = Self;
-    fn mul(self, rhs: f32) -> Self::Output {
-        Self {
-            red: self.red * rhs,
-            green: self.green * rhs,
-            blue: self.blue * rhs,
-        }
-    }
-}
-impl Mul<RgbColor> for f32 {
-    type Output = RgbColor;
-    fn mul(self, rhs: RgbColor) -> Self::Output {
-        rhs * self
-    }
-}
-impl Div<f32> for RgbColor {
-    type Output = Self;
-    fn div(self, rhs: f32) -> Self::Output {
-        Self {
-            red: self.red / rhs,
-            green: self.green / rhs,
-            blue: self.blue / rhs,
-        }
-    }
-}
-impl Mul for RgbColor {
-    type Output = RgbColor;
 
-    fn mul(self, rhs: Self) -> Self::Output {
-        Self {
-            red: self.red * rhs.red,
-            green: self.green * rhs.green,
-            blue: self.blue * rhs.blue,
-        }
-    }
-}
-impl Add for RgbColor {
-    type Output = RgbColor;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            red: self.red + rhs.red,
-            green: self.green + rhs.green,
-            blue: self.blue + rhs.blue,
-        }
-    }
-}
-impl AddAssign for RgbColor {
-    fn add_assign(&mut self, rhs: Self) {
-        self.red += rhs.red;
-        self.green += rhs.green;
-        self.blue += rhs.blue;
-    }
-}
-impl std::iter::Sum for RgbColor {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(
-            RgbColor {
-                red: 0.0,
-                green: 0.0,
-                blue: 0.0,
-            },
-            |acc, x| acc + x,
-        )
-    }
-}
 struct Handler {
     pipeline: Pipeline,
     bindings: Bindings,

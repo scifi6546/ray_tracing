@@ -1,17 +1,19 @@
-use super::{rand_unit_vec, reflect, vec_near_zero, HitRecord, Ray, RgbColor};
+use super::{rand_unit_vec, reflect, vec_near_zero, HitRecord, Ray, RgbColor, Texture};
+
 use cgmath::{InnerSpace, Vector3};
+
 pub trait Material {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)>;
 }
 pub struct Lambertian {
-    pub albedo: RgbColor,
+    pub albedo: Box<dyn Texture>,
 }
 impl Material for Lambertian {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
         let scatter_direction = record_in.normal + rand_unit_vec();
 
         Some((
-            self.albedo,
+            self.albedo.color(record_in.uv, record_in.position),
             Ray {
                 origin: record_in.position,
                 direction: if !vec_near_zero(scatter_direction) {
@@ -25,7 +27,7 @@ impl Material for Lambertian {
     }
 }
 pub struct Metal {
-    pub albedo: RgbColor,
+    pub albedo: Box<dyn Texture>,
     pub fuzz: f32,
 }
 impl Material for Metal {
@@ -33,7 +35,7 @@ impl Material for Metal {
         let reflected = reflect(ray_in.direction.normalize(), record_in.normal);
         if reflected.dot(record_in.normal) > 0.0 {
             Some((
-                self.albedo,
+                self.albedo.color(record_in.uv, record_in.position),
                 Ray {
                     origin: record_in.position,
                     direction: reflected + self.fuzz * rand_unit_vec(),
@@ -47,6 +49,7 @@ impl Material for Metal {
 }
 pub struct Dielectric {
     pub index_refraction: f32,
+    pub color: RgbColor,
 }
 impl Dielectric {
     fn refract(uv: Vector3<f32>, n: Vector3<f32>, etai_over_etat: f32) -> Vector3<f32> {
@@ -81,11 +84,7 @@ impl Material for Dielectric {
         };
 
         Some((
-            RgbColor {
-                red: 1.0,
-                green: 1.0,
-                blue: 1.0,
-            },
+            self.color,
             Ray {
                 origin: record_in.position,
                 direction,
