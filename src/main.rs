@@ -6,7 +6,7 @@ use miniquad::{
     conf, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline, Shader,
     Texture, UserData, VertexAttribute, VertexFormat,
 };
-use prelude::RgbColor;
+use prelude::{RgbColor, RgbImage};
 use std::{
     ops::{Add, AddAssign, Div, Mul},
     sync::mpsc::Receiver,
@@ -18,43 +18,7 @@ pub fn vec_near_zero(v: Vector3<f32>) -> bool {
 pub fn reflect(v: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
     v - 2.0 * v.dot(normal) * normal
 }
-#[derive(Clone)]
-pub struct RgbImage {
-    buffer: Vec<RgbColor>,
-    width: u32,
-    height: u32,
-}
-impl RgbImage {
-    pub fn new_black(width: u32, height: u32) -> Self {
-        let buffer = (0..(width as usize * height as usize))
-            .map(|_| RgbColor {
-                red: 0.0,
-                blue: 0.0,
-                green: 0.0,
-            })
-            .collect();
 
-        RgbImage {
-            buffer,
-            width,
-            height,
-        }
-    }
-    pub fn add_xy(&mut self, x: u32, y: u32, color: RgbColor) {
-        self.buffer[y as usize * self.width as usize + x as usize] += color;
-    }
-}
-impl Div<f32> for RgbImage {
-    type Output = RgbImage;
-
-    fn div(mut self, rhs: f32) -> Self::Output {
-        Self {
-            buffer: self.buffer.drain(..).map(|c| c / rhs).collect(),
-            width: self.width,
-            height: self.height,
-        }
-    }
-}
 #[repr(C)]
 struct Vertex {
     pos: Vector2<f32>,

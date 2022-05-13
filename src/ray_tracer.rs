@@ -4,7 +4,7 @@ mod hittable;
 mod material;
 mod texture;
 
-use super::{prelude::*, vec_near_zero, Image, RgbImage};
+use super::{prelude::*, vec_near_zero, Image};
 use crate::reflect;
 
 use bvh::AABB;
@@ -12,7 +12,7 @@ use camera::Camera;
 use cgmath::{InnerSpace, Point3, Vector3};
 use hittable::{HitRecord, Hittable, MovingSphere, Sphere};
 use material::{Dielectric, Lambertian, Material, Metal};
-use texture::{CheckerTexture, Perlin, SolidColor, Texture};
+use texture::{CheckerTexture, ImageTexture, Perlin, SolidColor, Texture};
 
 use std::{
     cell::RefCell,
@@ -243,11 +243,7 @@ fn easy_scene() -> (World, Camera) {
                     material: Rc::new(RefCell::new(Lambertian {
                         albedo: Box::new(CheckerTexture {
                             even: Box::new(SolidColor {
-                                color: RgbColor {
-                                    red: 0.8,
-                                    green: 0.8,
-                                    blue: 0.8,
-                                },
+                                color: RgbColor::new(0.5, 1.0, 0.0),
                             }),
                             odd: Box::new(Perlin::new()),
                         }),
@@ -261,7 +257,7 @@ fn easy_scene() -> (World, Camera) {
                         z: -1.0,
                     },
                     material: Rc::new(RefCell::new(Lambertian {
-                        albedo: Box::new(Perlin::new()),
+                        albedo: Box::new(ImageTexture::new("./assets/earthmap.jpg")),
                     })),
                 }),
                 Rc::new(Sphere {
@@ -296,9 +292,7 @@ fn easy_scene() -> (World, Camera) {
                         z: -1.0,
                     },
                     material: Rc::new(RefCell::new(Metal {
-                        albedo: Box::new(SolidColor {
-                            color: RgbColor::new(0.8, 0.6, 0.2),
-                        }),
+                        albedo: Box::new(ImageTexture::new("./assets/earthmap.jpg")),
                         fuzz: 0.0,
                     })),
                 }),

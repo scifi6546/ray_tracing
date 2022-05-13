@@ -130,3 +130,38 @@ impl Texture for Perlin {
         RgbColor::new(f, f, f)
     }
 }
+pub struct ImageTexture {
+    texture: RgbImage,
+}
+impl ImageTexture {
+    pub fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
+        let reader = image::open(path).expect("failed to read image").into_rgb8();
+        let mut texture = RgbImage::new_black(reader.width(), reader.height());
+        for x in 0..reader.width() {
+            for y in 0..reader.height() {
+                let pixel = reader.get_pixel(x, y);
+                texture.set_xy(
+                    x,
+                    y,
+                    RgbColor::new(
+                        pixel.0[0] as f32 / 255.0,
+                        pixel.0[1] as f32 / 255.0,
+                        pixel.0[2] as f32 / 255.0,
+                    ),
+                );
+            }
+        }
+        Self { texture }
+    }
+}
+impl Texture for ImageTexture {
+    fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
+        println!("u: {} v: {}", uv.x, uv.y);
+        let u = clamp(uv.x, 0.0, 1.0);
+        let v = clamp(uv.y, 0.0, 1.0);
+
+        let x = (u * self.texture.width() as f32) as u32;
+        let y = (v * self.texture.height() as f32) as u32;
+        self.texture.get_xy(x, y)
+    }
+}

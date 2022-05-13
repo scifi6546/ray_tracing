@@ -31,6 +31,7 @@ pub fn p_max<T: PartialOrd>(a: T, b: T) -> T {
         b
     }
 }
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgbColor {
@@ -121,6 +122,56 @@ impl std::iter::Sum for RgbColor {
             },
             |acc, x| acc + x,
         )
+    }
+}
+#[derive(Clone)]
+pub struct RgbImage {
+    pub buffer: Vec<RgbColor>,
+    pub width: u32,
+    pub height: u32,
+}
+impl RgbImage {
+    pub fn new_black(width: u32, height: u32) -> Self {
+        let buffer = (0..(width as usize * height as usize))
+            .map(|_| RgbColor {
+                red: 0.0,
+                blue: 0.0,
+                green: 0.0,
+            })
+            .collect();
+
+        RgbImage {
+            buffer,
+            width,
+            height,
+        }
+    }
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn get_xy(&self, x: u32, y: u32) -> RgbColor {
+        self.buffer[y as usize * self.width as usize + x as usize]
+    }
+    pub fn set_xy(&mut self, x: u32, y: u32, color: RgbColor) {
+        self.buffer[y as usize * self.width as usize + x as usize] = color;
+    }
+    pub fn add_xy(&mut self, x: u32, y: u32, color: RgbColor) {
+        self.buffer[y as usize * self.width as usize + x as usize] += color;
+    }
+}
+impl Div<f32> for RgbImage {
+    type Output = RgbImage;
+
+    fn div(mut self, rhs: f32) -> Self::Output {
+        Self {
+            buffer: self.buffer.drain(..).map(|c| c / rhs).collect(),
+            width: self.width,
+            height: self.height,
+        }
     }
 }
 #[cfg(test)]
