@@ -1,8 +1,10 @@
+use cgmath::{Point2, Vector2};
 use std::{
     cmp::PartialOrd,
     ops::{Add, AddAssign, Div, Mul},
 };
-pub fn clamp(x: f32, min: f32, max: f32) -> f32 {
+
+pub fn clamp<T: std::cmp::PartialOrd>(x: T, min: T, max: T) -> T {
     if x < min {
         min
     } else if x > max {
@@ -152,7 +154,12 @@ impl RgbImage {
     pub fn height(&self) -> u32 {
         self.height
     }
-
+    pub fn get_uv(&self, uv: Point2<f32>) -> RgbColor {
+        let x = ((uv.x * (self.width() as f32 - 1.0)) as u32).clamp(0, self.width() - 1);
+        let v = 1.0 - uv.y;
+        let y = ((v * (self.height() as f32 - 1.0)) as u32).clamp(0, self.height() - 1);
+        self.get_xy(x, y)
+    }
     pub fn get_xy(&self, x: u32, y: u32) -> RgbColor {
         self.buffer[y as usize * self.width as usize + x as usize]
     }

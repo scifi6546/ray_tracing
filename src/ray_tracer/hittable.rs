@@ -66,7 +66,7 @@ impl Hittable for Sphere {
             }
         }
         let position = ray.at(root);
-        let uv = Self::get_sphere_uv(position);
+        let uv = Self::get_sphere_uv(((position - self.origin) / self.radius));
         Some(HitRecord::new(
             ray,
             position,
@@ -84,7 +84,7 @@ impl Hittable for Sphere {
     }
 }
 impl Sphere {
-    fn get_sphere_uv(point: Point3<f32>) -> Point2<f32> {
+    fn get_sphere_uv(point: Vector3<f32>) -> Point2<f32> {
         let theta = (-1.0 * point.y).acos();
         let phi = (-1.0 * point.z).atan2(point.x) + f32::PI();
         Point2::new(phi / (2.0 * f32::PI()), theta / f32::PI())
@@ -124,12 +124,13 @@ impl Hittable for MovingSphere {
             }
         }
         let position = ray.at(root);
+        let normal = (position - self.center(ray.time)) / self.radius;
         Some(HitRecord::new(
             ray,
             position,
-            (position - self.center(ray.time)) / self.radius,
+            normal,
             root,
-            todo!("uv"),
+            Sphere::get_sphere_uv(normal),
             self.material.clone(),
         ))
     }

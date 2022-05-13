@@ -156,12 +156,12 @@ impl ImageTexture {
 }
 impl Texture for ImageTexture {
     fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
-        println!("u: {} v: {}", uv.x, uv.y);
-        let u = clamp(uv.x, 0.0, 1.0);
-        let v = clamp(uv.y, 0.0, 1.0);
-
-        let x = (u * self.texture.width() as f32) as u32;
-        let y = (v * self.texture.height() as f32) as u32;
-        self.texture.get_xy(x, y)
+        self.texture.get_uv(uv)
+    }
+}
+pub struct DebugV {}
+impl Texture for DebugV {
+    fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
+        RgbColor::new(uv.y, uv.y, uv.y)
     }
 }

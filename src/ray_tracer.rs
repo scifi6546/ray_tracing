@@ -12,7 +12,7 @@ use camera::Camera;
 use cgmath::{InnerSpace, Point3, Vector3};
 use hittable::{HitRecord, Hittable, MovingSphere, Sphere};
 use material::{Dielectric, Lambertian, Material, Metal};
-use texture::{CheckerTexture, ImageTexture, Perlin, SolidColor, Texture};
+use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
 
 use std::{
     cell::RefCell,
@@ -292,7 +292,7 @@ fn easy_scene() -> (World, Camera) {
                         z: -1.0,
                     },
                     material: Rc::new(RefCell::new(Metal {
-                        albedo: Box::new(ImageTexture::new("./assets/earthmap.jpg")),
+                        albedo: Box::new(DebugV {}),
                         fuzz: 0.0,
                     })),
                 }),
