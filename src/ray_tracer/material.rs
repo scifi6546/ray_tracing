@@ -1,9 +1,12 @@
 use super::{rand_unit_vec, reflect, vec_near_zero, HitRecord, Ray, RgbColor, Texture};
 
-use cgmath::{InnerSpace, Vector3};
+use cgmath::{InnerSpace, Point2, Point3, Vector2, Vector3};
 
 pub trait Material {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)>;
+    fn emmit(&self, uv: Point2<f32>, point: Point3<f32>) -> RgbColor {
+        RgbColor::new(0.0, 0.0, 0.0)
+    }
 }
 pub struct Lambertian {
     pub albedo: Box<dyn Texture>,
@@ -91,5 +94,16 @@ impl Material for Dielectric {
                 time: ray_in.time,
             },
         ))
+    }
+}
+pub struct DiffuseLight {
+    pub emit: Box<dyn Texture>,
+}
+impl Material for DiffuseLight {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
+        None
+    }
+    fn emmit(&self, uv: Point2<f32>, point: Point3<f32>) -> RgbColor {
+        self.emit.color(uv, point)
     }
 }

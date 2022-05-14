@@ -1,3 +1,4 @@
+mod background;
 mod bvh;
 mod camera;
 mod hittable;
@@ -7,19 +8,22 @@ mod texture;
 use super::{prelude::*, vec_near_zero, Image};
 use crate::reflect;
 
+use background::{Background, ConstantColor, Sky};
 use bvh::AABB;
 use camera::Camera;
 use cgmath::{InnerSpace, Point3, Vector3};
-use hittable::{HitRecord, Hittable, MovingSphere, Sphere};
-use material::{Dielectric, Lambertian, Material, Metal};
+use hittable::{HitRecord, Hittable, MovingSphere, RenderBox, RotateY, Sphere, Translate, XYRect};
+use material::{Dielectric, DiffuseLight, Lambertian, Material, Metal};
 use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
 
+use crate::ray_tracer::hittable::{XZRect, YZRect};
 use std::{
     cell::RefCell,
     rc::Rc,
     sync::mpsc::{channel, Receiver, Sender},
     thread,
 };
+
 const IMAGE_HEIGHT: u32 = 1000;
 const IMAGE_WIDTH: u32 = 1000;
 
@@ -61,34 +65,20 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
         };
     }
     if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
+        let emitted = record.material.borrow().emmit(record.uv, record.position);
         if let Some((color, scattered_ray)) = record.material.borrow().scatter(ray, &record) {
-            color * ray_color(scattered_ray, world, depth - 1)
+            emitted + color * ray_color(scattered_ray, world, depth - 1)
         } else {
-            RgbColor {
-                red: 0.0,
-                green: 0.0,
-                blue: 0.0,
-            }
+            emitted
         }
     } else {
-        let unit = ray.direction.normalize();
-        let t = 0.5 * (unit.y + 1.0);
-        (1.0 - t)
-            * RgbColor {
-                red: 1.0,
-                blue: 1.0,
-                green: 1.0,
-            }
-            + t * RgbColor {
-                red: 0.5,
-                green: 0.7,
-                blue: 1.0,
-            }
+        world.background.color(ray)
     }
 }
 
 pub struct World {
     spheres: Vec<Rc<dyn Hittable>>,
+    background: Box<dyn Background>,
 }
 impl World {
     pub fn nearest_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
@@ -107,6 +97,7 @@ impl World {
                 time_0,
                 time_1,
             ))],
+            background: self.background,
         }
     }
 }
@@ -207,7 +198,10 @@ fn random_scene() -> (World, Camera) {
         .chain(big)
         .collect();
     (
-        World { spheres },
+        World {
+            spheres,
+            background: Box::new(Sky {}),
+        },
         Camera::new(
             IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
             20.0,
@@ -224,7 +218,7 @@ fn random_scene() -> (World, Camera) {
 #[allow(dead_code)]
 fn easy_scene() -> (World, Camera) {
     let look_at = Point3::new(0.0f32, 0.0, -1.0);
-    let origin = Point3::new(3.0f32, 3.0, 2.0);
+    let origin = Point3::new(10.0f32, 3.0, 2.0);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
@@ -296,7 +290,35 @@ fn easy_scene() -> (World, Camera) {
                         fuzz: 0.0,
                     })),
                 }),
+                Rc::new(XYRect {
+                    x0: -0.5,
+                    x1: 0.5,
+                    y0: -0.5 + 1.0,
+                    y1: 0.5 + 1.0,
+                    k: -2.3,
+                    material: Rc::new(RefCell::new(DiffuseLight {
+                        emit: Box::new(SolidColor {
+                            color: 0.5 * RgbColor::new(1.0, 1.0, 1.0),
+                        }),
+                    })),
+                }),
+                Rc::new(Sphere {
+                    radius: 0.5,
+                    origin: Point3 {
+                        x: 0.0,
+                        y: 1.5,
+                        z: -1.0,
+                    },
+                    material: Rc::new(RefCell::new(DiffuseLight {
+                        emit: Box::new(SolidColor {
+                            color: RgbColor::new(4.0, 4.0, 4.0),
+                        }),
+                    })),
+                }),
             ],
+            background: Box::new(ConstantColor {
+                color: RgbColor::new(0.05, 0.05, 0.05),
+            }),
         },
         Camera::new(
             IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
@@ -339,6 +361,7 @@ fn one_sphere() -> (World, Camera) {
                     }),
                 })),
             })],
+            background: Box::new(Sky {}),
         },
         Camera::new(
             IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
@@ -397,10 +420,130 @@ fn two_spheres() -> (World, Camera) {
                     })),
                 }),
             ],
+            background: Box::new(Sky {}),
         },
         Camera::new(
             IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
             20.0,
+            origin,
+            look_at,
+            Vector3::new(0.0, 1.0, 0.0),
+            0.00001,
+            focus_distance,
+            0.0,
+            0.0,
+        ),
+    )
+}
+#[allow(dead_code)]
+fn cornell_box() -> (World, Camera) {
+    let look_at = Point3::new(278.0f32, 278.0, 0.0);
+    let origin = Point3::new(278.0, 278.0, -800.0);
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+    let green = Rc::new(RefCell::new(Lambertian {
+        albedo: Box::new(SolidColor {
+            color: RgbColor::new(0.12, 0.45, 0.15),
+        }),
+    }));
+    let red = Rc::new(RefCell::new(Lambertian {
+        albedo: Box::new(SolidColor {
+            color: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+    }));
+    let light = Rc::new(RefCell::new(DiffuseLight {
+        emit: Box::new(SolidColor {
+            color: RgbColor::new(15.0, 15.0, 15.0),
+        }),
+    }));
+    let white = Rc::new(RefCell::new(Lambertian {
+        albedo: Box::new(SolidColor {
+            color: RgbColor::new(0.73, 0.73, 0.73),
+        }),
+    }));
+    (
+        World {
+            spheres: vec![
+                Rc::new(YZRect {
+                    y0: 0.0,
+                    y1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 555.0,
+                    material: green.clone(),
+                }),
+                Rc::new(YZRect {
+                    y0: 0.0,
+                    y1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 0.0,
+                    material: red.clone(),
+                }),
+                Rc::new(XZRect {
+                    x0: 213.0,
+                    x1: 343.0,
+                    z0: 227.0,
+                    z1: 332.0,
+                    k: 554.0,
+                    material: light.clone(),
+                }),
+                Rc::new(XZRect {
+                    x0: 0.0,
+                    x1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 0.0,
+                    material: white.clone(),
+                }),
+                Rc::new(XZRect {
+                    x0: 0.0,
+                    x1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 555.0,
+                    material: white.clone(),
+                }),
+                Rc::new(XYRect {
+                    x0: 0.0,
+                    x1: 555.0,
+                    y0: 0.0,
+                    y1: 555.0,
+                    k: 555.0,
+                    material: white.clone(),
+                }),
+                Rc::new(Translate {
+                    item: Rc::new(RotateY::new(
+                        Rc::new(RenderBox::new(
+                            Point3::new(0.0, 0.0, 0.0),
+                            Point3::new(165.0, 330.0, 165.0),
+                            white.clone(),
+                        )),
+                        15.0,
+                    )),
+                    offset: Vector3::new(265.0, 0.0, 295.0),
+                }),
+                Rc::new(Translate {
+                    item: Rc::new(RotateY::new(
+                        Rc::new(RenderBox::new(
+                            Point3::new(0.0, 0.0, 0.0),
+                            Point3::new(165.0, 165.0, 165.0),
+                            white.clone(),
+                        )),
+                        -18.0,
+                    )),
+                    offset: Vector3::new(130.0, 0.0, 16.0),
+                }),
+            ],
+            background: Box::new(ConstantColor {
+                color: RgbColor::new(0.0, 0.0, 0.0),
+            }),
+        },
+        Camera::new(
+            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
+            40.0,
             origin,
             look_at,
             Vector3::new(0.0, 1.0, 0.0),
@@ -433,7 +576,7 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        let (world, camera) = easy_scene();
+        let (world, camera) = cornell_box();
         let world = world.to_bvh(camera.start_time(), camera.end_time());
         println!(
             "world bounding box: {:#?}",
