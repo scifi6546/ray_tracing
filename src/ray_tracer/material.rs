@@ -107,3 +107,19 @@ impl Material for DiffuseLight {
         self.emit.color(uv, point)
     }
 }
+pub struct Isotropic {
+    pub albedo: Box<dyn Texture>,
+}
+
+impl Material for Isotropic {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
+        Some((
+            self.albedo.color(record_in.uv, record_in.position),
+            Ray {
+                origin: record_in.position,
+                direction: rand_unit_vec(),
+                time: ray_in.time,
+            },
+        ))
+    }
+}

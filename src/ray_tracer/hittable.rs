@@ -1,8 +1,8 @@
 use super::{Material, Ray, AABB};
 
-//use cgmath::num_traits::FloatConst;
-use crate::prelude::{p_max, p_min};
+use crate::prelude::{p_max, p_min, rand_f32};
 use cgmath::{num_traits::FloatConst, prelude::*, InnerSpace, Point2, Point3, Vector2, Vector3};
+
 use std::ops::RemAssign;
 use std::{cell::RefCell, rc::Rc};
 
@@ -17,7 +17,7 @@ pub struct HitRecord {
     pub t: f32,
     pub front_face: bool,
     pub uv: Point2<f32>,
-    pub(crate) material: Rc<RefCell<dyn Material>>,
+    pub material: Rc<RefCell<dyn Material>>,
 }
 
 impl HitRecord {
@@ -359,7 +359,7 @@ pub struct Translate {
 impl Hittable for Translate {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let moved_ray = Ray {
-            origin: ray.origin + self.offset,
+            origin: ray.origin - self.offset,
             direction: ray.direction,
             time: ray.time,
         };
@@ -400,10 +400,10 @@ impl RotateY {
         let radians = angle * f32::PI() / 180.0;
         let sin_theta = radians.sin();
         let cos_theta = radians.cos();
-        let has_box = item.bounding_box(0.0, 1.0).is_some();
+
         let item_box = if let Some(item_box) = item.bounding_box(0.0, 1.0) {
-            let mut min = Point3::new(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
-            let mut max = Point3::new(f32::INFINITY, f32::INFINITY, f32::INFINITY);
+            let mut min = Point3::new(f32::MAX, f32::MAX, f32::MAX);
+            let mut max = Point3::new(f32::MIN, f32::MIN, f32::MIN);
             for i in 0..2 {
                 for j in 0..2 {
                     for k in 0..2 {
@@ -414,7 +414,7 @@ impl RotateY {
                         let z =
                             k as f32 * item_box.minimum.z + (1.0 - k as f32) * item_box.minimum.z;
                         let new_x = cos_theta * x + sin_theta * z;
-                        let new_z = -1.0 * sin_theta + cos_theta * z;
+                        let new_z = -sin_theta * x + cos_theta * z;
                         let tester = Vector3::new(new_x, y, new_z);
                         for c in 0..3 {
                             min[c] = p_min(min[c], tester[c]);
@@ -443,7 +443,11 @@ impl Hittable for RotateY {
         let mut origin = ray.origin;
         let mut direction = ray.direction;
         origin.x = self.cos_theta * ray.origin.x - self.sin_theta * ray.origin.z;
-        origin.z = self.sin_theta * ray.direction.x + self.cos_theta * ray.origin.z;
+        origin.z = self.sin_theta * ray.origin.x + self.cos_theta * ray.origin.z;
+
+        direction.x = self.cos_theta * ray.direction.x - self.sin_theta * ray.direction.z;
+        direction.z = self.sin_theta * ray.direction.x + self.cos_theta * ray.direction.z;
+
         let rotated_ray = Ray {
             origin,
             direction,
@@ -473,5 +477,96 @@ impl Hittable for RotateY {
 
     fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
         self.item_box
+    }
+}
+pub struct ConstantMedium {
+    boundary: Rc<dyn Hittable>,
+    phase_function: Rc<RefCell<dyn Material>>,
+    neg_inv_density: f32,
+}
+impl ConstantMedium {
+    pub fn new(
+        boundary: Rc<dyn Hittable>,
+        phase_function: Rc<RefCell<dyn Material>>,
+        density: f32,
+    ) -> Self {
+        Self {
+            boundary,
+            phase_function,
+            neg_inv_density: -1.0 / density,
+        }
+    }
+}
+impl Hittable for ConstantMedium {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        let enable_debug = true;
+        let debugging = enable_debug && rand_f32(0.0, 1.0) < 0.00001;
+        let hit_res1 = self.boundary.hit(ray, -1.0 * 10000000000.0, 10000000000.0);
+        if hit_res1.is_none() {
+            return None;
+        }
+        let mut hit1 = hit_res1.unwrap();
+        let hit_res2 = self.boundary.hit(ray, hit1.t + 0.0001, 10000000000.0);
+        if hit_res2.is_none() {
+            return None;
+        }
+        let mut hit2 = hit_res2.unwrap();
+
+        if hit1.t < t_min {
+            hit1.t = t_min;
+        }
+        if hit2.t > t_max {
+            hit2.t = t_max
+        }
+
+        if hit1.t >= hit2.t {
+            if debugging {
+                println!(
+                    "none, hit1.t = {}, hit2.t = {}, t_min: {} t_max: {}",
+                    hit1.t, hit2.t, t_min, t_max
+                );
+            }
+            return None;
+        }
+        if hit1.t < 0.0 {
+            hit1.t = 0.0;
+        }
+
+        if debugging {
+            println!(
+                "hit!!!   hit1.t = {}, hit2.t = {}, t_min: {} t_max: {}",
+                hit1.t, hit2.t, t_min, t_max
+            );
+        }
+        let ray_length = {
+            let d = ray.direction;
+            (d.x * d.x + d.y * d.y + d.z * d.z).sqrt()
+        };
+
+        let distance_inside_boundary = (hit2.t - hit1.t) * ray_length;
+        let hit_distance = self.neg_inv_density * rand_f32(0.0, 1.0).ln();
+        if hit_distance > distance_inside_boundary {
+            return None;
+        }
+        let t = hit1.t + hit_distance / ray_length;
+        let position = ray.at(t);
+        if debugging {
+            println!(
+                "hit distance: {} t: {} position: <{},{},{}>",
+                hit_distance, t, position.x, position.y, position.z
+            );
+        }
+        Some(HitRecord {
+            position,
+            normal: Vector3::new(1.0, 0.0, 0.0),
+            t,
+            front_face: false,
+            uv: Point2::new(0.0, 0.0),
+            material: self.phase_function.clone(),
+        })
+    }
+
+    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
+        self.boundary.bounding_box(time_0, time_1)
     }
 }

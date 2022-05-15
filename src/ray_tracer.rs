@@ -12,8 +12,11 @@ use background::{Background, ConstantColor, Sky};
 use bvh::AABB;
 use camera::Camera;
 use cgmath::{InnerSpace, Point3, Vector3};
-use hittable::{HitRecord, Hittable, MovingSphere, RenderBox, RotateY, Sphere, Translate, XYRect};
-use material::{Dielectric, DiffuseLight, Lambertian, Material, Metal};
+use hittable::{
+    ConstantMedium, HitRecord, Hittable, MovingSphere, RenderBox, RotateY, Sphere, Translate,
+    XYRect,
+};
+use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
 use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
 
 use crate::ray_tracer::hittable::{XZRect, YZRect};
@@ -534,7 +537,163 @@ fn cornell_box() -> (World, Camera) {
                         )),
                         -18.0,
                     )),
-                    offset: Vector3::new(130.0, 0.0, 16.0),
+                    offset: Vector3::new(130.0, 0.0, 65.0),
+                }),
+            ],
+            background: Box::new(ConstantColor {
+                color: RgbColor::new(0.0, 0.0, 0.0),
+            }),
+        },
+        Camera::new(
+            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
+            40.0,
+            origin,
+            look_at,
+            Vector3::new(0.0, 1.0, 0.0),
+            0.00001,
+            focus_distance,
+            0.0,
+            0.0,
+        ),
+    )
+}
+#[allow(dead_code)]
+fn cornell_smoke() -> (World, Camera) {
+    let look_at = Point3::new(278.0f32, 278.0, 0.0);
+    let origin = Point3::new(278.0, 278.0, -800.0);
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+    let green = Rc::new(RefCell::new(Lambertian {
+        albedo: Box::new(SolidColor {
+            color: RgbColor::new(0.12, 0.45, 0.15),
+        }),
+    }));
+    let red = Rc::new(RefCell::new(Lambertian {
+        albedo: Box::new(SolidColor {
+            color: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+    }));
+    let light = Rc::new(RefCell::new(DiffuseLight {
+        emit: Box::new(SolidColor {
+            color: RgbColor::new(7.0, 7.0, 7.0),
+        }),
+    }));
+    let white = Rc::new(RefCell::new(Lambertian {
+        albedo: Box::new(SolidColor {
+            color: RgbColor::new(0.73, 0.73, 0.73),
+        }),
+    }));
+    (
+        World {
+            spheres: vec![
+                Rc::new(YZRect {
+                    y0: 0.0,
+                    y1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 555.0,
+                    material: green.clone(),
+                }),
+                Rc::new(YZRect {
+                    y0: 0.0,
+                    y1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 0.0,
+                    material: red.clone(),
+                }),
+                Rc::new(XZRect {
+                    x0: 113.0,
+                    x1: 443.0,
+                    z0: 127.0,
+                    z1: 423.0,
+                    k: 554.0,
+                    material: light.clone(),
+                }),
+                Rc::new(XZRect {
+                    x0: 0.0,
+                    x1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 0.0,
+                    material: white.clone(),
+                }),
+                Rc::new(XZRect {
+                    x0: 0.0,
+                    x1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 555.0,
+                    material: white.clone(),
+                }),
+                Rc::new(XYRect {
+                    x0: 0.0,
+                    x1: 555.0,
+                    y0: 0.0,
+                    y1: 555.0,
+                    k: 555.0,
+                    material: white.clone(),
+                }),
+                Rc::new(ConstantMedium::new(
+                    Rc::new(Translate {
+                        item: Rc::new(RenderBox::new(
+                            Point3::new(0.0, 0.0, 0.0),
+                            Point3::new(165.0, 330.0, 165.0),
+                            white.clone(),
+                        )),
+
+                        offset: Vector3::new(265.0, 0.0, 295.0),
+                    }),
+                    Rc::new(RefCell::new(Isotropic {
+                        albedo: Box::new(SolidColor {
+                            color: RgbColor::new(0.0, 0.0, 0.0),
+                        }),
+                    })),
+                    0.01,
+                )),
+                Rc::new(ConstantMedium::new(
+                    Rc::new(Translate {
+                        item: Rc::new(Sphere {
+                            radius: 100.0,
+                            origin: Point3::new(0.0, 0.0, 0.0),
+                            material: white.clone(),
+                        }),
+
+                        offset: Vector3::new(265.0, 500.0, 295.0),
+                    }),
+                    Rc::new(RefCell::new(Isotropic {
+                        albedo: Box::new(SolidColor {
+                            color: RgbColor::new(0.5, 0.0, 0.0),
+                        }),
+                    })),
+                    0.01,
+                )),
+                /*
+                Rc::new(Translate {
+                    item: Rc::new(RotateY::new(
+                        Rc::new(RenderBox::new(
+                            Point3::new(0.0, 0.0, 0.0),
+                            Point3::new(165.0, 330.0, 165.0),
+                            white.clone(),
+                        )),
+                        15.0,
+                    )),
+                    offset: Vector3::new(265.0, 0.0, 295.0),
+                }),
+
+                 */
+                Rc::new(Translate {
+                    item: Rc::new(RotateY::new(
+                        Rc::new(RenderBox::new(
+                            Point3::new(0.0, 0.0, 0.0),
+                            Point3::new(165.0, 165.0, 165.0),
+                            white.clone(),
+                        )),
+                        -18.0,
+                    )),
+                    offset: Vector3::new(130.0, 0.0, 65.0),
                 }),
             ],
             background: Box::new(ConstantColor {
@@ -576,7 +735,7 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        let (world, camera) = cornell_box();
+        let (world, camera) = random_scene();
         let world = world.to_bvh(camera.start_time(), camera.end_time());
         println!(
             "world bounding box: {:#?}",
