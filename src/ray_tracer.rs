@@ -69,8 +69,15 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
     }
     if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
         let emitted = record.material.borrow().emmit(record.uv, record.position);
-        if let Some((color, scattered_ray)) = record.material.borrow().scatter(ray, &record) {
-            emitted + color * ray_color(scattered_ray, world, depth - 1)
+        if let Some((color, scattered_ray, pdf)) = record.material.borrow().scatter(ray, &record) {
+            emitted
+                + color
+                    * ray_color(scattered_ray, world, depth - 1)
+                    * record
+                        .material
+                        .borrow()
+                        .scattering_pdf(ray, &record, scattered_ray)
+                    / pdf
         } else {
             emitted
         }
@@ -518,24 +525,19 @@ fn cornell_box() -> (World, Camera) {
                     material: white.clone(),
                 }),
                 Rc::new(Translate {
-                    item: Rc::new(RotateY::new(
-                        Rc::new(RenderBox::new(
-                            Point3::new(0.0, 0.0, 0.0),
-                            Point3::new(165.0, 330.0, 165.0),
-                            white.clone(),
-                        )),
-                        15.0,
+                    item: Rc::new(RenderBox::new(
+                        Point3::new(0.0, 0.0, 0.0),
+                        Point3::new(165.0, 330.0, 165.0),
+                        white.clone(),
                     )),
+
                     offset: Vector3::new(265.0, 0.0, 295.0),
                 }),
                 Rc::new(Translate {
-                    item: Rc::new(RotateY::new(
-                        Rc::new(RenderBox::new(
-                            Point3::new(0.0, 0.0, 0.0),
-                            Point3::new(165.0, 165.0, 165.0),
-                            white.clone(),
-                        )),
-                        -18.0,
+                    item: Rc::new(RenderBox::new(
+                        Point3::new(0.0, 0.0, 0.0),
+                        Point3::new(165.0, 165.0, 165.0),
+                        white.clone(),
                     )),
                     offset: Vector3::new(130.0, 0.0, 65.0),
                 }),
@@ -735,7 +737,7 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        let (world, camera) = random_scene();
+        let (world, camera) = cornell_box();
         let world = world.to_bvh(camera.start_time(), camera.end_time());
         println!(
             "world bounding box: {:#?}",

@@ -1,9 +1,10 @@
 use super::{rand_unit_vec, reflect, vec_near_zero, HitRecord, Ray, RgbColor, Texture};
 
-use cgmath::{InnerSpace, Point2, Point3, Vector2, Vector3};
+use cgmath::{num_traits::*, prelude::*, InnerSpace, Point2, Point3, Vector2, Vector3};
 pub type PDF = f32;
 pub trait Material {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)>;
+    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32;
     fn emmit(&self, uv: Point2<f32>, point: Point3<f32>) -> RgbColor {
         RgbColor::new(0.0, 0.0, 0.0)
     }
@@ -14,20 +15,33 @@ pub struct Lambertian {
 impl Material for Lambertian {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)> {
         let scatter_direction = record_in.normal + rand_unit_vec();
-
-        Some((
-            self.albedo.color(record_in.uv, record_in.position),
+        let ray_out = if !vec_near_zero(scatter_direction) {
             Ray {
                 origin: record_in.position,
-                direction: if !vec_near_zero(scatter_direction) {
-                    scatter_direction
-                } else {
-                    record_in.normal
-                },
+                direction: scatter_direction,
                 time: ray_in.time,
-            },
-            todo!(),
+            }
+        } else {
+            Ray {
+                origin: record_in.position,
+                direction: record_in.normal,
+                time: ray_in.time,
+            }
+        };
+        let pdf = record_in.normal.dot(scatter_direction.normalize()) / f32::PI();
+        Some((
+            self.albedo.color(record_in.uv, record_in.position),
+            ray_out,
+            pdf,
         ))
+    }
+    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
+        let cosine = record_in.normal.dot(scattered_ray.direction.normalize());
+        if cosine < 0.0 {
+            0.0
+        } else {
+            cosine / f32::PI()
+        }
     }
 }
 pub struct Metal {
@@ -35,7 +49,7 @@ pub struct Metal {
     pub fuzz: f32,
 }
 impl Material for Metal {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)> {
         let reflected = reflect(ray_in.direction.normalize(), record_in.normal);
         if reflected.dot(record_in.normal) > 0.0 {
             Some((
@@ -45,10 +59,15 @@ impl Material for Metal {
                     direction: reflected + self.fuzz * rand_unit_vec(),
                     time: ray_in.time,
                 },
+                todo!(),
             ))
         } else {
             None
         }
+    }
+
+    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
+        todo!()
     }
 }
 pub struct Dielectric {
@@ -69,7 +88,7 @@ impl Dielectric {
     }
 }
 impl Material for Dielectric {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)> {
         let refraction_ratio = if record_in.front_face {
             1.0 / self.index_refraction
         } else {
@@ -94,16 +113,26 @@ impl Material for Dielectric {
                 direction,
                 time: ray_in.time,
             },
+            todo!(),
         ))
+    }
+
+    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
+        todo!()
     }
 }
 pub struct DiffuseLight {
     pub emit: Box<dyn Texture>,
 }
 impl Material for DiffuseLight {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)> {
         None
     }
+
+    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
+        0.0
+    }
+
     fn emmit(&self, uv: Point2<f32>, point: Point3<f32>) -> RgbColor {
         self.emit.color(uv, point)
     }
@@ -113,7 +142,7 @@ pub struct Isotropic {
 }
 
 impl Material for Isotropic {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)> {
         Some((
             self.albedo.color(record_in.uv, record_in.position),
             Ray {
@@ -121,6 +150,11 @@ impl Material for Isotropic {
                 direction: rand_unit_vec(),
                 time: ray_in.time,
             },
+            todo!(),
         ))
+    }
+
+    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
+        todo!()
     }
 }
