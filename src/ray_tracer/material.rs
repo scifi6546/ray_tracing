@@ -1,9 +1,9 @@
 use super::{rand_unit_vec, reflect, vec_near_zero, HitRecord, Ray, RgbColor, Texture};
 
 use cgmath::{InnerSpace, Point2, Point3, Vector2, Vector3};
-
+pub type PDF = f32;
 pub trait Material {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)>;
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)>;
     fn emmit(&self, uv: Point2<f32>, point: Point3<f32>) -> RgbColor {
         RgbColor::new(0.0, 0.0, 0.0)
     }
@@ -12,7 +12,7 @@ pub struct Lambertian {
     pub albedo: Box<dyn Texture>,
 }
 impl Material for Lambertian {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray)> {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)> {
         let scatter_direction = record_in.normal + rand_unit_vec();
 
         Some((
@@ -26,6 +26,7 @@ impl Material for Lambertian {
                 },
                 time: ray_in.time,
             },
+            todo!(),
         ))
     }
 }
