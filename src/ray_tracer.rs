@@ -3,6 +3,7 @@ mod bvh;
 mod camera;
 mod hittable;
 mod material;
+mod pdf;
 mod texture;
 
 use super::{prelude::*, vec_near_zero, Image};
@@ -13,13 +14,15 @@ use bvh::AABB;
 use camera::Camera;
 use cgmath::{InnerSpace, Point3, Vector3};
 use hittable::{
-    ConstantMedium, HitRecord, Hittable, MovingSphere, RenderBox, RotateY, Sphere, Translate,
-    XYRect,
+    ConstantMedium, FlipNormals, HitRecord, Hittable, MovingSphere, RenderBox, RotateY, Sphere,
+    Translate, XYRect,
 };
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
+use pdf::CosinePdf;
 use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
 
 use crate::ray_tracer::hittable::{XZRect, YZRect};
+use crate::ray_tracer::pdf::PDF;
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -68,16 +71,28 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
         };
     }
     if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
-        let emitted = record.material.borrow().emmit(record.uv, record.position);
+        let emitted = record.material.borrow().emmit(&record);
         if let Some((color, scattered_ray, pdf)) = record.material.borrow().scatter(ray, &record) {
+            let pdf = CosinePdf {
+                uvw: OrthoNormalBasis::build_from_w(record.normal),
+            };
+
             emitted
                 + color
-                    * ray_color(scattered_ray, world, depth - 1)
+                    * ray_color(
+                        Ray {
+                            origin: scattered_ray.origin,
+                            direction: pdf.generate(),
+                            time: scattered_ray.time,
+                        },
+                        world,
+                        depth - 1,
+                    )
                     * record
                         .material
                         .borrow()
                         .scattering_pdf(ray, &record, scattered_ray)
-                    / pdf
+                    / pdf.value(&scattered_ray.direction)
         } else {
             emitted
         }
@@ -492,13 +507,15 @@ fn cornell_box() -> (World, Camera) {
                     k: 0.0,
                     material: red.clone(),
                 }),
-                Rc::new(XZRect {
-                    x0: 213.0,
-                    x1: 343.0,
-                    z0: 227.0,
-                    z1: 332.0,
-                    k: 554.0,
-                    material: light.clone(),
+                Rc::new(FlipNormals {
+                    item: Rc::new(XZRect {
+                        x0: 213.0,
+                        x1: 343.0,
+                        z0: 227.0,
+                        z1: 332.0,
+                        k: 554.0,
+                        material: light.clone(),
+                    }),
                 }),
                 Rc::new(XZRect {
                     x0: 0.0,

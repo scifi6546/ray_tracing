@@ -1,11 +1,13 @@
 use super::{rand_unit_vec, reflect, vec_near_zero, HitRecord, Ray, RgbColor, Texture};
 
+use crate::prelude::{random_cosine_direction, OrthoNormalBasis};
 use cgmath::{num_traits::*, prelude::*, InnerSpace, Point2, Point3, Vector2, Vector3};
+
 pub type PDF = f32;
 pub trait Material {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)>;
     fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32;
-    fn emmit(&self, uv: Point2<f32>, point: Point3<f32>) -> RgbColor {
+    fn emmit(&self, record: &HitRecord) -> RgbColor {
         RgbColor::new(0.0, 0.0, 0.0)
     }
 }
@@ -14,7 +16,11 @@ pub struct Lambertian {
 }
 impl Material for Lambertian {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)> {
+        let uvw = OrthoNormalBasis::build_from_w(record_in.normal);
+        let direction = uvw.local(random_cosine_direction());
+
         let scatter_direction = record_in.normal + rand_unit_vec();
+
         let ray_out = if !vec_near_zero(scatter_direction) {
             Ray {
                 origin: record_in.position,
@@ -28,7 +34,7 @@ impl Material for Lambertian {
                 time: ray_in.time,
             }
         };
-        let pdf = record_in.normal.dot(scatter_direction.normalize()) / f32::PI();
+        let pdf = uvw.w().dot(ray_out.direction) / f32::PI();
         Some((
             self.albedo.color(record_in.uv, record_in.position),
             ray_out,
@@ -133,8 +139,12 @@ impl Material for DiffuseLight {
         0.0
     }
 
-    fn emmit(&self, uv: Point2<f32>, point: Point3<f32>) -> RgbColor {
-        self.emit.color(uv, point)
+    fn emmit(&self, record: &HitRecord) -> RgbColor {
+        if record.front_face {
+            self.emit.color(record.uv, record.position)
+        } else {
+            RgbColor::new(0.0, 0.0, 0.0)
+        }
     }
 }
 pub struct Isotropic {

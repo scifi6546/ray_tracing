@@ -1,4 +1,4 @@
-use cgmath::{Point2, Vector2};
+use cgmath::{num_traits::*, prelude::*, Point2, Vector2, Vector3};
 use std::{
     cmp::PartialOrd,
     ops::{Add, AddAssign, Div, Mul},
@@ -180,6 +180,57 @@ impl Div<f32> for RgbImage {
             height: self.height,
         }
     }
+}
+pub struct OrthoNormalBasis {
+    pub axis: [Vector3<f32>; 3],
+}
+impl OrthoNormalBasis {
+    pub fn build_from_w(n: Vector3<f32>) -> Self {
+        let w = n.normalize();
+        let a = if w.x.abs() > 0.9 {
+            Vector3::new(0.0, 1.0, 0.0)
+        } else {
+            Vector3::new(1.0, 0.0, 0.0)
+        };
+        let v = w.cross(a).normalize();
+        let u = w.cross(v).normalize();
+        Self { axis: [u, v, w] }
+    }
+    pub fn local(&self, a: Vector3<f32>) -> Vector3<f32> {
+        a.x * self.u() + a.y * self.v() + a.z * self.w()
+    }
+    pub fn u(&self) -> Vector3<f32> {
+        self.axis[0]
+    }
+    pub fn v(&self) -> Vector3<f32> {
+        self.axis[1]
+    }
+    pub fn w(&self) -> Vector3<f32> {
+        self.axis[2]
+    }
+}
+impl std::ops::Index<usize> for OrthoNormalBasis {
+    type Output = Vector3<f32>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        assert!(index <= 2);
+        &self.axis[index]
+    }
+}
+impl std::ops::IndexMut<usize> for OrthoNormalBasis {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        assert!(index <= 2);
+        &mut self.axis[index]
+    }
+}
+pub fn random_cosine_direction() -> Vector3<f32> {
+    let r1 = rand_f32(0.0, 1.0);
+    let r2 = rand_f32(0.0, 1.0);
+    let z = (1.0 - r2).sqrt();
+    let phi = 2.0 * f32::PI() * r1;
+    let x = phi.cos() * r2.sqrt();
+    let y = phi.sin() * r2.sqrt();
+    Vector3 { x, y, z }
 }
 #[cfg(test)]
 mod test {
