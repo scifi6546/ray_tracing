@@ -1,4 +1,4 @@
-use cgmath::{num_traits::*, prelude::*, Point2, Vector2, Vector3};
+use cgmath::{num_traits::*, prelude::*, Point2, Point3, Vector3};
 use std::{
     cmp::PartialOrd,
     ops::{Add, AddAssign, Div, Mul},
@@ -231,6 +231,18 @@ pub fn random_cosine_direction() -> Vector3<f32> {
     let x = phi.cos() * r2.sqrt();
     let y = phi.sin() * r2.sqrt();
     Vector3 { x, y, z }
+}
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct Ray {
+    pub origin: Point3<f32>,
+    pub direction: Vector3<f32>,
+    pub time: f32,
+}
+impl Ray {
+    pub fn at(&self, t: f32) -> Point3<f32> {
+        self.origin + t * self.direction
+    }
 }
 #[cfg(test)]
 mod test {

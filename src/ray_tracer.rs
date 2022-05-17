@@ -50,18 +50,6 @@ pub fn rand_vec() -> Vector3<f32> {
     }
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-pub struct Ray {
-    pub origin: Point3<f32>,
-    pub direction: Vector3<f32>,
-    pub time: f32,
-}
-impl Ray {
-    pub fn at(&self, t: f32) -> Point3<f32> {
-        self.origin + t * self.direction
-    }
-}
 fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
     if depth == 0 {
         return RgbColor {

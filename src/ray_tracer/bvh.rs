@@ -4,10 +4,7 @@ use crate::ray_tracer::hittable::Hittable;
 use cgmath::Point3;
 
 use crate::ray_tracer::HitRecord;
-use std::{
-    cmp::{max, min, Ordering},
-    rc::Rc,
-};
+use std::{cmp::Ordering, rc::Rc};
 #[derive(Clone, Copy, Debug)]
 pub struct AABB {
     pub minimum: Point3<f32>,

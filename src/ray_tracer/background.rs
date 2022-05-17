@@ -1,6 +1,6 @@
 use super::Ray;
 use crate::prelude::*;
-use cgmath::{prelude::*, Vector3};
+use cgmath::prelude::*;
 pub trait Background {
     fn color(&self, ray: Ray) -> RgbColor;
 }

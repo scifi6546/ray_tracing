@@ -1,11 +1,17 @@
+mod constant_medium;
+mod flip_normals;
+mod rotation;
+
 use super::{Material, Ray, AABB};
 
 use crate::prelude::{p_max, p_min, rand_f32};
 use cgmath::{num_traits::FloatConst, prelude::*, InnerSpace, Point2, Point3, Vector2, Vector3};
 
+pub use constant_medium::ConstantMedium;
+pub use flip_normals::FlipNormals;
+pub use rotation::RotateY;
 use std::ops::RemAssign;
 use std::{cell::RefCell, rc::Rc};
-
 pub trait Hittable {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
     fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB>;
@@ -386,205 +392,5 @@ impl Hittable for Translate {
         } else {
             None
         }
-    }
-}
-pub struct RotateY {
-    item: Rc<dyn Hittable>,
-    sin_theta: f32,
-    cos_theta: f32,
-
-    item_box: Option<AABB>,
-}
-impl RotateY {
-    pub fn new(item: Rc<dyn Hittable>, angle: f32) -> Self {
-        let radians = angle * f32::PI() / 180.0;
-        let sin_theta = radians.sin();
-        let cos_theta = radians.cos();
-
-        let item_box = if let Some(item_box) = item.bounding_box(0.0, 1.0) {
-            let mut min = Point3::new(f32::MAX, f32::MAX, f32::MAX);
-            let mut max = Point3::new(f32::MIN, f32::MIN, f32::MIN);
-            for i in 0..2 {
-                for j in 0..2 {
-                    for k in 0..2 {
-                        let x =
-                            i as f32 * item_box.maximum.x + (1.0 - i as f32) * item_box.minimum.x;
-                        let y =
-                            j as f32 * item_box.maximum.y + (1.0 - j as f32) * item_box.minimum.y;
-                        let z =
-                            k as f32 * item_box.minimum.z + (1.0 - k as f32) * item_box.minimum.z;
-                        let new_x = cos_theta * x + sin_theta * z;
-                        let new_z = -sin_theta * x + cos_theta * z;
-                        let tester = Vector3::new(new_x, y, new_z);
-                        for c in 0..3 {
-                            min[c] = p_min(min[c], tester[c]);
-                            max[c] = p_max(max[c], tester[c]);
-                        }
-                    }
-                }
-            }
-            Some(AABB {
-                maximum: max,
-                minimum: min,
-            })
-        } else {
-            None
-        };
-        Self {
-            item,
-            sin_theta,
-            cos_theta,
-            item_box,
-        }
-    }
-}
-impl Hittable for RotateY {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let mut origin = ray.origin;
-        let mut direction = ray.direction;
-        origin.x = self.cos_theta * ray.origin.x - self.sin_theta * ray.origin.z;
-        origin.z = self.sin_theta * ray.origin.x + self.cos_theta * ray.origin.z;
-
-        direction.x = self.cos_theta * ray.direction.x - self.sin_theta * ray.direction.z;
-        direction.z = self.sin_theta * ray.direction.x + self.cos_theta * ray.direction.z;
-
-        let rotated_ray = Ray {
-            origin,
-            direction,
-            time: ray.time,
-        };
-        if let Some(hit) = self.item.hit(&rotated_ray, t_min, t_max) {
-            let mut position = hit.position;
-            let mut normal = hit.normal;
-            position.x = self.cos_theta * hit.position.x + self.sin_theta * hit.position.z;
-            position.z = -1.0 * self.sin_theta * hit.position.x + self.cos_theta * hit.position.z;
-
-            normal.x = self.cos_theta * hit.normal.x + self.sin_theta * hit.normal.z;
-            normal.z = -1.0 * self.sin_theta * hit.normal.x + self.cos_theta * hit.normal.z;
-
-            Some(HitRecord::new(
-                &rotated_ray,
-                position,
-                normal,
-                rotated_ray.time,
-                hit.uv,
-                hit.material.clone(),
-            ))
-        } else {
-            None
-        }
-    }
-
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
-        self.item_box
-    }
-}
-pub struct ConstantMedium {
-    boundary: Rc<dyn Hittable>,
-    phase_function: Rc<RefCell<dyn Material>>,
-    neg_inv_density: f32,
-}
-impl ConstantMedium {
-    pub fn new(
-        boundary: Rc<dyn Hittable>,
-        phase_function: Rc<RefCell<dyn Material>>,
-        density: f32,
-    ) -> Self {
-        Self {
-            boundary,
-            phase_function,
-            neg_inv_density: -1.0 / density,
-        }
-    }
-}
-impl Hittable for ConstantMedium {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let enable_debug = true;
-        let debugging = enable_debug && rand_f32(0.0, 1.0) < 0.00001;
-        let hit_res1 = self.boundary.hit(ray, -1.0 * 10000000000.0, 10000000000.0);
-        if hit_res1.is_none() {
-            return None;
-        }
-        let mut hit1 = hit_res1.unwrap();
-        let hit_res2 = self.boundary.hit(ray, hit1.t + 0.0001, 10000000000.0);
-        if hit_res2.is_none() {
-            return None;
-        }
-        let mut hit2 = hit_res2.unwrap();
-
-        if hit1.t < t_min {
-            hit1.t = t_min;
-        }
-        if hit2.t > t_max {
-            hit2.t = t_max
-        }
-
-        if hit1.t >= hit2.t {
-            if debugging {
-                println!(
-                    "none, hit1.t = {}, hit2.t = {}, t_min: {} t_max: {}",
-                    hit1.t, hit2.t, t_min, t_max
-                );
-            }
-            return None;
-        }
-        if hit1.t < 0.0 {
-            hit1.t = 0.0;
-        }
-
-        if debugging {
-            println!(
-                "hit!!!   hit1.t = {}, hit2.t = {}, t_min: {} t_max: {}",
-                hit1.t, hit2.t, t_min, t_max
-            );
-        }
-        let ray_length = {
-            let d = ray.direction;
-            (d.x * d.x + d.y * d.y + d.z * d.z).sqrt()
-        };
-
-        let distance_inside_boundary = (hit2.t - hit1.t) * ray_length;
-        let hit_distance = self.neg_inv_density * rand_f32(0.0, 1.0).ln();
-        if hit_distance > distance_inside_boundary {
-            return None;
-        }
-        let t = hit1.t + hit_distance / ray_length;
-        let position = ray.at(t);
-        if debugging {
-            println!(
-                "hit distance: {} t: {} position: <{},{},{}>",
-                hit_distance, t, position.x, position.y, position.z
-            );
-        }
-        Some(HitRecord {
-            position,
-            normal: Vector3::new(1.0, 0.0, 0.0),
-            t,
-            front_face: false,
-            uv: Point2::new(0.0, 0.0),
-            material: self.phase_function.clone(),
-        })
-    }
-
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
-        self.boundary.bounding_box(time_0, time_1)
-    }
-}
-pub struct FlipNormals {
-    pub item: Rc<dyn Hittable>,
-}
-impl Hittable for FlipNormals {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        if let Some(mut hit) = self.item.hit(ray, t_min, t_max) {
-            hit.normal = -1.0 * hit.normal;
-            hit.front_face = !hit.front_face;
-            Some(hit)
-        } else {
-            None
-        }
-    }
-
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
-        self.item.bounding_box(time_0, time_1)
     }
 }
