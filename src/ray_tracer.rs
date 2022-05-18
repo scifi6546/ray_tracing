@@ -14,8 +14,8 @@ use bvh::AABB;
 use camera::Camera;
 use cgmath::{InnerSpace, Point3, Vector3};
 use hittable::{
-    ConstantMedium, FlipNormals, HitRecord, Hittable, MovingSphere, RenderBox, RotateY, Sphere,
-    Translate, XYRect,
+    ConstantMedium, FlipNormals, HitRecord, Hittable, Light, MovingSphere, RenderBox, RotateY,
+    Sphere, Translate, XYRect,
 };
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
 use pdf::CosinePdf;
@@ -70,7 +70,7 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
                     * ray_color(
                         Ray {
                             origin: scattered_ray.origin,
-                            direction: pdf.generate(),
+                            direction: pdf.generate(world),
                             time: scattered_ray.time,
                         },
                         world,
@@ -91,6 +91,7 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
 
 pub struct World {
     spheres: Vec<Rc<dyn Hittable>>,
+    lights: Vec<Rc<dyn Light>>,
     background: Box<dyn Background>,
 }
 impl World {
@@ -110,6 +111,7 @@ impl World {
                 time_0,
                 time_1,
             ))],
+            lights: self.lights.clone(),
             background: self.background,
         }
     }
@@ -213,6 +215,7 @@ fn random_scene() -> (World, Camera) {
     (
         World {
             spheres,
+            lights: vec![],
             background: Box::new(Sky {}),
         },
         Camera::new(
@@ -329,6 +332,7 @@ fn easy_scene() -> (World, Camera) {
                     })),
                 }),
             ],
+            lights: vec![],
             background: Box::new(ConstantColor {
                 color: RgbColor::new(0.05, 0.05, 0.05),
             }),
@@ -374,6 +378,7 @@ fn one_sphere() -> (World, Camera) {
                     }),
                 })),
             })],
+            lights: vec![],
             background: Box::new(Sky {}),
         },
         Camera::new(
@@ -433,6 +438,7 @@ fn two_spheres() -> (World, Camera) {
                     })),
                 }),
             ],
+            lights: vec![],
             background: Box::new(Sky {}),
         },
         Camera::new(
@@ -476,6 +482,16 @@ fn cornell_box() -> (World, Camera) {
             color: RgbColor::new(0.73, 0.73, 0.73),
         }),
     }));
+    let top_light = Rc::new(FlipNormals {
+        item: Rc::new(XZRect {
+            x0: 213.0,
+            x1: 343.0,
+            z0: 227.0,
+            z1: 332.0,
+            k: 554.0,
+            material: light.clone(),
+        }),
+    });
     (
         World {
             spheres: vec![
@@ -495,16 +511,7 @@ fn cornell_box() -> (World, Camera) {
                     k: 0.0,
                     material: red.clone(),
                 }),
-                Rc::new(FlipNormals {
-                    item: Rc::new(XZRect {
-                        x0: 213.0,
-                        x1: 343.0,
-                        z0: 227.0,
-                        z1: 332.0,
-                        k: 554.0,
-                        material: light.clone(),
-                    }),
-                }),
+                top_light.clone(),
                 Rc::new(XZRect {
                     x0: 0.0,
                     x1: 555.0,
@@ -547,6 +554,7 @@ fn cornell_box() -> (World, Camera) {
                     offset: Vector3::new(130.0, 0.0, 65.0),
                 }),
             ],
+            lights: vec![top_light],
             background: Box::new(ConstantColor {
                 color: RgbColor::new(0.0, 0.0, 0.0),
             }),
@@ -587,11 +595,20 @@ fn cornell_smoke() -> (World, Camera) {
             color: RgbColor::new(7.0, 7.0, 7.0),
         }),
     }));
+
     let white = Rc::new(RefCell::new(Lambertian {
         albedo: Box::new(SolidColor {
             color: RgbColor::new(0.73, 0.73, 0.73),
         }),
     }));
+    let top_light = Rc::new(XZRect {
+        x0: 113.0,
+        x1: 443.0,
+        z0: 127.0,
+        z1: 423.0,
+        k: 554.0,
+        material: light.clone(),
+    });
     (
         World {
             spheres: vec![
@@ -611,14 +628,7 @@ fn cornell_smoke() -> (World, Camera) {
                     k: 0.0,
                     material: red.clone(),
                 }),
-                Rc::new(XZRect {
-                    x0: 113.0,
-                    x1: 443.0,
-                    z0: 127.0,
-                    z1: 423.0,
-                    k: 554.0,
-                    material: light.clone(),
-                }),
+                top_light.clone(),
                 Rc::new(XZRect {
                     x0: 0.0,
                     x1: 555.0,
@@ -703,6 +713,7 @@ fn cornell_smoke() -> (World, Camera) {
                     offset: Vector3::new(130.0, 0.0, 65.0),
                 }),
             ],
+            lights: vec![top_light],
             background: Box::new(ConstantColor {
                 color: RgbColor::new(0.0, 0.0, 0.0),
             }),
