@@ -64,13 +64,14 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
             let pdf = CosinePdf {
                 uvw: OrthoNormalBasis::build_from_w(record.normal),
             };
+            let (pdf_direction, value) = pdf.generate(world);
 
             emitted
                 + color
                     * ray_color(
                         Ray {
                             origin: scattered_ray.origin,
-                            direction: pdf.generate(world),
+                            direction: pdf_direction,
                             time: scattered_ray.time,
                         },
                         world,
