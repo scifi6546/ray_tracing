@@ -88,11 +88,12 @@ impl Light for XZRect {
         let center =
             0.5 * (Point3::new(self.x0, self.k, self.z0) + Vector3::new(self.x1, self.k, self.z1));
         let to_light = center - ray.origin;
-        let cos_alpha = to_light.y.abs();
+        let cos_alpha = to_light.normalize().y.abs();
         if cos_alpha < 0.00001 {
             return 0.0;
         }
         let area = (self.x1 - self.x0) * (self.z1 - self.z0);
+
         let distance_squared = to_light.dot(to_light);
 
         distance_squared / (cos_alpha * area)

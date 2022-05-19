@@ -5,6 +5,7 @@ mod hittable;
 mod material;
 mod pdf;
 mod texture;
+mod world;
 
 use super::{prelude::*, vec_near_zero, Image};
 use crate::reflect;
@@ -18,8 +19,9 @@ use hittable::{
     Sphere, Translate, XYRect,
 };
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
-use pdf::CosinePdf;
+use pdf::{CosinePdf, LightPdf};
 use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
+use world::World;
 
 use crate::ray_tracer::hittable::{XZRect, YZRect};
 use crate::ray_tracer::pdf::PDF;
@@ -64,7 +66,8 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
             let pdf = CosinePdf {
                 uvw: OrthoNormalBasis::build_from_w(record.normal),
             };
-            let (pdf_direction, value) = pdf.generate(world);
+            let pdf = LightPdf {};
+            let (pdf_direction, value) = pdf.generate(ray, world);
 
             emitted
                 + color
@@ -81,7 +84,7 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
                         .material
                         .borrow()
                         .scattering_pdf(ray, &record, scattered_ray)
-                    / pdf.value(&scattered_ray.direction)
+                    / value
         } else {
             emitted
         }
@@ -90,148 +93,6 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
     }
 }
 
-pub struct World {
-    spheres: Vec<Rc<dyn Hittable>>,
-    lights: Vec<Rc<dyn Light>>,
-    background: Box<dyn Background>,
-}
-impl World {
-    pub fn nearest_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        self.spheres
-            .iter()
-            .filter_map(|s| s.hit(ray, t_min, t_max))
-            .reduce(|acc, x| if acc.t < x.t { acc } else { x })
-    }
-    pub fn to_bvh(self, time_0: f32, time_1: f32) -> Self {
-        let sphere_len = self.spheres.len();
-        Self {
-            spheres: vec![Rc::new(bvh::BvhNode::new(
-                self.spheres,
-                0,
-                sphere_len,
-                time_0,
-                time_1,
-            ))],
-            lights: self.lights.clone(),
-            background: self.background,
-        }
-    }
-}
-#[allow(dead_code)]
-fn random_scene() -> (World, Camera) {
-    let big: [Rc<dyn Hittable>; 4] = [
-        Rc::new(Sphere {
-            radius: 1000.0,
-            origin: Point3::new(0.0, -1000.0, 1000.0),
-            material: Rc::new(RefCell::new(Lambertian {
-                albedo: Box::new(SolidColor {
-                    color: RgbColor {
-                        red: 0.5,
-                        green: 0.5,
-                        blue: 0.5,
-                    },
-                }),
-            })),
-        }),
-        Rc::new(Sphere {
-            radius: 1.0,
-            origin: Point3::new(0.0, 1.0, 0.0),
-            material: Rc::new(RefCell::new(Dielectric {
-                index_refraction: 1.5,
-                color: RgbColor::new(1.0, 1.0, 1.0),
-            })),
-        }),
-        Rc::new(Sphere {
-            radius: 1.0,
-            origin: Point3::new(-4.0, 1.0, 0.0),
-            material: Rc::new(RefCell::new(Lambertian {
-                albedo: Box::new(SolidColor {
-                    color: RgbColor::new(0.4, 0.2, 0.1),
-                }),
-            })),
-        }),
-        Rc::new(Sphere {
-            radius: 1.0,
-            origin: Point3::new(4.0, 1.0, 0.0),
-            material: Rc::new(RefCell::new(Metal {
-                albedo: Box::new(SolidColor {
-                    color: RgbColor::new(0.4, 0.2, 0.1),
-                }),
-                fuzz: 0.0,
-            })),
-        }),
-    ];
-    let spheres = (-11..11)
-        .flat_map(|a| {
-            (-11..11).filter_map::<Rc<dyn Hittable>, _>(move |b| {
-                let choose_mat = rand::random::<f32>();
-                let center = Point3::new(
-                    a as f32 + 0.9 * rand::random::<f32>(),
-                    0.2,
-                    b as f32 + 0.9 * rand::random::<f32>(),
-                );
-                let check = center - Point3::new(4.0, 0.2, 0.0);
-                if check.dot(check).sqrt() > 0.9 {
-                    if choose_mat < 0.8 {
-                        Some(Rc::new(MovingSphere {
-                            radius: 0.2,
-                            center_0: center,
-                            center_1: center + Vector3::new(0.0, rand_f32(0.0, 0.5), 0.0),
-                            time_0: 0.0,
-                            time_1: 1.0,
-                            material: Rc::new(RefCell::new(Lambertian {
-                                albedo: Box::new(SolidColor {
-                                    color: RgbColor::random(),
-                                }),
-                            })),
-                        }))
-                    } else if choose_mat < 0.95 {
-                        Some(Rc::new(Sphere {
-                            radius: 0.2,
-                            origin: center,
-                            material: Rc::new(RefCell::new(Metal {
-                                albedo: Box::new(SolidColor {
-                                    color: RgbColor::random(),
-                                }),
-                                fuzz: rand::random::<f32>() * 0.5 + 0.5,
-                            })),
-                        }))
-                    } else {
-                        Some(Rc::new(Sphere {
-                            radius: 0.2,
-                            origin: center,
-                            material: Rc::new(RefCell::new(Dielectric {
-                                color: RgbColor::new(1.0, 1.0, 1.0),
-                                index_refraction: 1.5,
-                            })),
-                        }))
-                    }
-                } else {
-                    None
-                }
-            })
-        })
-        .chain(big)
-        .collect();
-    (
-        World {
-            spheres,
-            lights: vec![],
-            background: Box::new(Sky {}),
-        },
-        Camera::new(
-            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
-            20.0,
-            Point3::new(13.0, 2.0, 3.0),
-            Point3::new(0.0, 0.0, 0.0),
-            Vector3::new(0.0, 1.0, 0.0),
-            0.0005,
-            10.0,
-            0.0,
-            1.0,
-        ),
-    )
-}
 #[allow(dead_code)]
 fn easy_scene() -> (World, Camera) {
     let look_at = Point3::new(0.0f32, 0.0, -1.0);
