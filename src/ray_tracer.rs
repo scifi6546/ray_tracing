@@ -67,24 +67,31 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
                 uvw: OrthoNormalBasis::build_from_w(record.normal),
             };
             let pdf = LightPdf {};
-            let (pdf_direction, value) = pdf.generate(ray, world);
-
-            emitted
-                + color
-                    * ray_color(
-                        Ray {
-                            origin: scattered_ray.origin,
-                            direction: pdf_direction,
-                            time: scattered_ray.time,
-                        },
-                        world,
-                        depth - 1,
-                    )
-                    * record
-                        .material
-                        .borrow()
-                        .scattering_pdf(ray, &record, scattered_ray)
-                    / value
+            if let Some((pdf_direction, value)) = pdf.generate(ray, world) {
+                emitted
+                    + color
+                        * ray_color(
+                            Ray {
+                                origin: record.position,
+                                direction: pdf_direction,
+                                time: scattered_ray.time,
+                            },
+                            world,
+                            depth - 1,
+                        )
+                        * record.material.borrow().scattering_pdf(
+                            ray,
+                            &record,
+                            Ray {
+                                origin: record.position,
+                                direction: pdf_direction,
+                                time: scattered_ray.time,
+                            },
+                        )
+                        / value
+            } else {
+                emitted
+            }
         } else {
             emitted
         }

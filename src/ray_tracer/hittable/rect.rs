@@ -99,18 +99,22 @@ impl Light for XZRect {
         distance_squared / (cos_alpha * area)
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> Ray {
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> (Ray, f32, Vector3<f32>) {
         let end_point = Point3::new(
             rand_f32(self.x0, self.x0),
             self.k,
             rand_f32(self.z0, self.z1),
         );
         let direction = (end_point - origin).normalize();
-        Ray {
-            origin,
-            direction,
-            time,
-        }
+        (
+            Ray {
+                origin,
+                direction,
+                time,
+            },
+            (self.x1 - self.x0) * (self.z1 - self.z0),
+            end_point - origin,
+        )
     }
 }
 pub struct YZRect {

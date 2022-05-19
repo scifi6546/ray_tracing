@@ -1,6 +1,6 @@
 use super::{HitRecord, Hittable, Light, AABB};
 use crate::prelude::*;
-use cgmath::Point3;
+use cgmath::{Point3, Vector3};
 use std::rc::Rc;
 
 pub struct FlipNormals {
@@ -26,7 +26,7 @@ impl Light for FlipNormals {
         self.item.prob(ray)
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> Ray {
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> (Ray, f32, Vector3<f32>) {
         self.item.generate_ray_in_area(origin, time)
     }
 }
