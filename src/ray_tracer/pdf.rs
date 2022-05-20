@@ -28,6 +28,9 @@ impl PDF for LightPdf {
         let dist_squared = to_light.dot(to_light);
         if light_cos >= 0.00001 {
             let value = dist_squared / (light_cos * area);
+            if debug() {
+                println!("idx: {},value: {}", idx, value)
+            }
             Some((ray.direction.normalize(), value))
         } else {
             None

@@ -101,7 +101,7 @@ impl Light for XZRect {
 
     fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> (Ray, f32, Vector3<f32>) {
         let end_point = Point3::new(
-            rand_f32(self.x0, self.x0),
+            rand_f32(self.x0, self.x1),
             self.k,
             rand_f32(self.z0, self.z1),
         );

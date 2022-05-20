@@ -68,7 +68,7 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
             };
             let pdf = LightPdf {};
             if let Some((pdf_direction, value)) = pdf.generate(ray, world) {
-                emitted
+                let c_val = emitted
                     + color
                         * ray_color(
                             Ray {
@@ -88,7 +88,11 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
                                 time: scattered_ray.time,
                             },
                         )
-                        / value
+                        / value;
+                if debug() {
+                    println!("cval: {}", c_val)
+                }
+                c_val
             } else {
                 emitted
             }
@@ -640,10 +644,15 @@ impl RayTracer {
                     rgb_img.add_xy(x, y, ray_color(r, &world, 50));
                 }
             }
-
             self.sender
-                .send(Image::from_rgb_image(&(rgb_img.clone() / num_s as f32)))
+                .send(Image::from_rgb_image(&(rgb_img.clone() / 0.0000001 as f32)))
                 .expect("channel failed");
+            /*
+                       self.sender
+                           .send(Image::from_rgb_image(&(rgb_img.clone() / num_s as f32)))
+                           .expect("channel failed");
+
+            */
         }
     }
 }
