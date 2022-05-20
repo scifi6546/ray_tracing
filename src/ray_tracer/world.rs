@@ -1,10 +1,12 @@
+mod easy_cornell_box;
 mod random_scene;
 
 use super::{
-    bvh::BvhNode, hittable::*, material::*, texture::*, Background, Camera, HitRecord, Hittable,
-    Light, Sky,
+    bvh::BvhNode, hittable::*, material::*, texture::*, Background, Camera, ConstantColor,
+    HitRecord, Hittable, Light, Sky, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
+pub use easy_cornell_box::easy_cornell_box;
 use std::rc::Rc;
 pub struct World {
     pub spheres: Vec<Rc<dyn Hittable>>,

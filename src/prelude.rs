@@ -255,6 +255,21 @@ impl Ray {
         self.origin + t * self.direction
     }
 }
+impl Display for Ray {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(
+            f,
+            "(dir: <{},{},{}>, origin: <{},{},{}>, time: {})",
+            self.direction.x,
+            self.direction.y,
+            self.direction.z,
+            self.origin.x,
+            self.origin.y,
+            self.origin.z,
+            self.time
+        )
+    }
+}
 #[cfg(test)]
 mod test {
     use super::*;

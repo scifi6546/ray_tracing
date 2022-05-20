@@ -24,12 +24,15 @@ impl PDF for LightPdf {
         let idx = rand_u32(0, world.lights.len() as u32) as usize;
         let (ray, area, to_light) =
             world.lights[idx].generate_ray_in_area(incoming_ray.origin, incoming_ray.time);
-        let light_cos = to_light.normalize().y;
+        let light_cos = to_light.normalize().y.abs();
         let dist_squared = to_light.dot(to_light);
-        if light_cos >= 0.00001 {
+        if light_cos >= 0.000001 {
             let value = dist_squared / (light_cos * area);
             if debug() {
-                println!("idx: {},value: {}", idx, value)
+                println!(
+                    "area: {}, light cos: {}, idx: {} ,value: {}, incoming ray: {}",
+                    area, light_cos, idx, value, incoming_ray
+                )
             }
             Some((ray.direction.normalize(), value))
         } else {

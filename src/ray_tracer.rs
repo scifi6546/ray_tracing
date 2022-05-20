@@ -384,7 +384,6 @@ fn cornell_box() -> (World, Camera) {
                     k: 0.0,
                     material: red.clone(),
                 }),
-                top_light.clone(),
                 Rc::new(XZRect {
                     x0: 0.0,
                     x1: 555.0,
@@ -426,6 +425,7 @@ fn cornell_box() -> (World, Camera) {
                     )),
                     offset: Vector3::new(130.0, 0.0, 65.0),
                 }),
+                top_light.clone(),
             ],
             lights: vec![top_light],
             background: Box::new(ConstantColor {
@@ -626,7 +626,8 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        let (world, camera) = cornell_box();
+        //  let (world, camera) = cornell_box();
+        let (world, camera) = world::easy_cornell_box();
         let world = world.to_bvh(camera.start_time(), camera.end_time());
         println!(
             "world bounding box: {:#?}",
