@@ -1,9 +1,11 @@
 use crate::prelude::*;
+use crate::ray_tracer::hittable::Hittable;
 use crate::ray_tracer::World;
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
+use std::rc::Rc;
 
 pub trait PDF {
-    //  fn value(&self, direction: &Vector3<f32>) -> f32;
+    fn value(&self, direction: &Ray, world: &World) -> f32;
     fn generate(
         &self,
         incoming_ray: Ray,
@@ -14,7 +16,23 @@ pub trait PDF {
 pub struct CosinePdf {
     pub uvw: OrthoNormalBasis,
 }
+impl CosinePdf {
+    pub fn new(normal: Vector3<f32>) -> Self {
+        Self {
+            uvw: OrthoNormalBasis::build_from_w(normal),
+        }
+    }
+}
 impl PDF for CosinePdf {
+    fn value(&self, ray: &Ray, _world: &World) -> f32 {
+        let cos = ray.direction.dot(self.uvw.w());
+        if cos <= 0.0 {
+            0.0
+        } else {
+            cos / f32::PI()
+        }
+    }
+
     fn generate(
         &self,
         _ray: Ray,
@@ -33,6 +51,27 @@ impl PDF for CosinePdf {
 }
 pub struct LightPdf {}
 impl PDF for LightPdf {
+    fn value(&self, ray: &Ray, world: &World) -> f32 {
+        if let Some((light, hit)) = world.nearest_light_hit(ray, ray.time, f32::MAX) {
+            let to_light = hit.position - ray.origin;
+            let light_cos = to_light.normalize().y.abs();
+            let dist_squared = to_light.dot(to_light);
+            if light_cos >= 0.000001 {
+                let value = light.prob(Ray {
+                    origin: hit.position,
+                    direction: to_light.normalize(),
+                    time: hit.t,
+                });
+
+                value
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        }
+    }
+
     fn generate(
         &self,
         incoming_ray: Ray,
@@ -68,6 +107,10 @@ impl PdfList {
     }
 }
 impl PDF for PdfList {
+    fn value(&self, direction: &Ray, world: &World) -> f32 {
+        todo!()
+    }
+
     fn generate(
         &self,
         incoming_ray: Ray,
@@ -84,4 +127,9 @@ impl PDF for PdfList {
             None
         }
     }
+}
+pub struct ScatterRecord {
+    pub specular_ray: Option<Ray>,
+    pub attenuation: RgbColor,
+    pub pdf: Option<Rc<dyn PDF>>,
 }

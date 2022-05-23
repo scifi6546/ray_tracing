@@ -59,5 +59,6 @@ impl HitRecord {
 pub trait Light: Hittable {
     /// probability of hitting the box
     fn prob(&self, ray: Ray) -> f32;
+
     fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> (Ray, f32, Vector3<f32>);
 }

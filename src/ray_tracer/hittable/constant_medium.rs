@@ -22,8 +22,6 @@ impl ConstantMedium {
 }
 impl Hittable for ConstantMedium {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let enable_debug = true;
-        let debugging = enable_debug && rand_f32(0.0, 1.0) < 0.00001;
         let hit_res1 = self.boundary.hit(ray, -1.0 * 10000000000.0, 10000000000.0);
         if hit_res1.is_none() {
             return None;
@@ -43,7 +41,7 @@ impl Hittable for ConstantMedium {
         }
 
         if hit1.t >= hit2.t {
-            if debugging {
+            if debug() {
                 println!(
                     "none, hit1.t = {}, hit2.t = {}, t_min: {} t_max: {}",
                     hit1.t, hit2.t, t_min, t_max
@@ -55,7 +53,7 @@ impl Hittable for ConstantMedium {
             hit1.t = 0.0;
         }
 
-        if debugging {
+        if debug() {
             println!(
                 "hit!!!   hit1.t = {}, hit2.t = {}, t_min: {} t_max: {}",
                 hit1.t, hit2.t, t_min, t_max
@@ -73,7 +71,7 @@ impl Hittable for ConstantMedium {
         }
         let t = hit1.t + hit_distance / ray_length;
         let position = ray.at(t);
-        if debugging {
+        if debug() {
             println!(
                 "hit distance: {} t: {} position: <{},{},{}>",
                 hit_distance, t, position.x, position.y, position.z

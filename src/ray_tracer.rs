@@ -19,7 +19,7 @@ use hittable::{
     Sphere, Translate, XYRect,
 };
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
-use pdf::{CosinePdf, LightPdf, PdfList};
+use pdf::{CosinePdf, LightPdf, PdfList, ScatterRecord};
 use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
 use world::World;
 
@@ -64,82 +64,50 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
         if let Some(emitted) = record.material.borrow().emmit(&record) {
             return emitted;
         };
-        if let Some((color, scattered_ray, pdf)) = record.material.borrow().scatter(ray, &record) {
-            let pdf = PdfList::new(vec![
-                Box::new(CosinePdf {
-                    uvw: OrthoNormalBasis::build_from_w(record.normal),
-                }),
-                Box::new(LightPdf {}),
-            ]);
-
-            if let Some((pdf_direction, value)) =
-                pdf.generate(scattered_ray, record.position, world)
-            {
-                let scattering_pdf = record.material.borrow().scattering_pdf(
-                    ray,
-                    &record,
-                    Ray {
-                        origin: record.position,
-                        direction: pdf_direction,
-                        time: scattered_ray.time,
-                    },
-                );
-                if debug() {
-                    println!("scattering pdf: {}", scattering_pdf);
-                }
-                let value = value / scattering_pdf;
-                let temp_c = color
-                    * ray_color(
+        if let Some(scatter_record) = record.material.borrow().scatter(ray, &record) {
+            if let Some(specular_ray) = scatter_record.specular_ray {
+                scatter_record.attenuation * ray_color(specular_ray, world, depth - 1)
+            } else {
+                if let Some((pdf_direction, value)) = scatter_record
+                    .pdf
+                    .expect("if material is not specular there should be a pdf")
+                    .generate(ray, record.position, world)
+                {
+                    let scattering_pdf = record.material.borrow().scattering_pdf(
+                        ray,
+                        &record,
                         Ray {
                             origin: record.position,
                             direction: pdf_direction,
-                            time: scattered_ray.time,
+                            time: record.t,
                         },
-                        world,
-                        depth - 1,
-                    )
-                    / value;
-                if debug() {
-                    println!("out color: {}", temp_c);
+                    );
+                    if debug() {
+                        println!("scattering pdf: {}", scattering_pdf);
+                    }
+                    let value = value / scattering_pdf;
+                    let temp_c = scatter_record.attenuation
+                        * ray_color(
+                            Ray {
+                                origin: record.position,
+                                direction: pdf_direction,
+                                time: record.t,
+                            },
+                            world,
+                            depth - 1,
+                        )
+                        / value;
+                    if debug() {
+                        println!("out color: {}", temp_c);
+                    }
+                    return temp_c;
+                } else {
+                    //emitted
+                    if debug() {
+                        println!("pdf not generated!");
+                    }
+                    RgbColor::BLACK
                 }
-                return temp_c;
-                return RgbColor::new(0.5, 0.5, 0.5);
-                /*
-                               let c_val = emitted
-                                   + color
-                                       * ray_color(
-                                           Ray {
-                                               origin: record.position,
-                                               direction: pdf_direction,
-                                               time: scattered_ray.time,
-                                           },
-                                           world,
-                                           depth - 1,
-                                       )
-                                       * record.material.borrow().scattering_pdf(
-                                           ray,
-                                           &record,
-                                           Ray {
-                                               origin: record.position,
-                                               direction: pdf_direction,
-                                               time: scattered_ray.time,
-                                           },
-                                       )
-                                       / value;
-
-
-
-                if debug() {
-                    println!("cval: {}", c_val)
-                }
-                c_val
-                */
-            } else {
-                //emitted
-                if debug() {
-                    println!("pdf not generated!");
-                }
-                RgbColor::BLACK
             }
         } else {
             // emitted
@@ -173,7 +141,7 @@ impl RayTracer {
             .expect("failed to send");
 
         //  let (world, camera) = world::easy_cornell_box();
-        let (world, camera) = world::cornell_box();
+        let (world, camera) = world::cornell_smoke();
         let world = world.to_bvh(camera.start_time(), camera.end_time());
         println!(
             "world bounding box: {:#?}",

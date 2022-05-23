@@ -1,6 +1,7 @@
 use super::{
-    Camera, ConstantColor, ConstantMedium, DiffuseLight, Isotropic, Lambertian, RenderBox, RotateY,
-    SolidColor, Sphere, Translate, World, XYRect, XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    Camera, ConstantColor, ConstantMedium, DiffuseLight, FlipNormals, Isotropic, Lambertian,
+    RenderBox, RotateY, SolidColor, Sphere, Translate, World, XYRect, XZRect, YZRect, IMAGE_HEIGHT,
+    IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -34,13 +35,15 @@ pub fn cornell_smoke() -> (World, Camera) {
             color: RgbColor::new(0.73, 0.73, 0.73),
         }),
     }));
-    let top_light = Rc::new(XZRect {
-        x0: 113.0,
-        x1: 443.0,
-        z0: 127.0,
-        z1: 423.0,
-        k: 554.0,
-        material: light.clone(),
+    let top_light = Rc::new(FlipNormals {
+        item: Rc::new(XZRect {
+            x0: 113.0,
+            x1: 443.0,
+            z0: 127.0,
+            z1: 423.0,
+            k: 554.0,
+            material: light.clone(),
+        }),
     });
     (
         World {

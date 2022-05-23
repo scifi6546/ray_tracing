@@ -18,12 +18,29 @@ pub use easy_scene::easy_scene;
 pub use one_sphere::one_sphere;
 use std::rc::Rc;
 pub use two_spheres::two_spheres;
+
 pub struct World {
     pub spheres: Vec<Rc<dyn Hittable>>,
     pub lights: Vec<Rc<dyn Light>>,
     pub background: Box<dyn Background>,
 }
 impl World {
+    pub fn nearest_light_hit(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(Rc<dyn Light>, HitRecord)> {
+        let t = self
+            .lights
+            .iter()
+            .map(|s| (s.clone(), s.hit(ray, t_min, t_max)))
+            .filter(|(light, hit)| hit.is_some())
+            .map(|(light, hit)| (light, hit.unwrap()))
+            .reduce(|acc, x| if acc.1.t < x.1.t { acc } else { x });
+        todo!()
+    }
+
     pub fn nearest_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         self.spheres
             .iter()
