@@ -245,7 +245,7 @@ pub fn random_cosine_direction() -> Vector3<f32> {
     Vector3 { x, y, z }
 }
 pub fn debug() -> bool {
-    const DEBUG: bool = true;
+    const DEBUG: bool = false;
     rand_u32(0, 1_000_000) == 0 && DEBUG
 }
 #[repr(C)]
