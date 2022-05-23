@@ -44,6 +44,11 @@ pub struct RgbColor {
     pub blue: f32,
 }
 impl RgbColor {
+    pub const BLACK: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+    };
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
         Self { red, green, blue }
     }
@@ -200,7 +205,7 @@ impl OrthoNormalBasis {
             Vector3::new(1.0, 0.0, 0.0)
         };
         let v = w.cross(a).normalize();
-        let u = w.cross(v).normalize();
+        let u = w.cross(v);
         Self { axis: [u, v, w] }
     }
     pub fn local(&self, a: Vector3<f32>) -> Vector3<f32> {

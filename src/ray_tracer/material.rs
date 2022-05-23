@@ -7,8 +7,8 @@ pub type PDF = f32;
 pub trait Material {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<(RgbColor, Ray, PDF)>;
     fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32;
-    fn emmit(&self, record: &HitRecord) -> RgbColor {
-        RgbColor::new(0.0, 0.0, 0.0)
+    fn emmit(&self, record: &HitRecord) -> Option<RgbColor> {
+        None
     }
 }
 pub struct Lambertian {
@@ -139,11 +139,11 @@ impl Material for DiffuseLight {
         0.0
     }
 
-    fn emmit(&self, record: &HitRecord) -> RgbColor {
+    fn emmit(&self, record: &HitRecord) -> Option<RgbColor> {
         if record.front_face {
-            self.emit.color(record.uv, record.position)
+            Some(self.emit.color(record.uv, record.position))
         } else {
-            RgbColor::new(0.0, 0.0, 0.0)
+            Some(RgbColor::new(0.0, 0.0, 0.0))
         }
     }
 }

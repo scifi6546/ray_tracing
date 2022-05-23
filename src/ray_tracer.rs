@@ -19,7 +19,7 @@ use hittable::{
     Sphere, Translate, XYRect,
 };
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
-use pdf::{CosinePdf, LightPdf};
+use pdf::{CosinePdf, LightPdf, PdfList};
 use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
 use world::World;
 
@@ -61,43 +61,89 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
         };
     }
     if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
-        let emitted = record.material.borrow().emmit(&record);
+        if let Some(emitted) = record.material.borrow().emmit(&record) {
+            return emitted;
+        };
         if let Some((color, scattered_ray, pdf)) = record.material.borrow().scatter(ray, &record) {
-            let pdf = CosinePdf {
-                uvw: OrthoNormalBasis::build_from_w(record.normal),
-            };
-            let pdf = LightPdf {};
-            if let Some((pdf_direction, value)) = pdf.generate(ray, world) {
-                let c_val = emitted
-                    + color
-                        * ray_color(
-                            Ray {
-                                origin: record.position,
-                                direction: pdf_direction,
-                                time: scattered_ray.time,
-                            },
-                            world,
-                            depth - 1,
-                        )
-                        * record.material.borrow().scattering_pdf(
-                            ray,
-                            &record,
-                            Ray {
-                                origin: record.position,
-                                direction: pdf_direction,
-                                time: scattered_ray.time,
-                            },
-                        )
-                        / value;
+            let pdf = PdfList::new(vec![
+                Box::new(CosinePdf {
+                    uvw: OrthoNormalBasis::build_from_w(record.normal),
+                }),
+                Box::new(LightPdf {}),
+            ]);
+
+            if let Some((pdf_direction, value)) =
+                pdf.generate(scattered_ray, record.position, world)
+            {
+                let scattering_pdf = record.material.borrow().scattering_pdf(
+                    ray,
+                    &record,
+                    Ray {
+                        origin: record.position,
+                        direction: pdf_direction,
+                        time: scattered_ray.time,
+                    },
+                );
+                if debug() {
+                    println!("scattering pdf: {}", scattering_pdf);
+                }
+                let value = value / scattering_pdf;
+                let temp_c = color
+                    * ray_color(
+                        Ray {
+                            origin: record.position,
+                            direction: pdf_direction,
+                            time: scattered_ray.time,
+                        },
+                        world,
+                        depth - 1,
+                    )
+                    / value;
+                if debug() {
+                    println!("out color: {}", temp_c);
+                }
+                return temp_c;
+                return RgbColor::new(0.5, 0.5, 0.5);
+                /*
+                               let c_val = emitted
+                                   + color
+                                       * ray_color(
+                                           Ray {
+                                               origin: record.position,
+                                               direction: pdf_direction,
+                                               time: scattered_ray.time,
+                                           },
+                                           world,
+                                           depth - 1,
+                                       )
+                                       * record.material.borrow().scattering_pdf(
+                                           ray,
+                                           &record,
+                                           Ray {
+                                               origin: record.position,
+                                               direction: pdf_direction,
+                                               time: scattered_ray.time,
+                                           },
+                                       )
+                                       / value;
+
+
+
                 if debug() {
                     println!("cval: {}", c_val)
                 }
                 c_val
+                */
             } else {
-                emitted
+                //emitted
+                if debug() {
+                    println!("pdf not generated!");
+                }
+                RgbColor::BLACK
             }
         } else {
-            emitted
+            // emitted
+            panic!()
         }
     } else {
         world.background.color(ray)
@@ -328,124 +374,6 @@ fn two_spheres() -> (World, Camera) {
     )
 }
 #[allow(dead_code)]
-fn cornell_box() -> (World, Camera) {
-    let look_at = Point3::new(278.0f32, 278.0, 0.0);
-    let origin = Point3::new(278.0, 278.0, -800.0);
-    let focus_distance = {
-        let t = look_at - origin;
-        (t.dot(t)).sqrt()
-    };
-    let green = Rc::new(RefCell::new(Lambertian {
-        albedo: Box::new(SolidColor {
-            color: RgbColor::new(0.12, 0.45, 0.15),
-        }),
-    }));
-    let red = Rc::new(RefCell::new(Lambertian {
-        albedo: Box::new(SolidColor {
-            color: RgbColor::new(0.65, 0.05, 0.05),
-        }),
-    }));
-    let light = Rc::new(RefCell::new(DiffuseLight {
-        emit: Box::new(SolidColor {
-            color: RgbColor::new(15.0, 15.0, 15.0),
-        }),
-    }));
-    let white = Rc::new(RefCell::new(Lambertian {
-        albedo: Box::new(SolidColor {
-            color: RgbColor::new(0.73, 0.73, 0.73),
-        }),
-    }));
-    let top_light = Rc::new(FlipNormals {
-        item: Rc::new(XZRect {
-            x0: 213.0,
-            x1: 343.0,
-            z0: 227.0,
-            z1: 332.0,
-            k: 554.0,
-            material: light.clone(),
-        }),
-    });
-    (
-        World {
-            spheres: vec![
-                Rc::new(YZRect {
-                    y0: 0.0,
-                    y1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 555.0,
-                    material: green.clone(),
-                }),
-                Rc::new(YZRect {
-                    y0: 0.0,
-                    y1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 0.0,
-                    material: red.clone(),
-                }),
-                Rc::new(XZRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 0.0,
-                    material: white.clone(),
-                }),
-                Rc::new(XZRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 555.0,
-                    material: white.clone(),
-                }),
-                Rc::new(XYRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    y0: 0.0,
-                    y1: 555.0,
-                    k: 555.0,
-                    material: white.clone(),
-                }),
-                Rc::new(Translate {
-                    item: Rc::new(RenderBox::new(
-                        Point3::new(0.0, 0.0, 0.0),
-                        Point3::new(165.0, 330.0, 165.0),
-                        white.clone(),
-                    )),
-
-                    offset: Vector3::new(265.0, 0.0, 295.0),
-                }),
-                Rc::new(Translate {
-                    item: Rc::new(RenderBox::new(
-                        Point3::new(0.0, 0.0, 0.0),
-                        Point3::new(165.0, 165.0, 165.0),
-                        white.clone(),
-                    )),
-                    offset: Vector3::new(130.0, 0.0, 65.0),
-                }),
-                top_light.clone(),
-            ],
-            lights: vec![top_light],
-            background: Box::new(ConstantColor {
-                color: RgbColor::new(0.0, 0.0, 0.0),
-            }),
-        },
-        Camera::new(
-            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
-            40.0,
-            origin,
-            look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
-            focus_distance,
-            0.0,
-            0.0,
-        ),
-    )
-}
-#[allow(dead_code)]
 fn cornell_smoke() -> (World, Camera) {
     let look_at = Point3::new(278.0f32, 278.0, 0.0);
     let origin = Point3::new(278.0, 278.0, -800.0);
@@ -626,8 +554,8 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        //  let (world, camera) = cornell_box();
-        let (world, camera) = world::easy_cornell_box();
+        //  let (world, camera) = world::easy_cornell_box();
+        let (world, camera) = world::cornell_box();
         let world = world.to_bvh(camera.start_time(), camera.end_time());
         println!(
             "world bounding box: {:#?}",
@@ -645,15 +573,10 @@ impl RayTracer {
                     rgb_img.add_xy(x, y, ray_color(r, &world, 50));
                 }
             }
-            self.sender
-                .send(Image::from_rgb_image(&(rgb_img.clone() / 0.0000001 as f32)))
-                .expect("channel failed");
-            /*
-                       self.sender
-                           .send(Image::from_rgb_image(&(rgb_img.clone() / num_s as f32)))
-                           .expect("channel failed");
 
-            */
+            self.sender
+                .send(Image::from_rgb_image(&(rgb_img.clone() / num_s as f32)))
+                .expect("channel failed");
         }
     }
 }
