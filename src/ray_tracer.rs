@@ -102,7 +102,6 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
                     }
                     return temp_c;
                 } else {
-                    //emitted
                     if debug() {
                         println!("pdf not generated!");
                     }
