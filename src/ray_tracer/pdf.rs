@@ -56,6 +56,7 @@ impl PDF for LightPdf {
             let to_light = hit.position - ray.origin;
             let light_cos = to_light.normalize().y.abs();
             let dist_squared = to_light.dot(to_light);
+            // todo: make work with shapes other then xz rects
             if light_cos >= 0.000001 {
                 let value = light.prob(Ray {
                     origin: hit.position,
@@ -121,8 +122,20 @@ impl PDF for PdfList {
         if let Some((out_direction, pdf)) =
             self.items[random_pdf].generate(incoming_ray, hit_point, world)
         {
-            // Some((out_direction, pdf / self.items.len() as f32))
-            Some((out_direction, pdf))
+            let total = world
+                .lights
+                .iter()
+                .map(|light| {
+                    light.prob(Ray {
+                        origin: hit_point,
+                        direction: out_direction,
+                        time: 0.0,
+                    })
+                })
+                .collect::<Vec<_>>();
+            let avg: f32 = total.iter().sum::<f32>() / total.len() as f32;
+
+            Some((out_direction, avg))
         } else {
             None
         }
