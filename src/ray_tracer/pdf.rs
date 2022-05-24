@@ -7,6 +7,8 @@ use std::rc::Rc;
 
 pub trait PDF {
     fn value(&self, direction: &Ray, world: &World) -> f32;
+    /// Checks if the PDF is valid for the given world
+    fn is_valid(&self, world: &World) -> bool;
     fn generate(
         &self,
         incoming_ray: Ray,
@@ -34,6 +36,10 @@ impl PDF for CosinePdf {
         }
     }
 
+    fn is_valid(&self, world: &World) -> bool {
+        true
+    }
+
     fn generate(
         &self,
         _ray: Ray,
@@ -56,11 +62,10 @@ impl PDF for LightPdf {
         if let Some((light, hit)) = world.nearest_light_hit(ray, ray.time, f32::MAX) {
             let to_light = hit.position - ray.origin;
             let light_cos = to_light.normalize().dot(hit.normal).abs();
-            let dist_squared = to_light.dot(to_light);
 
             if light_cos >= 0.000001 {
                 let value = light.prob(Ray {
-                    origin: hit.position,
+                    origin: ray.origin,
                     direction: to_light.normalize(),
                     time: hit.t,
                 });
@@ -72,6 +77,9 @@ impl PDF for LightPdf {
         } else {
             0.0
         }
+    }
+    fn is_valid(&self, world: &World) -> bool {
+        !world.lights.is_empty()
     }
 
     fn generate(
@@ -121,6 +129,13 @@ impl PDF for PdfList {
         todo!()
     }
 
+    fn is_valid(&self, world: &World) -> bool {
+        self.items
+            .iter()
+            .map(|item| item.is_valid(world))
+            .fold(false, |acc, x| (acc || x))
+    }
+
     fn generate(
         &self,
         incoming_ray: Ray,
@@ -131,18 +146,22 @@ impl PDF for PdfList {
         if let Some((out_direction, pdf)) =
             self.items[random_pdf].generate(incoming_ray, hit_point, world)
         {
-            let total = world
-                .lights
+            let hit = self
+                .items
                 .iter()
-                .map(|light| {
-                    light.prob(Ray {
-                        origin: hit_point,
-                        direction: out_direction,
-                        time: 0.0,
-                    })
+                .filter(|item| item.is_valid(world))
+                .map(|item| {
+                    item.value(
+                        &Ray {
+                            origin: hit_point,
+                            direction: out_direction,
+                            time: 0.0,
+                        },
+                        world,
+                    )
                 })
                 .collect::<Vec<_>>();
-            let avg: f32 = total.iter().sum::<f32>() / total.len() as f32;
+            let avg: f32 = hit.iter().sum::<f32>() / hit.len() as f32;
 
             Some((out_direction, avg))
         } else {

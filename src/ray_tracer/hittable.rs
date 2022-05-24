@@ -63,7 +63,7 @@ pub struct RayAreaInfo {
 }
 
 pub trait Light: Hittable {
-    /// probability of hitting the box
+    /// probability of hitting the box for given ray going towards point
     fn prob(&self, ray: Ray) -> f32;
 
     fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo;

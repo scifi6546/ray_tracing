@@ -1,13 +1,13 @@
 use super::{
     rand_unit_vec, reflect, vec_near_zero, CosinePdf, HitRecord, LightPdf, PdfList, Ray, RgbColor,
-    ScatterRecord, Texture,
+    ScatterRecord, Texture, PDF,
 };
 
 use crate::prelude::*;
 
 use cgmath::{num_traits::*, prelude::*, InnerSpace, Point2, Point3, Vector2, Vector3};
 use std::rc::Rc;
-pub type PDF = f32;
+//pub type PDF = f32;
 pub trait Material {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord>;
     fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32;
@@ -40,14 +40,17 @@ impl Material for Lambertian {
         };
         let pdf = uvw.w().dot(ray_out.direction) / f32::PI();
         let attenuation = self.albedo.color(record_in.uv, record_in.position);
-
+        let pdf: Rc<dyn PDF> = Rc::new(PdfList::new(vec![
+            Box::new(CosinePdf::new(record_in.normal)),
+            Box::new(LightPdf {}),
+        ]));
+        let pdf = Some(pdf);
+        //let pdf: Rc<dyn PDF> = Rc::new(LightPdf {});
+        //let pdf = Some(pdf);
         let scatter_record = ScatterRecord {
             specular_ray: None,
             attenuation,
-            pdf: Some(Rc::new(PdfList::new(vec![
-                Box::new(CosinePdf::new(record_in.normal)),
-                Box::new(LightPdf {}),
-            ]))),
+            pdf,
         };
         Some(scatter_record)
     }

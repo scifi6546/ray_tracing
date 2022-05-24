@@ -32,14 +32,12 @@ impl World {
         t_min: f32,
         t_max: f32,
     ) -> Option<(Rc<dyn Light>, HitRecord)> {
-        let t = self
-            .lights
+        self.lights
             .iter()
-            .map(|s| (s.clone(), s.hit(ray, t_min, t_max)))
-            .filter(|(light, hit)| hit.is_some())
-            .map(|(light, hit)| (light, hit.unwrap()))
-            .reduce(|acc, x| if acc.1.t < x.1.t { acc } else { x });
-        todo!()
+            .map(|light| (light.clone(), light.hit(ray, t_min, t_max)))
+            .filter(|(light, hit_opt)| hit_opt.is_some())
+            .map(|(light, hit_opt)| (light, hit_opt.unwrap()))
+            .reduce(|acc, x| if acc.1.t < x.1.t { acc } else { x })
     }
 
     pub fn nearest_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {

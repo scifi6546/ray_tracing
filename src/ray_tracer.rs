@@ -140,7 +140,7 @@ impl RayTracer {
             .expect("failed to send");
 
         //  let (world, camera) = world::easy_cornell_box();
-        let (world, camera) = world::two_spheres();
+        let (world, camera) = world::cornell_smoke();
         let world = world.to_bvh(camera.start_time(), camera.end_time());
         println!(
             "world bounding box: {:#?}",
