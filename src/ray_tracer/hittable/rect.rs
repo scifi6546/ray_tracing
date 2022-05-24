@@ -1,7 +1,8 @@
-use super::{HitRecord, Hittable, Light, Material, AABB};
+use super::{HitRecord, Hittable, Light, Material, RayAreaInfo, AABB};
 use crate::prelude::*;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
+
 pub struct XYRect {
     pub material: Rc<RefCell<dyn Material>>,
     pub x0: f32,
@@ -52,6 +53,13 @@ pub struct XZRect {
     pub k: f32,
     pub material: Rc<RefCell<dyn Material>>,
 }
+impl XZRect {
+    pub const NORMAL: Vector3<f32> = Vector3 {
+        x: 0.0,
+        y: 1.0,
+        z: 0.0,
+    };
+}
 impl Hittable for XZRect {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let t = (self.k - ray.origin.y) / ray.direction.y;
@@ -99,22 +107,23 @@ impl Light for XZRect {
         distance_squared / (cos_alpha * area)
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> (Ray, f32, Vector3<f32>) {
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
         let end_point = Point3::new(
             rand_f32(self.x0, self.x1),
             self.k,
             rand_f32(self.z0, self.z1),
         );
         let direction = (end_point - origin).normalize();
-        (
-            Ray {
+        RayAreaInfo {
+            to_area: Ray {
                 origin,
                 direction,
                 time,
             },
-            (self.x1 - self.x0) * (self.z1 - self.z0),
-            end_point - origin,
-        )
+            normal: Self::NORMAL,
+            area: (self.x1 - self.x0) * (self.z1 - self.z0),
+            direction: end_point - origin,
+        }
     }
 }
 pub struct YZRect {

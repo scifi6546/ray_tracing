@@ -6,7 +6,7 @@ use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
 #[allow(dead_code)]
-fn random_scene() -> (World, Camera) {
+pub fn random_scene() -> (World, Camera) {
     let big: [Rc<dyn Hittable>; 4] = [
         Rc::new(Sphere {
             radius: 1000.0,

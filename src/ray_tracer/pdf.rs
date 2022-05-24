@@ -2,6 +2,7 @@ use crate::prelude::*;
 use crate::ray_tracer::hittable::Hittable;
 use crate::ray_tracer::World;
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
+use std::ops::Neg;
 use std::rc::Rc;
 
 pub trait PDF {
@@ -54,9 +55,9 @@ impl PDF for LightPdf {
     fn value(&self, ray: &Ray, world: &World) -> f32 {
         if let Some((light, hit)) = world.nearest_light_hit(ray, ray.time, f32::MAX) {
             let to_light = hit.position - ray.origin;
-            let light_cos = to_light.normalize().y.abs();
+            let light_cos = to_light.normalize().dot(hit.normal).abs();
             let dist_squared = to_light.dot(to_light);
-            // todo: make work with shapes other then xz rects
+
             if light_cos >= 0.000001 {
                 let value = light.prob(Ray {
                     origin: hit.position,
@@ -79,20 +80,28 @@ impl PDF for LightPdf {
         hit_point: Point3<f32>,
         world: &World,
     ) -> Option<(Vector3<f32>, f32)> {
+        if world.lights.is_empty() {
+            return None;
+        }
         let idx = rand_u32(0, world.lights.len() as u32) as usize;
-        let (ray, area, to_light) =
-            world.lights[idx].generate_ray_in_area(hit_point, incoming_ray.time);
-        let light_cos = to_light.normalize().y.abs();
-        let dist_squared = to_light.dot(to_light);
+        let area_info = world.lights[idx].generate_ray_in_area(hit_point, incoming_ray.time);
+
+        let light_cos = area_info
+            .to_area
+            .direction
+            .normalize()
+            .dot(area_info.normal)
+            .abs();
+        let dist_squared = area_info.direction.dot(area_info.direction);
         if light_cos >= 0.000001 {
-            let value = dist_squared / (light_cos * area);
+            let value = dist_squared / (light_cos * area_info.area);
             if debug() {
                 println!(
                     "area: {}, light cos: {}, idx: {} ,value: {}, incoming ray: {}",
-                    area, light_cos, idx, value, incoming_ray
+                    area_info.area, light_cos, idx, value, incoming_ray
                 )
             }
-            Some((ray.direction.normalize(), value))
+            Some((area_info.to_area.direction.normalize(), value))
         } else {
             None
         }
