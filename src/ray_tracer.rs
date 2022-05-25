@@ -67,46 +67,35 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
         if let Some(scatter_record) = record.material.borrow().scatter(ray, &record) {
             if let Some(specular_ray) = scatter_record.specular_ray {
                 scatter_record.attenuation * ray_color(specular_ray, world, depth - 1)
-            } else {
-                if let Some((pdf_direction, value)) = scatter_record
-                    .pdf
-                    .expect("if material is not specular there should be a pdf")
-                    .generate(ray, record.position, world)
-                {
-                    let scattering_pdf = record.material.borrow().scattering_pdf(
-                        ray,
-                        &record,
+            } else if let Some((pdf_direction, value)) = scatter_record
+                .pdf
+                .expect("if material is not specular there should be a pdf")
+                .generate(ray, record.position, world)
+            {
+                let scattering_pdf = record.material.borrow().scattering_pdf(
+                    ray,
+                    &record,
+                    Ray {
+                        origin: record.position,
+                        direction: pdf_direction,
+                        time: record.t,
+                    },
+                );
+
+                let value = value / scattering_pdf;
+                scatter_record.attenuation
+                    * ray_color(
                         Ray {
                             origin: record.position,
                             direction: pdf_direction,
                             time: record.t,
                         },
-                    );
-                    if debug() {
-                        println!("scattering pdf: {}", scattering_pdf);
-                    }
-                    let value = value / scattering_pdf;
-                    let temp_c = scatter_record.attenuation
-                        * ray_color(
-                            Ray {
-                                origin: record.position,
-                                direction: pdf_direction,
-                                time: record.t,
-                            },
-                            world,
-                            depth - 1,
-                        )
-                        / value;
-                    if debug() {
-                        println!("out color: {}", temp_c);
-                    }
-                    return temp_c;
-                } else {
-                    if debug() {
-                        println!("pdf not generated!");
-                    }
-                    RgbColor::BLACK
-                }
+                        world,
+                        depth - 1,
+                    )
+                    / value
+            } else {
+                RgbColor::BLACK
             }
         } else {
             // emitted
