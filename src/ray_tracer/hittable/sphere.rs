@@ -1,4 +1,4 @@
-use super::{HitRecord, Hittable, Material, AABB};
+use super::{Aabb, HitRecord, Hittable, Material};
 use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
@@ -39,8 +39,8 @@ impl Hittable for Sphere {
             self.material.clone(),
         ))
     }
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
-        Some(AABB {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+        Some(Aabb {
             minimum: self.origin - Vector3::new(self.radius, self.radius, self.radius),
             maximum: self.origin + Vector3::new(self.radius, self.radius, self.radius),
         })
@@ -98,13 +98,13 @@ impl Hittable for MovingSphere {
         ))
     }
 
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
+    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
         Some(
-            AABB {
+            Aabb {
                 minimum: self.center(time_0) - Vector3::new(self.radius, self.radius, self.radius),
                 maximum: self.center(time_0) + Vector3::new(self.radius, self.radius, self.radius),
             }
-            .surrounding_box(AABB {
+            .surrounding_box(Aabb {
                 minimum: self.center(time_1) - Vector3::new(self.radius, self.radius, self.radius),
                 maximum: self.center(time_1) + Vector3::new(self.radius, self.radius, self.radius),
             }),

@@ -59,7 +59,7 @@ impl RgbColor {
             blue: rand::random(),
         }
     }
-    pub fn to_rgba_u8(&self) -> [u8; 4] {
+    pub fn as_rgba_u8(&self) -> [u8; 4] {
         let r = (clamp(self.red.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
         let g = (clamp(self.green.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
         let b = (clamp(self.blue.sqrt(), 0.0, 1.0) * 255.0).round() as u8;

@@ -1,4 +1,4 @@
-use super::{HitRecord, Hittable, Light, AABB};
+use super::{Aabb, HitRecord, Hittable, Light};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::RayAreaInfo;
 use cgmath::Point3;
@@ -18,7 +18,7 @@ impl Hittable for FlipNormals {
         }
     }
 
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
+    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
         self.item.bounding_box(time_0, time_1)
     }
 }

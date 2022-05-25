@@ -11,7 +11,7 @@ use super::{prelude::*, Image};
 use crate::reflect;
 
 use background::{Background, ConstantColor, Sky};
-use bvh::AABB;
+use bvh::Aabb;
 use camera::Camera;
 use cgmath::{InnerSpace, Vector3};
 #[allow(unused_imports)]

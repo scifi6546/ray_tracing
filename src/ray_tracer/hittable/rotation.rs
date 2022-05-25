@@ -1,4 +1,4 @@
-use super::{HitRecord, Hittable, AABB};
+use super::{Aabb, HitRecord, Hittable};
 use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, Point3, Vector3};
 
@@ -7,7 +7,7 @@ pub struct RotateY<T: Hittable> {
     sin_theta: f32,
     cos_theta: f32,
 
-    item_box: Option<AABB>,
+    item_box: Option<Aabb>,
 }
 impl<T: Hittable> RotateY<T> {
     pub fn new(item: T, angle: f32) -> Self {
@@ -37,7 +37,7 @@ impl<T: Hittable> RotateY<T> {
                     }
                 }
             }
-            Some(AABB {
+            Some(Aabb {
                 maximum: max,
                 minimum: min,
             })
@@ -89,7 +89,7 @@ impl<T: Hittable> Hittable for RotateY<T> {
         }
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
         self.item_box
     }
 }

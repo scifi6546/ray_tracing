@@ -1,4 +1,4 @@
-use super::{HitRecord, Hittable, Material, AABB};
+use super::{Aabb, HitRecord, Hittable, Material};
 use crate::prelude::*;
 use cgmath::{Point2, Vector3};
 use std::{cell::RefCell, rc::Rc};
@@ -87,7 +87,7 @@ impl Hittable for ConstantMedium {
         })
     }
 
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
+    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
         self.boundary.bounding_box(time_0, time_1)
     }
 }

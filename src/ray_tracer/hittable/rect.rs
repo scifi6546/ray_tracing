@@ -1,4 +1,4 @@
-use super::{HitRecord, Hittable, Light, Material, RayAreaInfo, AABB};
+use super::{Aabb, HitRecord, Hittable, Light, Material, RayAreaInfo};
 use crate::prelude::*;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
@@ -37,8 +37,8 @@ impl Hittable for XYRect {
         ))
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
-        Some(AABB {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+        Some(Aabb {
             minimum: Point3::new(self.x0, self.y0, self.k - 0.001),
             maximum: Point3::new(self.x1, self.y1, self.k + 0.001),
         })
@@ -84,8 +84,8 @@ impl Hittable for XZRect {
         ))
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
-        Some(AABB {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+        Some(Aabb {
             minimum: Point3::new(self.x0, self.k - 0.001, self.z0),
             maximum: Point3::new(self.x1, self.k + 0.001, self.z1),
         })
@@ -159,8 +159,8 @@ impl Hittable for YZRect {
         ))
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
-        Some(AABB {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+        Some(Aabb {
             minimum: Point3::new(self.k - 0.001, self.y0, self.z0),
             maximum: Point3::new(self.k + 0.001, self.y1, self.z1),
         })

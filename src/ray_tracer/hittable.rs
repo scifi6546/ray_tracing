@@ -6,7 +6,7 @@ mod rotation;
 mod sphere;
 mod translate;
 
-use super::{Material, Ray, AABB};
+use super::{Aabb, Material, Ray};
 
 use cgmath::{InnerSpace, Point2, Point3, Vector3};
 
@@ -22,7 +22,7 @@ pub use translate::Translate;
 
 pub trait Hittable {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB>;
+    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb>;
 }
 #[derive(Clone)]
 pub struct HitRecord {

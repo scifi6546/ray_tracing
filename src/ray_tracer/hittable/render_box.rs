@@ -1,4 +1,4 @@
-use super::{HitRecord, Hittable, Material, XYRect, XZRect, YZRect, AABB};
+use super::{Aabb, HitRecord, Hittable, Material, XYRect, XZRect, YZRect};
 use crate::prelude::*;
 use cgmath::Point3;
 use std::{cell::RefCell, rc::Rc};
@@ -77,8 +77,8 @@ impl Hittable for RenderBox {
             .reduce(|acc, x| if acc.t < x.t { acc } else { x })
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
-        Some(AABB {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+        Some(Aabb {
             minimum: self.box_min,
             maximum: self.box_max,
         })

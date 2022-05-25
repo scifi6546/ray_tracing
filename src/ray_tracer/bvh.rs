@@ -6,20 +6,18 @@ use cgmath::Point3;
 use crate::ray_tracer::HitRecord;
 use std::{cmp::Ordering, rc::Rc};
 #[derive(Clone, Copy, Debug)]
-pub struct AABB {
+pub struct Aabb {
     pub minimum: Point3<f32>,
     pub maximum: Point3<f32>,
 }
-impl AABB {
+impl Aabb {
     pub fn hit(&self, ray: Ray, t_min: f32, t_max: f32) -> bool {
         for a in 0..3 {
             let inv_d = 1.0 / ray.direction[a];
             let mut t0 = (self.minimum[a] - ray.origin[a]) * inv_d;
             let mut t1 = (self.maximum[a] - ray.origin[a]) * inv_d;
             if inv_d < 0.0 {
-                let t = t1;
-                t1 = t0;
-                t0 = t;
+                std::mem::swap(&mut t0, &mut t1);
             }
             let t_min = if t0 > t_min { t0 } else { t_min };
             let t_max = if t1 < t_max { t1 } else { t_max };
@@ -27,9 +25,9 @@ impl AABB {
                 return false;
             }
         }
-        return true;
+        true
     }
-    pub fn surrounding_box(self, box1: AABB) -> Self {
+    pub fn surrounding_box(self, box1: Aabb) -> Self {
         Self {
             minimum: Point3 {
                 x: p_min(self.minimum.x, box1.minimum.x),
@@ -47,7 +45,7 @@ impl AABB {
 pub struct BvhNode {
     left: Rc<dyn Hittable>,
     right: Rc<dyn Hittable>,
-    bounding_box: AABB,
+    bounding_box: Aabb,
 }
 impl BvhNode {
     pub fn new(
@@ -120,18 +118,17 @@ impl BvhNode {
         }
     }
     fn box_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>, axis: usize) -> Ordering {
-        let a_box = a.bounding_box(0.0, 0.0);
-        let b_box = b.bounding_box(0.0, 0.0);
-        if a_box.is_none() || b_box.is_none() {
-            panic!("bvh node does not have bounding box")
+        let a_box = a
+            .bounding_box(0.0, 0.0)
+            .expect("bvh node does not have bounding box");
+        let b_box = b
+            .bounding_box(0.0, 0.0)
+            .expect("bvh node does not have bounding box");
+
+        if a_box.minimum[axis] < b_box.minimum[axis] {
+            Ordering::Less
         } else {
-            let a_box = a_box.unwrap();
-            let b_box = b_box.unwrap();
-            if a_box.minimum[axis] < b_box.minimum[axis] {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            }
+            Ordering::Greater
         }
     }
     fn box_x_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
@@ -146,7 +143,7 @@ impl BvhNode {
 }
 impl Hittable for BvhNode {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        if !self.bounding_box.hit(ray.clone(), t_min, t_max) {
+        if !self.bounding_box.hit(*ray, t_min, t_max) {
             None
         } else {
             if let Some(left_hit) = self.left.hit(ray, t_min, t_max) {
@@ -163,7 +160,7 @@ impl Hittable for BvhNode {
         }
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
-        Some(self.bounding_box.clone())
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+        Some(self.bounding_box)
     }
 }

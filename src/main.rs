@@ -112,7 +112,7 @@ pub struct Image {
 }
 impl Image {
     pub fn from_rgb_image(image: &RgbImage) -> Self {
-        let buffer = image.buffer.iter().flat_map(|c| c.to_rgba_u8()).collect();
+        let buffer = image.buffer.iter().flat_map(|c| c.as_rgba_u8()).collect();
         Self {
             buffer,
             width: image.width,
@@ -143,7 +143,7 @@ impl Image {
         }
     }
     pub fn set_xy_color(&mut self, x: u32, y: u32, pixel: RgbColor) {
-        self.set_xy(x, y, pixel.to_rgba_u8());
+        self.set_xy(x, y, pixel.as_rgba_u8());
     }
     pub fn make_texture(&self, ctx: &mut Context) -> Texture {
         Texture::from_rgba8(ctx, self.width as u16, self.height as u16, &self.buffer)
