@@ -148,20 +148,27 @@ impl PDF for PdfList {
         world: &World,
     ) -> Option<(Vector3<f32>, f32)> {
         let random_pdf = rand_u32(0, self.items.len() as u32) as usize;
-        if let Some((out_direction, _pdf)) =
+        if let Some((out_direction, pdf)) =
             self.items[random_pdf].generate(incoming_ray, hit_point, world)
         {
-            // TODO: make it so value is only generated for pdfs that are not generating the ray.
-            let avg = self.value(
-                &Ray {
-                    origin: hit_point,
-                    direction: out_direction,
-                    time: 0.0,
-                },
-                world,
-            );
-
-            Some((out_direction, avg))
+            let mut sum = 0.0f32;
+            let mut total = 0;
+            let value_ray = Ray {
+                origin: hit_point,
+                direction: out_direction,
+                time: 0.0,
+            };
+            for i in 0..self.items.len() {
+                if i != random_pdf {
+                    sum += self.items[i].value(&value_ray, world);
+                    total += 1;
+                }
+            }
+            if total != 0 {
+                Some((out_direction, (sum + pdf) / (total + 1) as f32))
+            } else {
+                None
+            }
         } else {
             None
         }
