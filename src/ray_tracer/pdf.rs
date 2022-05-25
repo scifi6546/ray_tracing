@@ -1,8 +1,7 @@
+use super::World;
 use crate::prelude::*;
-use crate::ray_tracer::hittable::Hittable;
-use crate::ray_tracer::World;
+
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
-use std::ops::Neg;
 use std::rc::Rc;
 
 pub trait PDF {
@@ -36,7 +35,7 @@ impl PDF for CosinePdf {
         }
     }
 
-    fn is_valid(&self, world: &World) -> bool {
+    fn is_valid(&self, _world: &World) -> bool {
         true
     }
 
@@ -126,7 +125,13 @@ impl PdfList {
 }
 impl PDF for PdfList {
     fn value(&self, direction: &Ray, world: &World) -> f32 {
-        todo!()
+        let hit = self
+            .items
+            .iter()
+            .filter(|item| item.is_valid(world))
+            .map(|item| item.value(direction, world))
+            .collect::<Vec<_>>();
+        hit.iter().sum::<f32>() / hit.len() as f32
     }
 
     fn is_valid(&self, world: &World) -> bool {
@@ -143,25 +148,18 @@ impl PDF for PdfList {
         world: &World,
     ) -> Option<(Vector3<f32>, f32)> {
         let random_pdf = rand_u32(0, self.items.len() as u32) as usize;
-        if let Some((out_direction, pdf)) =
+        if let Some((out_direction, _pdf)) =
             self.items[random_pdf].generate(incoming_ray, hit_point, world)
         {
-            let hit = self
-                .items
-                .iter()
-                .filter(|item| item.is_valid(world))
-                .map(|item| {
-                    item.value(
-                        &Ray {
-                            origin: hit_point,
-                            direction: out_direction,
-                            time: 0.0,
-                        },
-                        world,
-                    )
-                })
-                .collect::<Vec<_>>();
-            let avg: f32 = hit.iter().sum::<f32>() / hit.len() as f32;
+            // TODO: make it so value is only generated for pdfs that are not generating the ray.
+            let avg = self.value(
+                &Ray {
+                    origin: hit_point,
+                    direction: out_direction,
+                    time: 0.0,
+                },
+                world,
+            );
 
             Some((out_direction, avg))
         } else {

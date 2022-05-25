@@ -1,6 +1,6 @@
 use super::{HitRecord, Hittable, Material, XYRect, XZRect, YZRect, AABB};
 use crate::prelude::*;
-use cgmath::{Point3, Vector3};
+use cgmath::Point3;
 use std::{cell::RefCell, rc::Rc};
 pub struct RenderBox {
     box_min: Point3<f32>,
@@ -77,7 +77,7 @@ impl Hittable for RenderBox {
             .reduce(|acc, x| if acc.t < x.t { acc } else { x })
     }
 
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
         Some(AABB {
             minimum: self.box_min,
             maximum: self.box_max,

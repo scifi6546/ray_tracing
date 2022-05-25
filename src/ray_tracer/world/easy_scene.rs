@@ -1,7 +1,6 @@
 use super::{
     Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, ImageTexture,
-    Lambertian, Metal, Perlin, SolidColor, Sphere, World, XYRect, XZRect, YZRect, IMAGE_HEIGHT,
-    IMAGE_WIDTH,
+    Lambertian, Metal, Perlin, SolidColor, Sphere, World, XYRect, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};

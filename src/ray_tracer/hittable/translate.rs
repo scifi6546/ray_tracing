@@ -1,19 +1,19 @@
 use super::{HitRecord, Hittable, AABB};
 use crate::prelude::*;
 use cgmath::Vector3;
-use std::rc::Rc;
-pub struct Translate {
-    pub item: Rc<dyn Hittable>,
+
+pub struct Translate<T: Hittable> {
+    pub item: T,
     pub offset: Vector3<f32>,
 }
-impl Hittable for Translate {
+impl<T: Hittable> Hittable for Translate<T> {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let moved_ray = Ray {
             origin: ray.origin - self.offset,
             direction: ray.direction,
             time: ray.time,
         };
-        if let Some(mut record) = self.item.hit(&moved_ray, t_min, t_max) {
+        if let Some(record) = self.item.hit(&moved_ray, t_min, t_max) {
             Some(HitRecord::new(
                 &moved_ray,
                 record.position + self.offset,

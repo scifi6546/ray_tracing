@@ -7,10 +7,7 @@ use miniquad::{
     Texture, UserData, VertexAttribute, VertexFormat,
 };
 use prelude::{RgbColor, RgbImage};
-use std::{
-    ops::{Add, AddAssign, Div, Mul},
-    sync::mpsc::Receiver,
-};
+use std::sync::mpsc::Receiver;
 pub fn vec_near_zero(v: Vector3<f32>) -> bool {
     v.dot(v) < 1e-8
 }

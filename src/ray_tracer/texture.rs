@@ -9,7 +9,7 @@ pub struct SolidColor {
     pub(crate) color: RgbColor,
 }
 impl Texture for SolidColor {
-    fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
+    fn color(&self, _uv: Point2<f32>, _pos: Point3<f32>) -> RgbColor {
         self.color
     }
 }
@@ -99,7 +99,7 @@ impl Perlin {
         let mut acum = 0.0;
         let mut temp_point = point;
         let mut weight = 1.0;
-        for i in 0..depth {
+        for _ in 0..depth {
             acum += weight * self.noise(temp_point);
             weight *= 0.5;
             temp_point *= 2.0;
@@ -124,7 +124,7 @@ impl Perlin {
     }
 }
 impl Texture for Perlin {
-    fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
+    fn color(&self, _uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
         let f = self.turbulence(2.0 * pos, 7);
 
         RgbColor::new(f, f, f)
@@ -155,13 +155,13 @@ impl ImageTexture {
     }
 }
 impl Texture for ImageTexture {
-    fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
+    fn color(&self, uv: Point2<f32>, _pos: Point3<f32>) -> RgbColor {
         self.texture.get_uv(uv)
     }
 }
 pub struct DebugV {}
 impl Texture for DebugV {
-    fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
+    fn color(&self, uv: Point2<f32>, _pos: Point3<f32>) -> RgbColor {
         RgbColor::new(uv.y, uv.y, uv.y)
     }
 }

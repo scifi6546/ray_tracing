@@ -26,7 +26,7 @@ pub struct ConstantColor {
     pub color: RgbColor,
 }
 impl Background for ConstantColor {
-    fn color(&self, ray: Ray) -> RgbColor {
+    fn color(&self, _ray: Ray) -> RgbColor {
         self.color
     }
 }

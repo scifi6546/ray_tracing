@@ -87,20 +87,20 @@ pub fn cornell_box() -> (World, Camera) {
                     material: white.clone(),
                 }),
                 Rc::new(Translate {
-                    item: Rc::new(RenderBox::new(
+                    item: RenderBox::new(
                         Point3::new(0.0, 0.0, 0.0),
                         Point3::new(165.0, 330.0, 165.0),
                         white.clone(),
-                    )),
+                    ),
 
                     offset: Vector3::new(265.0, 0.0, 295.0),
                 }),
                 Rc::new(Translate {
-                    item: Rc::new(RenderBox::new(
+                    item: RenderBox::new(
                         Point3::new(0.0, 0.0, 0.0),
                         Point3::new(165.0, 165.0, 165.0),
                         white.clone(),
-                    )),
+                    ),
                     offset: Vector3::new(130.0, 0.0, 65.0),
                 }),
                 top_light.clone(),

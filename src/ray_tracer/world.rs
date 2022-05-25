@@ -35,7 +35,7 @@ impl World {
         self.lights
             .iter()
             .map(|light| (light.clone(), light.hit(ray, t_min, t_max)))
-            .filter(|(light, hit_opt)| hit_opt.is_some())
+            .filter(|(_light, hit_opt)| hit_opt.is_some())
             .map(|(light, hit_opt)| (light, hit_opt.unwrap()))
             .reduce(|acc, x| if acc.1.t < x.1.t { acc } else { x })
     }

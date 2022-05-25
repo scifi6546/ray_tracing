@@ -91,11 +91,11 @@ pub fn cornell_smoke() -> (World, Camera) {
                 }),
                 Rc::new(ConstantMedium::new(
                     Rc::new(Translate {
-                        item: Rc::new(RenderBox::new(
+                        item: RenderBox::new(
                             Point3::new(0.0, 0.0, 0.0),
                             Point3::new(165.0, 330.0, 165.0),
                             white.clone(),
-                        )),
+                        ),
 
                         offset: Vector3::new(265.0, 0.0, 295.0),
                     }),
@@ -108,11 +108,11 @@ pub fn cornell_smoke() -> (World, Camera) {
                 )),
                 Rc::new(ConstantMedium::new(
                     Rc::new(Translate {
-                        item: Rc::new(Sphere {
+                        item: Sphere {
                             radius: 100.0,
                             origin: Point3::new(0.0, 0.0, 0.0),
                             material: white.clone(),
-                        }),
+                        },
 
                         offset: Vector3::new(265.0, 500.0, 295.0),
                     }),
@@ -138,14 +138,14 @@ pub fn cornell_smoke() -> (World, Camera) {
 
                  */
                 Rc::new(Translate {
-                    item: Rc::new(RotateY::new(
-                        Rc::new(RenderBox::new(
+                    item: RotateY::new(
+                        RenderBox::new(
                             Point3::new(0.0, 0.0, 0.0),
                             Point3::new(165.0, 165.0, 165.0),
                             white.clone(),
-                        )),
+                        ),
                         -18.0,
-                    )),
+                    ),
                     offset: Vector3::new(130.0, 0.0, 65.0),
                 }),
             ],

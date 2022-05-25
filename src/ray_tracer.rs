@@ -7,29 +7,29 @@ mod pdf;
 mod texture;
 mod world;
 
-use super::{prelude::*, vec_near_zero, Image};
+use super::{prelude::*, Image};
 use crate::reflect;
 
 use background::{Background, ConstantColor, Sky};
 use bvh::AABB;
 use camera::Camera;
-use cgmath::{InnerSpace, Point3, Vector3};
+use cgmath::{InnerSpace, Vector3};
+#[allow(unused_imports)]
 use hittable::{
     ConstantMedium, FlipNormals, HitRecord, Hittable, Light, MovingSphere, RayAreaInfo, RenderBox,
-    RotateY, Sphere, Translate, XYRect,
+    RotateY, Sphere, Translate, XYRect, XZRect, YZRect,
 };
+#[allow(unused_imports)]
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
 use pdf::{CosinePdf, LightPdf, PdfList, ScatterRecord};
+#[allow(unused_imports)]
 use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
 use world::World;
 
-use crate::ray_tracer::hittable::{XZRect, YZRect};
-use crate::ray_tracer::pdf::PDF;
 use std::{
-    cell::RefCell,
-    rc::Rc,
     sync::mpsc::{channel, Receiver, Sender},
     thread,
+    time::Instant,
 };
 
 const IMAGE_HEIGHT: u32 = 1000;
@@ -139,7 +139,6 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        //  let (world, camera) = world::easy_cornell_box();
         let (world, camera) = world::cornell_smoke();
         let world = world.to_bvh(camera.start_time(), camera.end_time());
         println!(
@@ -148,6 +147,7 @@ impl RayTracer {
         );
 
         let mut rgb_img = RgbImage::new_black(1000, 1000);
+        let total_time = Instant::now();
         for num_s in 0..Self::SAMPLES_PER_PIXEL {
             for x in 0..IMAGE_WIDTH {
                 for y in 0..IMAGE_WIDTH {
@@ -162,6 +162,8 @@ impl RayTracer {
             self.sender
                 .send(Image::from_rgb_image(&(rgb_img.clone() / num_s as f32)))
                 .expect("channel failed");
+            let average_time_s = total_time.elapsed().as_secs_f32() / (num_s + 1) as f32;
+            println!("average time per frame: {} (s)", average_time_s);
         }
     }
 }

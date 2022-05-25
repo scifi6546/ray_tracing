@@ -8,8 +8,7 @@ mod translate;
 
 use super::{Material, Ray, AABB};
 
-use crate::prelude::{p_max, p_min, rand_f32};
-use cgmath::{num_traits::FloatConst, prelude::*, InnerSpace, Point2, Point3, Vector2, Vector3};
+use cgmath::{InnerSpace, Point2, Point3, Vector3};
 
 pub use constant_medium::ConstantMedium;
 pub use flip_normals::FlipNormals;
@@ -17,7 +16,7 @@ pub use rect::{XYRect, XZRect, YZRect};
 pub use render_box::RenderBox;
 pub use rotation::RotateY;
 pub use sphere::{MovingSphere, Sphere};
-use std::ops::RemAssign;
+
 use std::{cell::RefCell, rc::Rc};
 pub use translate::Translate;
 

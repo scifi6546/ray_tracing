@@ -1,7 +1,7 @@
 use super::{HitRecord, Hittable, Light, AABB};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::RayAreaInfo;
-use cgmath::{Point3, Vector3};
+use cgmath::Point3;
 use std::rc::Rc;
 
 pub struct FlipNormals {

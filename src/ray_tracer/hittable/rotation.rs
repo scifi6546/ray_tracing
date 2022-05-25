@@ -1,16 +1,16 @@
 use super::{HitRecord, Hittable, AABB};
 use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, Point3, Vector3};
-use std::rc::Rc;
-pub struct RotateY {
-    item: Rc<dyn Hittable>,
+
+pub struct RotateY<T: Hittable> {
+    item: T,
     sin_theta: f32,
     cos_theta: f32,
 
     item_box: Option<AABB>,
 }
-impl RotateY {
-    pub fn new(item: Rc<dyn Hittable>, angle: f32) -> Self {
+impl<T: Hittable> RotateY<T> {
+    pub fn new(item: T, angle: f32) -> Self {
         let radians = angle * f32::PI() / 180.0;
         let sin_theta = radians.sin();
         let cos_theta = radians.cos();
@@ -52,7 +52,7 @@ impl RotateY {
         }
     }
 }
-impl Hittable for RotateY {
+impl<T: Hittable> Hittable for RotateY<T> {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let mut origin = ray.origin;
         let mut direction = ray.direction;
@@ -89,7 +89,7 @@ impl Hittable for RotateY {
         }
     }
 
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
         self.item_box
     }
 }

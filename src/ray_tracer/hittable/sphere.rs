@@ -29,7 +29,7 @@ impl Hittable for Sphere {
             }
         }
         let position = ray.at(root);
-        let uv = Self::get_sphere_uv(((position - self.origin) / self.radius));
+        let uv = Self::get_sphere_uv((position - self.origin) / self.radius);
         Some(HitRecord::new(
             ray,
             position,
@@ -39,7 +39,7 @@ impl Hittable for Sphere {
             self.material.clone(),
         ))
     }
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
         Some(AABB {
             minimum: self.origin - Vector3::new(self.radius, self.radius, self.radius),
             maximum: self.origin + Vector3::new(self.radius, self.radius, self.radius),

@@ -163,7 +163,7 @@ impl Hittable for BvhNode {
         }
     }
 
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<AABB> {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<AABB> {
         Some(self.bounding_box.clone())
     }
 }

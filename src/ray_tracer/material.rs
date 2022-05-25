@@ -1,17 +1,15 @@
 use super::{
-    rand_unit_vec, reflect, vec_near_zero, CosinePdf, HitRecord, LightPdf, PdfList, Ray, RgbColor,
-    ScatterRecord, Texture, PDF,
+    rand_unit_vec, reflect, CosinePdf, HitRecord, LightPdf, PdfList, Ray, RgbColor, ScatterRecord,
+    Texture,
 };
 
-use crate::prelude::*;
-
-use cgmath::{num_traits::*, prelude::*, InnerSpace, Point2, Point3, Vector2, Vector3};
+use cgmath::{num_traits::*, InnerSpace, Vector3};
 use std::rc::Rc;
 //pub type PDF = f32;
 pub trait Material {
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord>;
     fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32;
-    fn emmit(&self, record: &HitRecord) -> Option<RgbColor> {
+    fn emmit(&self, _record: &HitRecord) -> Option<RgbColor> {
         None
     }
 }
@@ -19,42 +17,20 @@ pub struct Lambertian {
     pub albedo: Box<dyn Texture>,
 }
 impl Material for Lambertian {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
-        let uvw = OrthoNormalBasis::build_from_w(record_in.normal);
-        let direction = uvw.local(random_cosine_direction());
-
-        let scatter_direction = record_in.normal + rand_unit_vec();
-
-        let ray_out = if !vec_near_zero(scatter_direction) {
-            Ray {
-                origin: record_in.position,
-                direction: scatter_direction,
-                time: ray_in.time,
-            }
-        } else {
-            Ray {
-                origin: record_in.position,
-                direction: record_in.normal,
-                time: ray_in.time,
-            }
-        };
-        let pdf = uvw.w().dot(ray_out.direction) / f32::PI();
+    fn scatter(&self, _ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
         let attenuation = self.albedo.color(record_in.uv, record_in.position);
-        let pdf: Rc<dyn PDF> = Rc::new(PdfList::new(vec![
-            Box::new(CosinePdf::new(record_in.normal)),
-            Box::new(LightPdf {}),
-        ]));
-        let pdf = Some(pdf);
-        //let pdf: Rc<dyn PDF> = Rc::new(LightPdf {});
-        //let pdf = Some(pdf);
+
         let scatter_record = ScatterRecord {
             specular_ray: None,
             attenuation,
-            pdf,
+            pdf: Some(Rc::new(PdfList::new(vec![
+                Box::new(CosinePdf::new(record_in.normal)),
+                Box::new(LightPdf {}),
+            ]))),
         };
         Some(scatter_record)
     }
-    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
+    fn scattering_pdf(&self, _ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
         let cosine = record_in.normal.dot(scattered_ray.direction.normalize());
         if cosine < 0.0 {
             0.0
@@ -87,8 +63,8 @@ impl Material for Metal {
         }
     }
 
-    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
-        todo!()
+    fn scattering_pdf(&self, _ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> f32 {
+        panic!("material is specular")
     }
 }
 pub struct Dielectric {
@@ -138,20 +114,20 @@ impl Material for Dielectric {
         })
     }
 
-    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
-        todo!()
+    fn scattering_pdf(&self, _ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> f32 {
+        panic!("material is specular should not have scattering")
     }
 }
 pub struct DiffuseLight {
     pub emit: Box<dyn Texture>,
 }
 impl Material for DiffuseLight {
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
+    fn scatter(&self, _ray_in: Ray, _record_in: &HitRecord) -> Option<ScatterRecord> {
         None
     }
 
-    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
-        0.0
+    fn scattering_pdf(&self, _ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> f32 {
+        panic!("should not have scattering")
     }
 
     fn emmit(&self, record: &HitRecord) -> Option<RgbColor> {
@@ -179,7 +155,7 @@ impl Material for Isotropic {
         })
     }
 
-    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
-        todo!()
+    fn scattering_pdf(&self, _ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> f32 {
+        panic!("should not have scattering")
     }
 }

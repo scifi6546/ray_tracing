@@ -1,8 +1,4 @@
-use super::{
-    Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, ImageTexture,
-    Lambertian, Metal, Perlin, Sky, SolidColor, Sphere, World, XYRect, XZRect, YZRect,
-    IMAGE_HEIGHT, IMAGE_WIDTH,
-};
+use super::{Camera, Lambertian, Sky, SolidColor, Sphere, World, IMAGE_HEIGHT, IMAGE_WIDTH};
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
