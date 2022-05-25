@@ -46,7 +46,7 @@ impl World {
             .filter_map(|s| s.hit(ray, t_min, t_max))
             .reduce(|acc, x| if acc.t < x.t { acc } else { x })
     }
-    pub fn to_bvh(self, time_0: f32, time_1: f32) -> Self {
+    pub fn into_bvh(self, time_0: f32, time_1: f32) -> Self {
         let sphere_len = self.spheres.len();
         Self {
             spheres: vec![Rc::new(BvhNode::new(

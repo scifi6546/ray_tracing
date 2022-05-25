@@ -4,7 +4,7 @@ use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
 use std::rc::Rc;
 
-pub trait PDF {
+pub trait Pdf {
     fn value(&self, direction: &Ray, world: &World) -> f32;
     /// Checks if the PDF is valid for the given world
     fn is_valid(&self, world: &World) -> bool;
@@ -25,7 +25,7 @@ impl CosinePdf {
         }
     }
 }
-impl PDF for CosinePdf {
+impl Pdf for CosinePdf {
     fn value(&self, ray: &Ray, _world: &World) -> f32 {
         let cos = ray.direction.dot(self.uvw.w());
         if cos <= 0.0 {
@@ -56,20 +56,18 @@ impl PDF for CosinePdf {
     }
 }
 pub struct LightPdf {}
-impl PDF for LightPdf {
+impl Pdf for LightPdf {
     fn value(&self, ray: &Ray, world: &World) -> f32 {
         if let Some((light, hit)) = world.nearest_light_hit(ray, ray.time, f32::MAX) {
             let to_light = hit.position - ray.origin;
             let light_cos = to_light.normalize().dot(hit.normal).abs();
 
             if light_cos >= 0.000001 {
-                let value = light.prob(Ray {
+                light.prob(Ray {
                     origin: ray.origin,
                     direction: to_light.normalize(),
                     time: hit.t,
-                });
-
-                value
+                })
             } else {
                 0.0
             }
@@ -115,15 +113,15 @@ impl PDF for LightPdf {
     }
 }
 pub struct PdfList {
-    items: Vec<Box<dyn PDF>>,
+    items: Vec<Box<dyn Pdf>>,
 }
 impl PdfList {
-    pub fn new(items: Vec<Box<dyn PDF>>) -> Self {
-        assert!(items.len() >= 1);
+    pub fn new(items: Vec<Box<dyn Pdf>>) -> Self {
+        assert!(!items.is_empty());
         Self { items }
     }
 }
-impl PDF for PdfList {
+impl Pdf for PdfList {
     fn value(&self, direction: &Ray, world: &World) -> f32 {
         let hit = self
             .items
@@ -138,7 +136,7 @@ impl PDF for PdfList {
         self.items
             .iter()
             .map(|item| item.is_valid(world))
-            .fold(false, |acc, x| (acc || x))
+            .any(|x| x)
     }
 
     fn generate(
@@ -177,5 +175,5 @@ impl PDF for PdfList {
 pub struct ScatterRecord {
     pub specular_ray: Option<Ray>,
     pub attenuation: RgbColor,
-    pub pdf: Option<Rc<dyn PDF>>,
+    pub pdf: Option<Rc<dyn Pdf>>,
 }

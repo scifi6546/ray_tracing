@@ -28,13 +28,9 @@ impl<T: Hittable> Hittable for Translate<T> {
     }
 
     fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
-        if let Some(b) = self.item.bounding_box(time_0, time_1) {
-            Some(Aabb {
-                minimum: b.minimum + self.offset,
-                maximum: b.maximum + self.offset,
-            })
-        } else {
-            None
-        }
+        self.item.bounding_box(time_0, time_1).map(|b| Aabb {
+            minimum: b.minimum + self.offset,
+            maximum: b.maximum + self.offset,
+        })
     }
 }

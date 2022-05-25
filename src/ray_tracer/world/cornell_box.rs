@@ -40,7 +40,7 @@ pub fn cornell_box() -> (World, Camera) {
             z0: 227.0,
             z1: 332.0,
             k: 554.0,
-            material: light.clone(),
+            material: light,
         }),
     });
     (
@@ -52,7 +52,7 @@ pub fn cornell_box() -> (World, Camera) {
                     z0: 0.0,
                     z1: 555.0,
                     k: 555.0,
-                    material: green.clone(),
+                    material: green,
                 }),
                 Rc::new(YZRect {
                     y0: 0.0,
@@ -60,7 +60,7 @@ pub fn cornell_box() -> (World, Camera) {
                     z0: 0.0,
                     z1: 555.0,
                     k: 0.0,
-                    material: red.clone(),
+                    material: red,
                 }),
                 Rc::new(XZRect {
                     x0: 0.0,
@@ -99,7 +99,7 @@ pub fn cornell_box() -> (World, Camera) {
                     item: RenderBox::new(
                         Point3::new(0.0, 0.0, 0.0),
                         Point3::new(165.0, 165.0, 165.0),
-                        white.clone(),
+                        white,
                     ),
                     offset: Vector3::new(130.0, 0.0, 65.0),
                 }),

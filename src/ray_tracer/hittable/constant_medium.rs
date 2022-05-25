@@ -22,16 +22,11 @@ impl ConstantMedium {
 }
 impl Hittable for ConstantMedium {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let hit_res1 = self.boundary.hit(ray, -1.0 * 10000000000.0, 10000000000.0);
-        if hit_res1.is_none() {
-            return None;
-        }
-        let mut hit1 = hit_res1.unwrap();
-        let hit_res2 = self.boundary.hit(ray, hit1.t + 0.0001, 10000000000.0);
-        if hit_res2.is_none() {
-            return None;
-        }
-        let mut hit2 = hit_res2.unwrap();
+        let mut hit1 = self
+            .boundary
+            .hit(ray, -1.0 * 10000000000.0, 10000000000.0)?;
+
+        let mut hit2 = self.boundary.hit(ray, hit1.t + 0.0001, 10000000000.0)?;
 
         if hit1.t < t_min {
             hit1.t = t_min;

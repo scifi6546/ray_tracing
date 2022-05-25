@@ -146,16 +146,12 @@ impl Hittable for BvhNode {
         if !self.bounding_box.hit(*ray, t_min, t_max) {
             None
         } else {
-            if let Some(left_hit) = self.left.hit(ray, t_min, t_max) {
-                if let Some(right_hit) = self.right.hit(ray, t_min, left_hit.t) {
-                    Some(right_hit)
-                } else {
-                    Some(left_hit)
-                }
-            } else if let Some(hit) = self.right.hit(ray, t_min, t_max) {
-                Some(hit)
-            } else {
-                None
+            match self.left.hit(ray, t_min, t_max) {
+                Some(left_hit) => match self.right.hit(ray, t_min, left_hit.t) {
+                    Some(right_hit) => Some(right_hit),
+                    None => Some(left_hit),
+                },
+                None => self.right.hit(ray, t_min, t_max),
             }
         }
     }

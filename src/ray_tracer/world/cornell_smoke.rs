@@ -42,7 +42,7 @@ pub fn cornell_smoke() -> (World, Camera) {
             z0: 127.0,
             z1: 423.0,
             k: 554.0,
-            material: light.clone(),
+            material: light,
         }),
     });
     (
@@ -54,7 +54,7 @@ pub fn cornell_smoke() -> (World, Camera) {
                     z0: 0.0,
                     z1: 555.0,
                     k: 555.0,
-                    material: green.clone(),
+                    material: green,
                 }),
                 Rc::new(YZRect {
                     y0: 0.0,
@@ -62,7 +62,7 @@ pub fn cornell_smoke() -> (World, Camera) {
                     z0: 0.0,
                     z1: 555.0,
                     k: 0.0,
-                    material: red.clone(),
+                    material: red,
                 }),
                 top_light.clone(),
                 Rc::new(XZRect {
@@ -142,7 +142,7 @@ pub fn cornell_smoke() -> (World, Camera) {
                         RenderBox::new(
                             Point3::new(0.0, 0.0, 0.0),
                             Point3::new(165.0, 165.0, 165.0),
-                            white.clone(),
+                            white,
                         ),
                         -18.0,
                     ),

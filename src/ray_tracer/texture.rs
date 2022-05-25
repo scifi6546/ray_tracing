@@ -37,6 +37,7 @@ impl Perlin {
     const POINT_COUNT: usize = 256;
     fn perlin_generate_perm() -> [usize; Self::POINT_COUNT] {
         let mut p = [0; Self::POINT_COUNT];
+        #[allow(clippy::needless_range_loop)]
         for i in 0..Self::POINT_COUNT {
             p[i] = i;
         }
@@ -55,8 +56,11 @@ impl Perlin {
         let ww = w * w * (3.0 - 2.0 * w);
 
         let mut accum = 0.0;
+        #[allow(clippy::needless_range_loop)]
         for i in 0..2 {
+            #[allow(clippy::needless_range_loop)]
             for j in 0..2 {
+                #[allow(clippy::needless_range_loop)]
                 for k in 0..2 {
                     let weight_v = Vector3::new(u - i as f32, v - j as f32, w - k as f32);
                     accum += (i as f32 * uu + (1 - i) as f32 * (1.0 - uu))
@@ -83,7 +87,7 @@ impl Perlin {
         let i = point.x.floor() as i32;
         let j = point.y.floor() as i32;
         let k = point.z.floor() as i32;
-
+        #[allow(clippy::needless_range_loop)]
         for di in 0..2 {
             for dj in 0..2 {
                 for dk in 0..2 {
@@ -104,7 +108,7 @@ impl Perlin {
             weight *= 0.5;
             temp_point *= 2.0;
         }
-        return acum.abs();
+        acum.abs()
     }
     pub fn new() -> Self {
         let mut ran_float = [Vector3 {
@@ -112,6 +116,7 @@ impl Perlin {
             y: 0.0,
             z: 0.0,
         }; Self::POINT_COUNT];
+        #[allow(clippy::needless_range_loop)]
         for i in 0..Self::POINT_COUNT {
             ran_float[i] = rand_vec().normalize();
         }
