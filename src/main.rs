@@ -9,6 +9,7 @@ use miniquad::{
     Texture, UserData, VertexAttribute, VertexFormat,
 };
 use prelude::{RgbColor, RgbImage};
+use ray_tracer::{Message, RayTracerInfo};
 use std::sync::mpsc::Receiver;
 pub fn vec_near_zero(v: Vector3<f32>) -> bool {
     v.dot(v) < 1e-8
@@ -78,12 +79,12 @@ impl Handler {
             ],
             shader,
         );
-        let image_channel = ray_tracer::RayTracer::new();
+        let (image_channel, message_sender, info) = ray_tracer::RayTracer::new();
         Self {
             pipeline,
             bindings,
             image_channel,
-            gui: GuiCtx::new(ctx),
+            gui: GuiCtx::new(ctx, &info, message_sender),
         }
     }
 }
@@ -94,6 +95,7 @@ impl EventHandler for Handler {
             self.bindings.images = vec![tex];
             println!("recieved image");
         }
+        self.gui.update(ctx);
     }
 
     fn draw(&mut self, ctx: &mut Context) {
@@ -109,6 +111,59 @@ impl EventHandler for Handler {
         self.gui.draw(ctx);
 
         ctx.commit_frame();
+    }
+    fn mouse_motion_event(&mut self, ctx: &mut miniquad::Context, x: f32, y: f32) {
+        self.gui.mouse_motion_event(ctx, x, y);
+    }
+    fn mouse_wheel_event(&mut self, ctx: &mut miniquad::Context, x: f32, y: f32) {
+        self.gui.mouse_wheel_event(ctx, x, y);
+    }
+    fn mouse_button_down_event(
+        &mut self,
+        ctx: &mut miniquad::Context,
+        mb: miniquad::MouseButton,
+        x: f32,
+        y: f32,
+    ) {
+        self.gui.mouse_button_down_event(ctx, mb, x, y);
+    }
+
+    fn mouse_button_up_event(
+        &mut self,
+        ctx: &mut miniquad::Context,
+        mb: miniquad::MouseButton,
+        x: f32,
+        y: f32,
+    ) {
+        self.gui.mouse_button_up_event(ctx, mb, x, y);
+    }
+
+    fn char_event(
+        &mut self,
+        ctx: &mut miniquad::Context,
+        character: char,
+        keymods: miniquad::KeyMods,
+        repeat: bool,
+    ) {
+        self.gui.char_event(ctx, character, keymods, repeat);
+    }
+
+    fn key_down_event(
+        &mut self,
+        ctx: &mut miniquad::Context,
+        keycode: miniquad::KeyCode,
+        keymods: miniquad::KeyMods,
+        repeat: bool,
+    ) {
+        self.gui.key_down_event(ctx, keycode, keymods, repeat);
+    }
+    fn key_up_event(
+        &mut self,
+        ctx: &mut miniquad::Context,
+        keycode: miniquad::KeyCode,
+        keymods: miniquad::KeyMods,
+    ) {
+        self.gui.key_up_event(ctx, keycode, keymods);
     }
 }
 pub struct Image {

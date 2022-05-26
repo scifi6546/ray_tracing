@@ -17,6 +17,7 @@ pub use easy_cornell_box::easy_cornell_box;
 pub use easy_scene::easy_scene;
 pub use one_sphere::one_sphere;
 pub use random_scene::random_scene;
+use std::collections::HashMap;
 use std::rc::Rc;
 pub use two_spheres::two_spheres;
 
@@ -60,4 +61,45 @@ impl World {
             background: self.background,
         }
     }
+}
+#[derive(Clone)]
+pub struct Scenario {
+    pub name: String,
+    pub ctor: fn() -> (World, Camera),
+}
+pub fn get_scenarios() -> HashMap<String, Scenario> {
+    [
+        Scenario {
+            name: "Cornell Box".to_string(),
+            ctor: cornell_box,
+        },
+        Scenario {
+            name: "Cornell Smoke".to_string(),
+            ctor: cornell_smoke,
+        },
+        Scenario {
+            name: "Easy Cornell Box".to_string(),
+            ctor: easy_cornell_box,
+        },
+        Scenario {
+            name: "Easy Scene".to_string(),
+            ctor: easy_scene,
+        },
+        Scenario {
+            name: "One Sphere".to_string(),
+            ctor: one_sphere,
+        },
+        Scenario {
+            name: "Random Scene".to_string(),
+            ctor: random_scene,
+        },
+        Scenario {
+            name: "Two Sphere".to_string(),
+            ctor: two_spheres,
+        },
+    ]
+    .iter()
+    .cloned()
+    .map(|scenario| (scenario.name.clone(), scenario))
+    .collect()
 }

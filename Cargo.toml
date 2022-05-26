@@ -11,5 +11,5 @@ cgmath = "0.18.0"
 rand="0.8.5"
 image = "0.24.2"
 egui = "0.18.1"
-
+log = "0.4.17"
 egui-miniquad = "0.11"

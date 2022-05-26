@@ -2,6 +2,7 @@ mod background;
 mod bvh;
 mod camera;
 mod hittable;
+mod logger;
 mod material;
 mod pdf;
 mod texture;
@@ -26,6 +27,8 @@ use pdf::{CosinePdf, LightPdf, PdfList, ScatterRecord};
 use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
 use world::World;
 
+use crate::ray_tracer::world::Scenario;
+use std::collections::HashMap;
 use std::{
     sync::mpsc::{channel, Receiver, Sender},
     thread,
@@ -108,16 +111,62 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
 
 pub struct RayTracer {
     sender: Sender<Image>,
+    msg_reciever: Receiver<Message>,
+    num_samples: usize,
+    scenarios: HashMap<String, Scenario>,
+}
+pub struct RayTracerInfo {
+    pub scenarios: Vec<String>,
 }
 
+pub enum Message {
+    LoadScenario(String),
+}
 impl RayTracer {
     const SAMPLES_PER_PIXEL: usize = 1000;
     #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> Receiver<Image> {
+    pub fn new() -> (Receiver<Image>, Sender<Message>, RayTracerInfo) {
         let (sender, recvier) = channel();
-        let s = Self { sender };
+        let (message_sender, msg_reciever) = channel();
+        let scenarios = world::get_scenarios();
+        let scenario_names = scenarios.keys().cloned().collect();
+        let s = Self {
+            sender,
+            msg_reciever,
+            num_samples: 0,
+            scenarios,
+        };
         thread::spawn(move || s.start_tracing());
-        recvier
+        (
+            recvier,
+            message_sender,
+            RayTracerInfo {
+                scenarios: scenario_names,
+            },
+        )
+    }
+    fn tracing_loop(
+        &self,
+        world: &World,
+        camera: &Camera,
+        rgb_img: &mut RgbImage,
+        num_samples: usize,
+    ) {
+        for x in 0..IMAGE_WIDTH {
+            for y in 0..IMAGE_WIDTH {
+                let u = (x as f32 + rand_f32(0.0, 1.0)) / (IMAGE_WIDTH as f32 - 1.0);
+                let v = (y as f32 + rand_f32(0.0, 1.0)) / (IMAGE_HEIGHT as f32 - 1.0);
+                let r = camera.get_ray(u, v);
+
+                rgb_img.add_xy(x, y, ray_color(r, &world, 50));
+            }
+        }
+
+        self.sender
+            .send(Image::from_rgb_image(
+                &(rgb_img.clone() / num_samples as f32),
+            ))
+            .expect("channel failed");
     }
     pub fn start_tracing(&self) {
         self.sender
@@ -128,8 +177,8 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        let (world, camera) = world::cornell_smoke();
-        let world = world.into_bvh(camera.start_time(), camera.end_time());
+        let (mut world, mut camera) = world::cornell_smoke();
+        let mut world = world.into_bvh(camera.start_time(), camera.end_time());
         println!(
             "world bounding box: {:#?}",
             world.spheres[0].bounding_box(0.0, 0.0)
@@ -137,22 +186,29 @@ impl RayTracer {
 
         let mut rgb_img = RgbImage::new_black(1000, 1000);
         let total_time = Instant::now();
-        for num_s in 0..Self::SAMPLES_PER_PIXEL {
-            for x in 0..IMAGE_WIDTH {
-                for y in 0..IMAGE_WIDTH {
-                    let u = (x as f32 + rand_f32(0.0, 1.0)) / (IMAGE_WIDTH as f32 - 1.0);
-                    let v = (y as f32 + rand_f32(0.0, 1.0)) / (IMAGE_HEIGHT as f32 - 1.0);
-                    let r = camera.get_ray(u, v);
+        let mut num_samples = 1usize;
+        loop {
+            if let Ok(message) = self.msg_reciever.try_recv() {
+                match message {
+                    Message::LoadScenario(scenario) => {
+                        if let Some(scenario) = self.scenarios.get(&scenario) {
+                            (world, camera) = (scenario.ctor)();
+                            world = world.into_bvh(camera.start_time(), camera.end_time());
+                            rgb_img = RgbImage::new_black(1000, 1000);
+                            //camera = t_camera;
+                            num_samples = 1;
+                        } else {
+                            todo!("error handling, invalid scenario");
+                        }
 
-                    rgb_img.add_xy(x, y, ray_color(r, &world, 50));
+                        println!("todo: load {}", scenario)
+                    }
                 }
             }
-
-            self.sender
-                .send(Image::from_rgb_image(&(rgb_img.clone() / num_s as f32)))
-                .expect("channel failed");
-            let average_time_s = total_time.elapsed().as_secs_f32() / (num_s + 1) as f32;
+            self.tracing_loop(&world, &camera, &mut rgb_img, num_samples);
+            let average_time_s = total_time.elapsed().as_secs_f32() / (num_samples) as f32;
             println!("average time per frame: {} (s)", average_time_s);
+            num_samples += 1;
         }
     }
 }

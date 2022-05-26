@@ -831,6 +831,7 @@ dependencies = [
  "egui",
  "egui-miniquad",
  "image",
+ "log",
  "miniquad",
  "rand",
 ]
