@@ -6,7 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-miniquad = "0.2.55"
+miniquad = "0.3.0-alpha.46"
 cgmath = "0.18.0"
 rand="0.8.5"
 image = "0.24.2"
+egui = "0.18.1"
+
+egui-miniquad = "0.11"

@@ -1,7 +1,9 @@
+mod gui;
 mod prelude;
 mod ray_tracer;
 
 use cgmath::{InnerSpace, Vector2, Vector3};
+use gui::GuiCtx;
 use miniquad::{
     conf, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline, Shader,
     Texture, UserData, VertexAttribute, VertexFormat,
@@ -26,6 +28,7 @@ struct Handler {
     pipeline: Pipeline,
     bindings: Bindings,
     image_channel: Receiver<Image>,
+    gui: GuiCtx,
 }
 impl Handler {
     pub fn new(ctx: &mut Context) -> Self {
@@ -64,7 +67,8 @@ impl Handler {
             index_buffer,
             images: vec![texture],
         };
-        let shader = Shader::new(ctx, shader::VERTEX, shader::FRAGMENT, shader::meta());
+        let shader = Shader::new(ctx, shader::VERTEX, shader::FRAGMENT, shader::meta())
+            .expect("failed to compile");
         let pipeline = Pipeline::new(
             ctx,
             &[BufferLayout::default()],
@@ -79,6 +83,7 @@ impl Handler {
             pipeline,
             bindings,
             image_channel,
+            gui: GuiCtx::new(ctx),
         }
     }
 }
@@ -101,6 +106,7 @@ impl EventHandler for Handler {
         ctx.draw(0, 6, 1);
 
         ctx.end_render_pass();
+        self.gui.draw(ctx);
 
         ctx.commit_frame();
     }
@@ -181,9 +187,9 @@ mod shader {
 
     pub fn meta() -> ShaderMeta {
         ShaderMeta {
-            images: &["tex"],
+            images: vec!["tex".to_string()],
             uniforms: UniformBlockLayout {
-                uniforms: &[("offset", UniformType::Float2)],
+                uniforms: vec![miniquad::UniformDesc::new("offset", UniformType::Float2)],
             },
         }
     }
