@@ -10,6 +10,9 @@ mod world;
 
 use super::{prelude::*, Image};
 use crate::reflect;
+use log::{debug, error, info, warn};
+pub use logger::LogMessage;
+use logger::Logger;
 
 use background::{Background, ConstantColor, Sky};
 use bvh::Aabb;
@@ -108,11 +111,12 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
         world.background.color(ray)
     }
 }
-
+static mut LOGGER: Option<Logger> = None;
 pub struct RayTracer {
     sender: Sender<Image>,
     msg_reciever: Receiver<Message>,
     num_samples: usize,
+
     scenarios: HashMap<String, Scenario>,
 }
 pub struct RayTracerInfo {
@@ -125,7 +129,17 @@ pub enum Message {
 impl RayTracer {
     const SAMPLES_PER_PIXEL: usize = 1000;
     #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> (Receiver<Image>, Sender<Message>, RayTracerInfo) {
+    pub fn new() -> (
+        Receiver<Image>,
+        Sender<Message>,
+        Receiver<LogMessage>,
+        RayTracerInfo,
+    ) {
+        let (logger, log_reciever) = Logger::new();
+        unsafe { LOGGER = Some(logger) };
+        log::set_logger(unsafe { LOGGER.as_ref().unwrap() })
+            .map(|()| log::set_max_level(log::LevelFilter::Debug))
+            .expect("failed to set logger");
         let (sender, recvier) = channel();
         let (message_sender, msg_reciever) = channel();
         let scenarios = world::get_scenarios();
@@ -140,6 +154,7 @@ impl RayTracer {
         (
             recvier,
             message_sender,
+            log_reciever,
             RayTracerInfo {
                 scenarios: scenario_names,
             },
@@ -169,6 +184,9 @@ impl RayTracer {
             .expect("channel failed");
     }
     pub fn start_tracing(&self) {
+        debug!("test debug");
+        warn!("test warn");
+        error!("test error");
         self.sender
             .send(Image::from_fn(
                 |_x, _y| [0, 0, 0, 0xff],
@@ -200,14 +218,12 @@ impl RayTracer {
                         } else {
                             todo!("error handling, invalid scenario");
                         }
-
-                        println!("todo: load {}", scenario)
                     }
                 }
             }
             self.tracing_loop(&world, &camera, &mut rgb_img, num_samples);
             let average_time_s = total_time.elapsed().as_secs_f32() / (num_samples) as f32;
-            println!("average time per frame: {} (s)", average_time_s);
+            info!("average time per frame: {} (s)", average_time_s);
             num_samples += 1;
         }
     }

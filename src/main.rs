@@ -9,7 +9,7 @@ use miniquad::{
     Texture, UserData, VertexAttribute, VertexFormat,
 };
 use prelude::{RgbColor, RgbImage};
-use ray_tracer::{Message, RayTracerInfo};
+use ray_tracer::{LogMessage, Message, RayTracerInfo};
 use std::sync::mpsc::Receiver;
 pub fn vec_near_zero(v: Vector3<f32>) -> bool {
     v.dot(v) < 1e-8
@@ -29,6 +29,7 @@ struct Handler {
     pipeline: Pipeline,
     bindings: Bindings,
     image_channel: Receiver<Image>,
+
     gui: GuiCtx,
 }
 impl Handler {
@@ -79,12 +80,13 @@ impl Handler {
             ],
             shader,
         );
-        let (image_channel, message_sender, info) = ray_tracer::RayTracer::new();
+        let (image_channel, message_sender, log_reciever, info) = ray_tracer::RayTracer::new();
         Self {
             pipeline,
             bindings,
             image_channel,
-            gui: GuiCtx::new(ctx, &info, message_sender),
+
+            gui: GuiCtx::new(ctx, &info, log_reciever, message_sender),
         }
     }
 }
@@ -95,6 +97,7 @@ impl EventHandler for Handler {
             self.bindings.images = vec![tex];
             println!("recieved image");
         }
+
         self.gui.update(ctx);
     }
 

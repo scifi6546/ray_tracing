@@ -1,13 +1,29 @@
+use crate::Message::LoadScenario;
 use log::{Level as LogLevel, Level, Metadata, Record};
-use std::sync::mpsc::{channel, Receiver, Sender};
-pub enum LogMessage {Debug(String)}
+use std::sync::{
+    mpsc::{channel, Receiver, Sender},
+    Mutex,
+};
+#[derive(Debug)]
+pub enum LogMessage {
+    Trace(String),
+    Debug(String),
+    Info(String),
+    Warn(String),
+    Error(String),
+}
 pub struct Logger {
-    sender: Sender<LogMessage>,
+    sender: Mutex<Sender<LogMessage>>,
 }
 impl Logger {
     pub fn new() -> (Self, Receiver<LogMessage>) {
         let (sender, reciever) = channel();
-        (Self { sender }, reciever)
+        (
+            Self {
+                sender: Mutex::new(sender),
+            },
+            reciever,
+        )
     }
 }
 impl log::Log for Logger {
@@ -16,14 +32,23 @@ impl log::Log for Logger {
     }
 
     fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()){
-            println!("todo configure other end!");
-            let message = match record.level(){LogLevel::Debug=>LogMessage::Debug(record.args())}
+        if self.enabled(record.metadata()) {
+            let message = match record.level() {
+                LogLevel::Trace => LogMessage::Trace(record.args().to_string()),
+                LogLevel::Debug => LogMessage::Debug(record.args().to_string()),
+                LogLevel::Info => LogMessage::Info(record.args().to_string()),
+                LogLevel::Warn => LogMessage::Warn(record.args().to_string()),
+                LogLevel::Error => LogMessage::Error(record.args().to_string()),
+            };
+
+            self.sender
+                .lock()
+                .expect("failed to acquire lock")
+                .send(message);
         }
-        todo!()
     }
 
     fn flush(&self) {
-        todo!()
+        println!("flush??")
     }
 }
