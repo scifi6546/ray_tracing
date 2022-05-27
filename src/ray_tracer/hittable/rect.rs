@@ -11,6 +11,16 @@ pub struct XYRect {
     pub y1: f32,
     pub k: f32,
 }
+impl XYRect {
+    pub const NORMAL: Vector3<f32> = Vector3 {
+        x: 0.0,
+        y: 0.0,
+        z: 1.0,
+    };
+    fn area(&self) -> f32 {
+        (self.x1 - self.x0) * (self.y1 - self.y0)
+    }
+}
 impl Hittable for XYRect {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let t = (self.k - ray.origin.z) / ray.direction.z;
@@ -30,7 +40,7 @@ impl Hittable for XYRect {
         Some(HitRecord::new(
             ray,
             ray.at(t),
-            Vector3::new(0.0, 0.0, 1.0),
+            Self::NORMAL,
             t,
             uv,
             self.material.clone(),
@@ -44,7 +54,41 @@ impl Hittable for XYRect {
         })
     }
 }
+impl Light for XYRect {
+    fn prob(&self, ray: Ray) -> f32 {
+        let center =
+            0.5 * (Point3::new(self.x0, self.y0, self.k) + Vector3::new(self.x1, self.y1, self.k));
+        let to_light = center - ray.origin;
+        let cos_alpha = to_light.normalize().z.abs();
+        if cos_alpha < 0.00001 {
+            return 0.0;
+        }
+        let area = (self.x1 - self.x0) * (self.y1 - self.y0);
 
+        let distance_squared = to_light.dot(to_light);
+
+        distance_squared / (cos_alpha * self.area())
+    }
+
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+        let end_point = Point3::new(
+            rand_f32(self.x0, self.x1),
+            rand_f32(self.y0, self.y1),
+            self.k,
+        );
+        let direction = (end_point - origin).normalize();
+        RayAreaInfo {
+            to_area: Ray {
+                origin,
+                direction,
+                time,
+            },
+            normal: Self::NORMAL,
+            area: self.area(),
+            direction: end_point - origin,
+        }
+    }
+}
 pub struct XZRect {
     pub x0: f32,
     pub x1: f32,

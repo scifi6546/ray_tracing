@@ -1,6 +1,7 @@
 use super::{
     Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, ImageTexture,
-    Lambertian, Metal, Perlin, SolidColor, Sphere, World, XYRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    Lambertian, Metal, Perlin, SolidColor, Sphere, World, XYRect, YZRect, IMAGE_HEIGHT,
+    IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -13,7 +14,30 @@ pub fn easy_scene() -> (World, Camera) {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-
+    let light = Rc::new(XYRect {
+        x0: -0.5,
+        x1: 0.5,
+        y0: -0.5 + 1.0,
+        y1: 0.5 + 1.0,
+        k: -2.3,
+        material: Rc::new(RefCell::new(DiffuseLight {
+            emit: Box::new(SolidColor {
+                color: 0.5 * RgbColor::new(1.0, 1.0, 1.0),
+            }),
+        })),
+    });
+    let yz_light = Rc::new(YZRect {
+        y0: -0.5,
+        y1: 0.5,
+        z0: -0.5,
+        z1: 0.5,
+        k: -3.0,
+        material: Rc::new(RefCell::new(DiffuseLight {
+            emit: Box::new(SolidColor {
+                color: 0.5 * RgbColor::new(1.0, 1.0, 1.0),
+            }),
+        })),
+    });
     (
         World {
             spheres: vec![
@@ -80,18 +104,8 @@ pub fn easy_scene() -> (World, Camera) {
                         fuzz: 0.0,
                     })),
                 }),
-                Rc::new(XYRect {
-                    x0: -0.5,
-                    x1: 0.5,
-                    y0: -0.5 + 1.0,
-                    y1: 0.5 + 1.0,
-                    k: -2.3,
-                    material: Rc::new(RefCell::new(DiffuseLight {
-                        emit: Box::new(SolidColor {
-                            color: 0.5 * RgbColor::new(1.0, 1.0, 1.0),
-                        }),
-                    })),
-                }),
+                light.clone(),
+                yz_light,
                 Rc::new(Sphere {
                     radius: 0.5,
                     origin: Point3 {
@@ -106,7 +120,7 @@ pub fn easy_scene() -> (World, Camera) {
                     })),
                 }),
             ],
-            lights: vec![],
+            lights: vec![light],
             background: Box::new(ConstantColor {
                 color: RgbColor::new(0.05, 0.05, 0.05),
             }),
