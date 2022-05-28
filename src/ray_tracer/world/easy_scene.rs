@@ -44,7 +44,7 @@ pub fn easy_scene() -> (World, Camera) {
         Rc::new(RefCell::new(
             (DiffuseLight {
                 emit: Box::new(SolidColor {
-                    color: 1.0 * RgbColor::new(1.0, 0.0, 0.0),
+                    color: 40000.0 * RgbColor::new(1.0, 0.0, 0.0),
                 }),
             }),
         )),

@@ -1,4 +1,4 @@
-use super::{Aabb, HitRecord, Hittable, Material, XYRect, XZRect, YZRect};
+use super::{Aabb, FlipNormals, HitRecord, Hittable, Material, XYRect, XZRect, YZRect};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::{Light, RayAreaInfo};
 use cgmath::Point3;
@@ -9,11 +9,11 @@ pub struct RenderBox {
     box_max: Point3<f32>,
 
     xyp: XYRect,
-    xym: XYRect,
+    xym: FlipNormals,
     xzp: XZRect,
-    xzm: XZRect,
+    xzm: FlipNormals,
     yzp: YZRect,
-    yzm: YZRect,
+    yzm: FlipNormals,
 }
 impl RenderBox {
     pub fn new(
@@ -29,13 +29,16 @@ impl RenderBox {
             y1: box_max.y,
             k: box_max.z,
         };
-        let xym = XYRect {
-            material: material.clone(),
-            x0: box_min.x,
-            x1: box_max.x,
-            y0: box_min.y,
-            y1: box_max.y,
-            k: box_min.z,
+
+        let xym = FlipNormals {
+            item: Rc::new(XYRect {
+                material: material.clone(),
+                x0: box_min.x,
+                x1: box_max.x,
+                y0: box_min.y,
+                y1: box_max.y,
+                k: box_min.z,
+            }),
         };
         let xzp = XZRect {
             x0: box_min.x,
@@ -45,14 +48,17 @@ impl RenderBox {
             k: box_max.y,
             material: material.clone(),
         };
-        let xzm = XZRect {
-            x0: box_min.x,
-            x1: box_max.x,
-            z0: box_min.z,
-            z1: box_max.z,
-            k: box_min.y,
-            material: material.clone(),
+        let xzm = FlipNormals {
+            item: Rc::new(XZRect {
+                x0: box_min.x,
+                x1: box_max.x,
+                z0: box_min.z,
+                z1: box_max.z,
+                k: box_min.y,
+                material: material.clone(),
+            }),
         };
+
         let yzp = YZRect {
             y0: box_min.y,
             y1: box_max.y,
@@ -61,13 +67,16 @@ impl RenderBox {
             k: box_max.x,
             material: material.clone(),
         };
-        let yzm = YZRect {
-            y0: box_min.y,
-            y1: box_max.y,
-            z0: box_min.z,
-            z1: box_max.z,
-            k: box_min.x,
-            material: material.clone(),
+
+        let yzm = FlipNormals {
+            item: Rc::new(YZRect {
+                y0: box_min.y,
+                y1: box_max.y,
+                z0: box_min.z,
+                z1: box_max.z,
+                k: box_min.x,
+                material: material.clone(),
+            }),
         };
         Self {
             box_min,
