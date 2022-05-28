@@ -3,7 +3,7 @@ use cgmath::{num_traits::*, prelude::*, Point2, Point3, Vector3};
 use std::{
     cmp::PartialOrd,
     fmt::*,
-    ops::{Add, AddAssign, Div, Mul},
+    ops::{Add, AddAssign, Div, Mul, Sub},
 };
 
 pub fn clamp<T: std::cmp::PartialOrd>(x: T, min: T, max: T) -> T {
@@ -49,6 +49,14 @@ impl RgbColor {
         green: 0.0,
         blue: 0.0,
     };
+    pub const WHITE: Self = Self {
+        red: 1.0,
+        green: 1.0,
+        blue: 1.0,
+    };
+    pub fn magnitude_squared(&self) -> f32 {
+        self.red.powi(2) + self.green.powi(2) + self.blue.powi(2)
+    }
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
         Self { red, green, blue }
     }
@@ -57,6 +65,27 @@ impl RgbColor {
             red: rand::random(),
             green: rand::random(),
             blue: rand::random(),
+        }
+    }
+    pub fn pow(&self, p: f32) -> Self {
+        Self {
+            red: self.red.powf(p),
+            green: self.green.powf(p),
+            blue: self.blue.powf(p),
+        }
+    }
+    pub fn clamp(&self) -> RgbColor {
+        Self {
+            red: self.red.clamp(0.0, 1.0),
+            green: self.green.clamp(0.0, 1.0),
+            blue: self.blue.clamp(0.0, 1.0),
+        }
+    }
+    pub fn exp(&self) -> Self {
+        Self {
+            red: self.red.exp(),
+            green: self.green.exp(),
+            blue: self.blue.exp(),
         }
     }
     pub fn as_rgba_u8(&self) -> [u8; 4] {
@@ -111,6 +140,17 @@ impl Add for RgbColor {
             red: self.red + rhs.red,
             green: self.green + rhs.green,
             blue: self.blue + rhs.blue,
+        }
+    }
+}
+impl Sub for RgbColor {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            red: self.red - rhs.red,
+            green: self.green - rhs.green,
+            blue: self.blue - rhs.blue,
         }
     }
 }
@@ -171,6 +211,12 @@ impl RgbImage {
         let v = 1.0 - uv.y;
         let y = ((v * (self.height() as f32 - 1.0)) as u32).clamp(0, self.height() - 1);
         self.get_xy(x, y)
+    }
+    pub fn get_clamped(&self, x: i32, y: i32) -> RgbColor {
+        self.get_xy(
+            (x.max(0).min(self.width as i32 - 1)) as u32,
+            (y.max(0).min(self.height as i32 - 1)) as u32,
+        )
     }
     pub fn get_xy(&self, x: u32, y: u32) -> RgbColor {
         self.buffer[y as usize * self.width as usize + x as usize]
@@ -244,10 +290,7 @@ pub fn random_cosine_direction() -> Vector3<f32> {
     let y = phi.sin() * r2.sqrt();
     Vector3 { x, y, z }
 }
-pub fn debug() -> bool {
-    const DEBUG: bool = false;
-    rand_u32(0, 1_000_000) == 0 && DEBUG
-}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {

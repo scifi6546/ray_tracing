@@ -49,9 +49,6 @@ impl Pdf for CosinePdf {
         let cos = direction.dot(self.uvw.w());
         let value = if cos <= 0.0 { 0.0 } else { cos / f32::PI() };
 
-        if debug() {
-            println!("value: {},direction: {:#?}", value, direction);
-        }
         Some((direction, value))
     }
 }
@@ -100,12 +97,7 @@ impl Pdf for LightPdf {
         let dist_squared = area_info.direction.dot(area_info.direction);
         if light_cos >= 0.000001 {
             let value = dist_squared / (light_cos * area_info.area);
-            if debug() {
-                println!(
-                    "area: {}, light cos: {}, idx: {} ,value: {}, incoming ray: {}",
-                    area_info.area, light_cos, idx, value, incoming_ray
-                )
-            }
+
             Some((area_info.to_area.direction.normalize(), value))
         } else {
             None

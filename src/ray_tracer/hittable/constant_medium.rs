@@ -36,24 +36,12 @@ impl Hittable for ConstantMedium {
         }
 
         if hit1.t >= hit2.t {
-            if debug() {
-                println!(
-                    "none, hit1.t = {}, hit2.t = {}, t_min: {} t_max: {}",
-                    hit1.t, hit2.t, t_min, t_max
-                );
-            }
             return None;
         }
         if hit1.t < 0.0 {
             hit1.t = 0.0;
         }
 
-        if debug() {
-            println!(
-                "hit!!!   hit1.t = {}, hit2.t = {}, t_min: {} t_max: {}",
-                hit1.t, hit2.t, t_min, t_max
-            );
-        }
         let ray_length = {
             let d = ray.direction;
             (d.x * d.x + d.y * d.y + d.z * d.z).sqrt()
@@ -66,12 +54,7 @@ impl Hittable for ConstantMedium {
         }
         let t = hit1.t + hit_distance / ray_length;
         let position = ray.at(t);
-        if debug() {
-            println!(
-                "hit distance: {} t: {} position: <{},{},{}>",
-                hit_distance, t, position.x, position.y, position.z
-            );
-        }
+
         Some(HitRecord {
             position,
             normal: Vector3::new(1.0, 0.0, 0.0),

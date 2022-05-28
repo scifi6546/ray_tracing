@@ -1,9 +1,14 @@
+use crate::prelude::*;
 use crate::Message::LoadScenario;
 use log::{Level as LogLevel, Level, Metadata, Record};
 use std::sync::{
     mpsc::{channel, Receiver, Sender},
     Mutex,
 };
+fn print_debug() -> bool {
+    const DEBUG: bool = true;
+    rand_u32(0, 1_000) == 0 && DEBUG
+}
 #[derive(Debug)]
 pub enum LogMessage {
     Trace(String),
@@ -35,7 +40,13 @@ impl log::Log for Logger {
         if self.enabled(record.metadata()) {
             let message = match record.level() {
                 LogLevel::Trace => LogMessage::Trace(record.args().to_string()),
-                LogLevel::Debug => LogMessage::Debug(record.args().to_string()),
+                LogLevel::Debug => {
+                    if print_debug() {
+                        LogMessage::Debug(record.args().to_string())
+                    } else {
+                        return;
+                    }
+                }
                 LogLevel::Info => LogMessage::Info(record.args().to_string()),
                 LogLevel::Warn => LogMessage::Warn(record.args().to_string()),
                 LogLevel::Error => LogMessage::Error(record.args().to_string()),

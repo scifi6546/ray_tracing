@@ -1,4 +1,5 @@
 mod background;
+mod bloom;
 mod bvh;
 mod camera;
 mod hittable;
@@ -10,6 +11,7 @@ mod world;
 
 use super::{prelude::*, Image};
 use crate::reflect;
+use bloom::bloom;
 use log::{debug, error, info, trace, warn};
 pub use logger::LogMessage;
 use logger::Logger;
@@ -176,11 +178,13 @@ impl RayTracer {
                 rgb_img.add_xy(x, y, ray_color(r, &world, 50));
             }
         }
+        let mut send_img = (rgb_img.clone() / num_samples as f32);
+        if num_samples % 2 == 0 {
+            bloom(&mut send_img);
+        }
 
         self.sender
-            .send(Image::from_rgb_image(
-                &(rgb_img.clone() / num_samples as f32),
-            ))
+            .send(Image::from_rgb_image(&send_img))
             .expect("channel failed");
     }
     pub fn start_tracing(&self) {
