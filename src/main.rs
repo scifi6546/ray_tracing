@@ -95,7 +95,6 @@ impl EventHandler for Handler {
         if let Ok(img) = self.image_channel.try_recv() {
             let tex = img.make_texture(ctx);
             self.bindings.images = vec![tex];
-            println!("recieved image");
         }
 
         self.gui.update(ctx);

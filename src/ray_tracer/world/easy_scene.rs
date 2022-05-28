@@ -1,7 +1,7 @@
 use super::{
     Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, ImageTexture,
-    Lambertian, Metal, Perlin, SolidColor, Sphere, World, XYRect, YZRect, IMAGE_HEIGHT,
-    IMAGE_WIDTH,
+    Lambertian, Metal, Perlin, RenderBox, SolidColor, Sphere, Translate, World, XYRect, YZRect,
+    IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -22,7 +22,7 @@ pub fn easy_scene() -> (World, Camera) {
         k: -2.3,
         material: Rc::new(RefCell::new(DiffuseLight {
             emit: Box::new(SolidColor {
-                color: 0.5 * RgbColor::new(1.0, 1.0, 1.0),
+                color: 0.5 * RgbColor::new(0.0, 0.0, 1.0),
             }),
         })),
     });
@@ -34,10 +34,35 @@ pub fn easy_scene() -> (World, Camera) {
         k: -3.0,
         material: Rc::new(RefCell::new(DiffuseLight {
             emit: Box::new(SolidColor {
-                color: 0.5 * RgbColor::new(1.0, 1.0, 1.0),
+                color: 0.5 * RgbColor::new(0.0, 1.0, 0.0),
             }),
         })),
     });
+    let box_light = Rc::new(RenderBox::new(
+        Point3::new(-0.2, -0.2 - 0.3, -0.2),
+        Point3::new(0.2, 0.2 - 0.3, 0.2),
+        Rc::new(RefCell::new(
+            (DiffuseLight {
+                emit: Box::new(SolidColor {
+                    color: 1.0 * RgbColor::new(1.0, 0.0, 0.0),
+                }),
+            }),
+        )),
+    ));
+    let sphere_light = Rc::new(Sphere {
+        radius: 0.5,
+        origin: Point3 {
+            x: 0.0,
+            y: 1.5,
+            z: -1.0,
+        },
+        material: Rc::new(RefCell::new(DiffuseLight {
+            emit: Box::new(SolidColor {
+                color: RgbColor::new(4.0, 4.0, 4.0),
+            }),
+        })),
+    });
+
     (
         World {
             spheres: vec![
@@ -105,24 +130,13 @@ pub fn easy_scene() -> (World, Camera) {
                     })),
                 }),
                 light.clone(),
-                yz_light,
-                Rc::new(Sphere {
-                    radius: 0.5,
-                    origin: Point3 {
-                        x: 0.0,
-                        y: 1.5,
-                        z: -1.0,
-                    },
-                    material: Rc::new(RefCell::new(DiffuseLight {
-                        emit: Box::new(SolidColor {
-                            color: RgbColor::new(4.0, 4.0, 4.0),
-                        }),
-                    })),
-                }),
+                yz_light.clone(),
+                box_light.clone(),
+                sphere_light.clone(),
             ],
-            lights: vec![light],
+            lights: vec![light, yz_light, box_light, sphere_light],
             background: Box::new(ConstantColor {
-                color: RgbColor::new(0.05, 0.05, 0.05),
+                color: RgbColor::new(0.00, 0.00, 0.00),
             }),
         },
         Camera::new(

@@ -1,7 +1,10 @@
-use super::{Aabb, HitRecord, Hittable, Material};
+use super::{Aabb, HitRecord, Hittable, Light, Material};
 use crate::prelude::*;
+use crate::ray_tracer::hittable::RayAreaInfo;
+use crate::ray_tracer::rand_unit_vec;
 use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
+
 #[derive(Clone)]
 pub struct Sphere {
     pub radius: f32,
@@ -46,7 +49,36 @@ impl Hittable for Sphere {
         })
     }
 }
+impl Light for Sphere {
+    fn prob(&self, ray: Ray) -> f32 {
+        let area = f32::PI() * self.radius.powi(2);
+        let to_light = self.origin - ray.origin;
+
+        let distance_squared = to_light.dot(to_light);
+
+        distance_squared / area
+    }
+
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+        let sphere_direction = rand_unit_vec();
+        let end_point = self.origin + self.radius * sphere_direction;
+        let direction = (end_point - origin).normalize();
+        RayAreaInfo {
+            to_area: Ray {
+                origin,
+                direction,
+                time,
+            },
+            normal: sphere_direction,
+            area: self.area(),
+            direction: end_point - origin,
+        }
+    }
+}
 impl Sphere {
+    fn area(&self) -> f32 {
+        f32::PI() * self.radius.powi(2)
+    }
     fn get_sphere_uv(point: Vector3<f32>) -> Point2<f32> {
         let theta = (-1.0 * point.y).acos();
         let phi = (-1.0 * point.z).atan2(point.x) + f32::PI();

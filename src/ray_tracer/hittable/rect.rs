@@ -178,6 +178,16 @@ pub struct YZRect {
     pub k: f32,
     pub material: Rc<RefCell<dyn Material>>,
 }
+impl YZRect {
+    pub const NORMAL: Vector3<f32> = Vector3 {
+        x: 1.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    fn area(&self) -> f32 {
+        (self.y1 - self.y0) * (self.z1 - self.z0)
+    }
+}
 impl Hittable for YZRect {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let t = (self.k - ray.origin.x) / ray.direction.x;
@@ -208,5 +218,39 @@ impl Hittable for YZRect {
             minimum: Point3::new(self.k - 0.001, self.y0, self.z0),
             maximum: Point3::new(self.k + 0.001, self.y1, self.z1),
         })
+    }
+}
+impl Light for YZRect {
+    fn prob(&self, ray: Ray) -> f32 {
+        let center =
+            0.5 * (Point3::new(self.k, self.y0, self.z0) + Vector3::new(self.k, self.y1, self.z1));
+        let to_light = center - ray.origin;
+        let cos_alpha = to_light.normalize().x.abs();
+        if cos_alpha < 0.00001 {
+            return 0.0;
+        }
+
+        let distance_squared = to_light.dot(to_light);
+
+        distance_squared / (cos_alpha * self.area())
+    }
+
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+        let end_point = Point3::new(
+            self.k,
+            rand_f32(self.y0, self.y1),
+            rand_f32(self.z0, self.z1),
+        );
+        let direction = (end_point - origin).normalize();
+        RayAreaInfo {
+            to_area: Ray {
+                origin,
+                direction,
+                time,
+            },
+            normal: Self::NORMAL,
+            area: self.area(),
+            direction: end_point - origin,
+        }
     }
 }

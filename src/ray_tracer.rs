@@ -10,7 +10,7 @@ mod world;
 
 use super::{prelude::*, Image};
 use crate::reflect;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 pub use logger::LogMessage;
 use logger::Logger;
 
@@ -187,6 +187,7 @@ impl RayTracer {
         debug!("test debug");
         warn!("test warn");
         error!("test error");
+        trace!("test trace");
         self.sender
             .send(Image::from_fn(
                 |_x, _y| [0, 0, 0, 0xff],
@@ -203,7 +204,7 @@ impl RayTracer {
         );
 
         let mut rgb_img = RgbImage::new_black(1000, 1000);
-        let total_time = Instant::now();
+        let mut total_time = Instant::now();
         let mut num_samples = 1usize;
         loop {
             if let Ok(message) = self.msg_reciever.try_recv() {
@@ -215,6 +216,7 @@ impl RayTracer {
                             rgb_img = RgbImage::new_black(1000, 1000);
                             //camera = t_camera;
                             num_samples = 1;
+                            total_time = Instant::now();
                         } else {
                             todo!("error handling, invalid scenario");
                         }
