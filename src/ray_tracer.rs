@@ -179,9 +179,8 @@ impl RayTracer {
             }
         }
         let mut send_img = (rgb_img.clone() / num_samples as f32);
-        if num_samples % 2 == 0 {
-            bloom(&mut send_img);
-        }
+
+        bloom(&mut send_img);
 
         self.sender
             .send(Image::from_rgb_image(&send_img))
