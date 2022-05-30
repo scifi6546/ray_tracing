@@ -78,21 +78,7 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
         };
         if let Some(scatter_record) = record.material.borrow().scatter(ray, &record) {
             if let Some(specular_ray) = scatter_record.specular_ray {
-                let recurse_color = ray_color(specular_ray, world, depth - 1);
-                if recurse_color.is_nan() {
-                    error!("recurse color is nan");
-                }
-                if scatter_record.attenuation.is_nan() {
-                    error!(
-                        "attenuation is nan, material: {}",
-                        record.material.borrow().name()
-                    );
-                }
-                let t_color = scatter_record.attenuation * recurse_color;
-                if t_color.is_nan() {
-                    error!("recurse nan");
-                }
-                t_color
+                scatter_record.attenuation * ray_color(specular_ray, world, depth - 1)
             } else if let Some((pdf_direction, value)) = scatter_record
                 .pdf
                 .expect("if material is not specular there should be a pdf")
@@ -109,15 +95,12 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
                 );
                 if let Some(scattering_pdf) = scattering_pdf {
                     if scattering_pdf == 0.0 {
-                        error!("scattering pdf is zero");
                         return RgbColor::BLACK;
                     }
-                    if value == 0.0 {
-                        error!("value is zero");
-                    }
+
                     let value = value / scattering_pdf;
 
-                    let t_color = scatter_record.attenuation
+                    scatter_record.attenuation
                         * ray_color(
                             Ray {
                                 origin: record.position,
@@ -127,11 +110,7 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
                             world,
                             depth - 1,
                         )
-                        / value;
-                    if t_color.is_nan() {
-                        error!("returning NaN");
-                    }
-                    t_color
+                        / value
                 } else {
                     RgbColor::BLACK
                 }
@@ -143,11 +122,7 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
             RgbColor::BLACK
         }
     } else {
-        let bg = world.background.color(ray);
-        if bg.is_nan() {
-            error!("background color is nan")
-        }
-        bg
+        world.background.color(ray)
     }
 }
 static mut LOGGER: Option<Logger> = None;

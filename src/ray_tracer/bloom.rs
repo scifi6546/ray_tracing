@@ -72,11 +72,9 @@ pub fn bloom(texture: &mut RgbImage) {
     let select = SelectMinMag { min_mag: 1.0 };
     let bright_texture = select.process(texture);
 
-    let blur = GaussianBlur { amount: 20 };
+    let blur = GaussianBlur { amount: 200 };
     let mut bloom_texture = blur.process(&bright_texture);
-    // let mut bloom_texture = blur.process(&texture);
-    //*texture = bloom_texture;
-    //  return;
+
     let gamma = 2.2;
     for x in 0..texture.width() {
         for y in 0..texture.height() {
@@ -87,5 +85,4 @@ pub fn bloom(texture: &mut RgbImage) {
             texture.set_xy(x, y, set_color);
         }
     }
-    return;
 }

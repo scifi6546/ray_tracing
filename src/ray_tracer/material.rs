@@ -66,18 +66,10 @@ impl Material for Metal {
                 direction: reflected + self.fuzz * rand_unit_vec(),
                 time: ray_in.time,
             };
-            let attenuation = self.albedo.color(record_in.uv, record_in.position);
-            if attenuation.is_nan() {
-                error!(
-                    "Metal:attenuation is nan, uv: {:#?}, position: {:#?}, albedo: \"{}\"",
-                    record_in.uv,
-                    record_in.position,
-                    self.albedo.name()
-                );
-            }
+
             Some(ScatterRecord {
                 specular_ray: Some(out_ray),
-                attenuation,
+                attenuation: self.albedo.color(record_in.uv, record_in.position),
                 pdf: None,
             })
         } else {
