@@ -8,13 +8,13 @@ mod material;
 mod pdf;
 mod texture;
 mod world;
-
 use super::{prelude::*, Image};
 use crate::reflect;
 use bloom::bloom;
 use log::{debug, error, info, trace, warn};
 pub use logger::LogMessage;
 use logger::Logger;
+use to_numpy::NumpyArray3D;
 
 use background::{Background, ConstantColor, Sky};
 use bvh::Aabb;
@@ -33,6 +33,7 @@ use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture}
 use world::World;
 
 use crate::ray_tracer::world::Scenario;
+use egui::Key::R;
 use std::collections::HashMap;
 use std::{
     sync::mpsc::{channel, Receiver, Sender},
@@ -70,11 +71,28 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
     }
     if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
         if let Some(emitted) = record.material.borrow().emmit(&record) {
+            if emitted.is_nan() {
+                error!("emmited color is nan");
+            }
             return emitted;
         };
         if let Some(scatter_record) = record.material.borrow().scatter(ray, &record) {
             if let Some(specular_ray) = scatter_record.specular_ray {
-                scatter_record.attenuation * ray_color(specular_ray, world, depth - 1)
+                let recurse_color = ray_color(specular_ray, world, depth - 1);
+                if recurse_color.is_nan() {
+                    error!("recurse color is nan");
+                }
+                if scatter_record.attenuation.is_nan() {
+                    error!(
+                        "attenuation is nan, material: {}",
+                        record.material.borrow().name()
+                    );
+                }
+                let t_color = scatter_record.attenuation * recurse_color;
+                if t_color.is_nan() {
+                    error!("recurse nan");
+                }
+                t_color
             } else if let Some((pdf_direction, value)) = scatter_record
                 .pdf
                 .expect("if material is not specular there should be a pdf")
@@ -89,19 +107,34 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
                         time: record.t,
                     },
                 );
+                if let Some(scattering_pdf) = scattering_pdf {
+                    if scattering_pdf == 0.0 {
+                        error!("scattering pdf is zero");
+                        return RgbColor::BLACK;
+                    }
+                    if value == 0.0 {
+                        error!("value is zero");
+                    }
+                    let value = value / scattering_pdf;
 
-                let value = value / scattering_pdf;
-                scatter_record.attenuation
-                    * ray_color(
-                        Ray {
-                            origin: record.position,
-                            direction: pdf_direction,
-                            time: record.t,
-                        },
-                        world,
-                        depth - 1,
-                    )
-                    / value
+                    let t_color = scatter_record.attenuation
+                        * ray_color(
+                            Ray {
+                                origin: record.position,
+                                direction: pdf_direction,
+                                time: record.t,
+                            },
+                            world,
+                            depth - 1,
+                        )
+                        / value;
+                    if t_color.is_nan() {
+                        error!("returning NaN");
+                    }
+                    t_color
+                } else {
+                    RgbColor::BLACK
+                }
             } else {
                 RgbColor::BLACK
             }
@@ -110,7 +143,11 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
             RgbColor::BLACK
         }
     } else {
-        world.background.color(ray)
+        let bg = world.background.color(ray);
+        if bg.is_nan() {
+            error!("background color is nan")
+        }
+        bg
     }
 }
 static mut LOGGER: Option<Logger> = None;
@@ -174,14 +211,17 @@ impl RayTracer {
                 let u = (x as f32 + rand_f32(0.0, 1.0)) / (IMAGE_WIDTH as f32 - 1.0);
                 let v = (y as f32 + rand_f32(0.0, 1.0)) / (IMAGE_HEIGHT as f32 - 1.0);
                 let r = camera.get_ray(u, v);
-
-                rgb_img.add_xy(x, y, ray_color(r, &world, 50));
+                let c = ray_color(r, &world, 50);
+                if c.is_nan() {
+                    error!("ray color retuned NaN");
+                }
+                rgb_img.add_xy(x, y, c);
             }
         }
         let mut send_img = (rgb_img.clone() / num_samples as f32);
-
+        //send_img.save(format!("raw_frame_{}.npy", num_samples));
         bloom(&mut send_img);
-
+        //send_img.save(format!("final_frame_{}.npy", num_samples));
         self.sender
             .send(Image::from_rgb_image(&send_img))
             .expect("channel failed");
@@ -228,7 +268,10 @@ impl RayTracer {
             }
             self.tracing_loop(&world, &camera, &mut rgb_img, num_samples);
             let average_time_s = total_time.elapsed().as_secs_f32() / (num_samples) as f32;
-            info!("average time per frame: {} (s)", average_time_s);
+            info!(
+                "frame: {}, average time per frame: {} (s)",
+                num_samples, average_time_s
+            );
             num_samples += 1;
         }
     }

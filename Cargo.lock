@@ -834,6 +834,7 @@ dependencies = [
  "log",
  "miniquad",
  "rand",
+ "to_numpy",
 ]
 
 [[package]]
@@ -1027,6 +1028,10 @@ dependencies = [
  "jpeg-decoder",
  "weezl",
 ]
+
+[[package]]
+name = "to_numpy"
+version = "0.1.0"
 
 [[package]]
 name = "ttf-parser"

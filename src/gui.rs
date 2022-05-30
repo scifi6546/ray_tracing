@@ -74,7 +74,7 @@ impl GuiCtx {
                                                     .color(egui::Rgba::from_gray(0.8)),
                                             ),
                                             LogMessage::Error(s) => (
-                                                egui::RichText::new("Warn")
+                                                egui::RichText::new("Error")
                                                     .color(egui::Rgba::from_rgb(1.0, 0.3, 0.3)),
                                                 egui::RichText::new(s)
                                                     .color(egui::Rgba::from_gray(0.8)),

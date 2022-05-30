@@ -3,12 +3,16 @@ use crate::ray_tracer::rand_vec;
 use cgmath::{InnerSpace, Point2, Point3, Vector3};
 
 pub trait Texture {
+    fn name(&self) -> &'static str;
     fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor;
 }
 pub struct SolidColor {
     pub(crate) color: RgbColor,
 }
 impl Texture for SolidColor {
+    fn name(&self) -> &'static str {
+        "Solid Color"
+    }
     fn color(&self, _uv: Point2<f32>, _pos: Point3<f32>) -> RgbColor {
         self.color
     }
@@ -18,6 +22,9 @@ pub struct CheckerTexture {
     pub even: Box<dyn Texture>,
 }
 impl Texture for CheckerTexture {
+    fn name(&self) -> &'static str {
+        "Checker Texture"
+    }
     fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
         let sin = (10.0 * pos.x).sin() * (10.0 * pos.y).sin() * (10.0 * pos.z).sin();
         if sin < 0.0 {
@@ -129,6 +136,9 @@ impl Perlin {
     }
 }
 impl Texture for Perlin {
+    fn name(&self) -> &'static str {
+        "Perlin"
+    }
     fn color(&self, _uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
         let f = self.turbulence(2.0 * pos, 7);
 
@@ -160,13 +170,24 @@ impl ImageTexture {
     }
 }
 impl Texture for ImageTexture {
+    fn name(&self) -> &'static str {
+        "Image Texture"
+    }
     fn color(&self, uv: Point2<f32>, _pos: Point3<f32>) -> RgbColor {
         self.texture.get_uv(uv)
     }
 }
 pub struct DebugV {}
 impl Texture for DebugV {
+    fn name(&self) -> &'static str {
+        "Debug V"
+    }
     fn color(&self, uv: Point2<f32>, _pos: Point3<f32>) -> RgbColor {
-        RgbColor::new(uv.y, uv.y, uv.y)
+        let v = uv.y;
+        if !v.is_nan() {
+            RgbColor::new(uv.y, uv.y, uv.y)
+        } else {
+            RgbColor::BLACK
+        }
     }
 }

@@ -2,13 +2,15 @@ use super::{
     rand_unit_vec, reflect, CosinePdf, HitRecord, LightPdf, PdfList, Ray, RgbColor, ScatterRecord,
     Texture,
 };
-
 use cgmath::{num_traits::*, InnerSpace, Vector3};
+use log::error;
 use std::rc::Rc;
 //pub type PDF = f32;
 pub trait Material {
+    fn name(&self) -> &'static str;
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord>;
-    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32;
+    fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray)
+        -> Option<f32>;
     fn emmit(&self, _record: &HitRecord) -> Option<RgbColor> {
         None
     }
@@ -17,6 +19,9 @@ pub struct Lambertian {
     pub albedo: Box<dyn Texture>,
 }
 impl Material for Lambertian {
+    fn name(&self) -> &'static str {
+        "Lambertian"
+    }
     fn scatter(&self, _ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
         let attenuation = self.albedo.color(record_in.uv, record_in.position);
 
@@ -30,12 +35,17 @@ impl Material for Lambertian {
         };
         Some(scatter_record)
     }
-    fn scattering_pdf(&self, _ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> f32 {
+    fn scattering_pdf(
+        &self,
+        _ray_in: Ray,
+        record_in: &HitRecord,
+        scattered_ray: Ray,
+    ) -> Option<f32> {
         let cosine = record_in.normal.dot(scattered_ray.direction.normalize());
         if cosine < 0.0 {
-            0.0
+            None
         } else {
-            cosine / f32::PI()
+            Some(cosine / f32::PI())
         }
     }
 }
@@ -44,6 +54,9 @@ pub struct Metal {
     pub fuzz: f32,
 }
 impl Material for Metal {
+    fn name(&self) -> &'static str {
+        "Metal"
+    }
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
         let reflected = reflect(ray_in.direction.normalize(), record_in.normal);
 
@@ -53,9 +66,18 @@ impl Material for Metal {
                 direction: reflected + self.fuzz * rand_unit_vec(),
                 time: ray_in.time,
             };
+            let attenuation = self.albedo.color(record_in.uv, record_in.position);
+            if attenuation.is_nan() {
+                error!(
+                    "Metal:attenuation is nan, uv: {:#?}, position: {:#?}, albedo: \"{}\"",
+                    record_in.uv,
+                    record_in.position,
+                    self.albedo.name()
+                );
+            }
             Some(ScatterRecord {
                 specular_ray: Some(out_ray),
-                attenuation: self.albedo.color(record_in.uv, record_in.position),
+                attenuation,
                 pdf: None,
             })
         } else {
@@ -63,7 +85,12 @@ impl Material for Metal {
         }
     }
 
-    fn scattering_pdf(&self, _ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> f32 {
+    fn scattering_pdf(
+        &self,
+        _ray_in: Ray,
+        _record_in: &HitRecord,
+        _scattered_ray: Ray,
+    ) -> Option<f32> {
         panic!("material is specular")
     }
 }
@@ -85,6 +112,9 @@ impl Dielectric {
     }
 }
 impl Material for Dielectric {
+    fn name(&self) -> &'static str {
+        "Dielectric"
+    }
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
         let refraction_ratio = if record_in.front_face {
             1.0 / self.index_refraction
@@ -114,7 +144,12 @@ impl Material for Dielectric {
         })
     }
 
-    fn scattering_pdf(&self, _ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> f32 {
+    fn scattering_pdf(
+        &self,
+        _ray_in: Ray,
+        _record_in: &HitRecord,
+        _scattered_ray: Ray,
+    ) -> Option<f32> {
         panic!("material is specular should not have scattering")
     }
 }
@@ -122,11 +157,19 @@ pub struct DiffuseLight {
     pub emit: Box<dyn Texture>,
 }
 impl Material for DiffuseLight {
+    fn name(&self) -> &'static str {
+        "Diffuse Light"
+    }
     fn scatter(&self, _ray_in: Ray, _record_in: &HitRecord) -> Option<ScatterRecord> {
         None
     }
 
-    fn scattering_pdf(&self, _ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> f32 {
+    fn scattering_pdf(
+        &self,
+        _ray_in: Ray,
+        _record_in: &HitRecord,
+        _scattered_ray: Ray,
+    ) -> Option<f32> {
         panic!("should not have scattering")
     }
 
@@ -143,6 +186,9 @@ pub struct Isotropic {
 }
 
 impl Material for Isotropic {
+    fn name(&self) -> &'static str {
+        "Isotropic"
+    }
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
         Some(ScatterRecord {
             specular_ray: Some(Ray {
@@ -155,7 +201,12 @@ impl Material for Isotropic {
         })
     }
 
-    fn scattering_pdf(&self, _ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> f32 {
+    fn scattering_pdf(
+        &self,
+        _ray_in: Ray,
+        _record_in: &HitRecord,
+        _scattered_ray: Ray,
+    ) -> Option<f32> {
         panic!("should not have scattering")
     }
 }

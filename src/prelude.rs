@@ -1,10 +1,10 @@
 use cgmath::{num_traits::*, prelude::*, Point2, Point3, Vector3};
-
 use std::{
     cmp::PartialOrd,
     fmt::*,
     ops::{Add, AddAssign, Div, Mul, Sub},
 };
+use to_numpy::NumpyArray3D;
 
 pub fn clamp<T: std::cmp::PartialOrd>(x: T, min: T, max: T) -> T {
     if x < min {
@@ -94,6 +94,9 @@ impl RgbColor {
         let b = (clamp(self.blue.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
         [r, g, b, 0xff]
     }
+    pub fn is_nan(&self) -> bool {
+        self.red.is_nan() || self.green.is_nan() || self.blue.is_nan()
+    }
 }
 impl Mul<f32> for RgbColor {
     type Output = Self;
@@ -173,6 +176,7 @@ impl std::iter::Sum for RgbColor {
         )
     }
 }
+
 impl Display for RgbColor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {}, {})", self.red, self.green, self.blue)
@@ -183,6 +187,21 @@ pub struct RgbImage {
     pub buffer: Vec<RgbColor>,
     pub width: u32,
     pub height: u32,
+}
+impl NumpyArray3D for RgbImage {
+    fn get(&self, item: [usize; 3]) -> f32 {
+        let c = self.get_xy(item[0] as u32, item[1] as u32);
+        match item[2] {
+            0 => c.red,
+            1 => c.green,
+            2 => c.blue,
+            _ => panic!("out of bounds"),
+        }
+    }
+
+    fn shape(&self) -> [usize; 3] {
+        [self.width() as usize, self.height() as usize, 3]
+    }
 }
 impl RgbImage {
     pub fn new_black(width: u32, height: u32) -> Self {
@@ -226,6 +245,16 @@ impl RgbImage {
     }
     pub fn add_xy(&mut self, x: u32, y: u32, color: RgbColor) {
         self.buffer[y as usize * self.width as usize + x as usize] += color;
+    }
+    pub fn filter_nan(&mut self, replacement: RgbColor) {
+        for x in 0..self.width() {
+            for y in 0..self.height() {
+                let val = self.get_xy(x, y);
+                if val.is_nan() {
+                    self.set_xy(x, y, replacement)
+                }
+            }
+        }
     }
 }
 impl Div<f32> for RgbImage {
