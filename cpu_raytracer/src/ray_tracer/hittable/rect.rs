@@ -1,4 +1,4 @@
-use super::{Aabb, HitRecord, Hittable, Light, Material, RayAreaInfo};
+use super::{Aabb, HitRecord, Hittable,  Material, RayAreaInfo};
 use crate::prelude::*;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
@@ -53,8 +53,6 @@ impl Hittable for XYRect {
             maximum: Point3::new(self.x1, self.y1, self.k + 0.001),
         })
     }
-}
-impl Light for XYRect {
     fn prob(&self, ray: Ray) -> f32 {
         let center =
             0.5 * (Point3::new(self.x0, self.y0, self.k) + Vector3::new(self.x1, self.y1, self.k));
@@ -134,8 +132,6 @@ impl Hittable for XZRect {
             maximum: Point3::new(self.x1, self.k + 0.001, self.z1),
         })
     }
-}
-impl Light for XZRect {
     fn prob(&self, ray: Ray) -> f32 {
         let center =
             0.5 * (Point3::new(self.x0, self.k, self.z0) + Vector3::new(self.x1, self.k, self.z1));
@@ -219,8 +215,6 @@ impl Hittable for YZRect {
             maximum: Point3::new(self.k + 0.001, self.y1, self.z1),
         })
     }
-}
-impl Light for YZRect {
     fn prob(&self, ray: Ray) -> f32 {
         let center =
             0.5 * (Point3::new(self.k, self.y0, self.z0) + Vector3::new(self.k, self.y1, self.z1));

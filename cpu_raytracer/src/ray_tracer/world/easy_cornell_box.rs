@@ -6,7 +6,7 @@ use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
 #[allow(dead_code)]
-pub fn easy_cornell_box() -> (World, Camera) {
+pub fn easy_cornell_box() -> World {
     let look_at = Point3::new(278.0f32, 278.0, 0.0);
     let origin = Point3::new(278.0, 278.0, -800.0);
     let focus_distance = {
@@ -43,57 +43,56 @@ pub fn easy_cornell_box() -> (World, Camera) {
             material: light,
         }),
     });
-    (
-        World {
-            spheres: vec![
-                Rc::new(YZRect {
-                    y0: 0.0,
-                    y1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 555.0,
-                    material: green,
-                }),
-                Rc::new(YZRect {
-                    y0: 0.0,
-                    y1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 0.0,
-                    material: red,
-                }),
-                Rc::new(XZRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 0.0,
-                    material: white.clone(),
-                }),
-                Rc::new(XZRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 555.0,
-                    material: white.clone(),
-                }),
-                Rc::new(XYRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    y0: 0.0,
-                    y1: 555.0,
-                    k: 555.0,
-                    material: white,
-                }),
-                top_light.clone(),
-            ],
-            lights: vec![top_light],
-            background: Box::new(ConstantColor {
-                color: RgbColor::new(0.0, 0.0, 0.0),
+
+    World {
+        spheres: vec![
+            Rc::new(YZRect {
+                y0: 0.0,
+                y1: 555.0,
+                z0: 0.0,
+                z1: 555.0,
+                k: 555.0,
+                material: green,
             }),
-        },
-        Camera::new(
+            Rc::new(YZRect {
+                y0: 0.0,
+                y1: 555.0,
+                z0: 0.0,
+                z1: 555.0,
+                k: 0.0,
+                material: red,
+            }),
+            Rc::new(XZRect {
+                x0: 0.0,
+                x1: 555.0,
+                z0: 0.0,
+                z1: 555.0,
+                k: 0.0,
+                material: white.clone(),
+            }),
+            Rc::new(XZRect {
+                x0: 0.0,
+                x1: 555.0,
+                z0: 0.0,
+                z1: 555.0,
+                k: 555.0,
+                material: white.clone(),
+            }),
+            Rc::new(XYRect {
+                x0: 0.0,
+                x1: 555.0,
+                y0: 0.0,
+                y1: 555.0,
+                k: 555.0,
+                material: white,
+            }),
+            top_light.clone(),
+        ],
+        lights: vec![top_light],
+        background: Box::new(ConstantColor {
+            color: RgbColor::new(0.0, 0.0, 0.0),
+        }),
+        camera: Camera::new(
             IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
             40.0,
             origin,
@@ -104,5 +103,5 @@ pub fn easy_cornell_box() -> (World, Camera) {
             0.0,
             0.0,
         ),
-    )
+    }
 }

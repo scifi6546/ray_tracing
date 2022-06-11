@@ -1,11 +1,11 @@
-use super::{Aabb, HitRecord, Hittable, Light};
+use super::{Aabb, HitRecord, Hittable};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::RayAreaInfo;
 use cgmath::Point3;
 use std::rc::Rc;
 
 pub struct FlipNormals {
-    pub item: Rc<dyn Light>,
+    pub item: Rc<dyn Hittable>,
 }
 impl Hittable for FlipNormals {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
@@ -21,8 +21,6 @@ impl Hittable for FlipNormals {
     fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
         self.item.bounding_box(time_0, time_1)
     }
-}
-impl Light for FlipNormals {
     fn prob(&self, ray: Ray) -> f32 {
         self.item.prob(ray)
     }

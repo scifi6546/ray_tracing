@@ -1,6 +1,6 @@
 use super::{Aabb, FlipNormals, HitRecord, Hittable, Material, XYRect, XZRect, YZRect};
 use crate::prelude::*;
-use crate::ray_tracer::hittable::{Light, RayAreaInfo};
+use crate::ray_tracer::hittable::{RayAreaInfo};
 use cgmath::Point3;
 use std::{cell::RefCell, rc::Rc};
 
@@ -132,8 +132,6 @@ impl Hittable for RenderBox {
             maximum: self.box_max,
         })
     }
-}
-impl Light for RenderBox {
     fn prob(&self, ray: Ray) -> f32 {
         let mut area = 0.0;
         if ray.direction.x >= 0.0 {

@@ -22,7 +22,7 @@ use camera::Camera;
 use cgmath::{InnerSpace, Vector3};
 #[allow(unused_imports)]
 use hittable::{
-    ConstantMedium, FlipNormals, HitRecord, Hittable, Light, MovingSphere, RayAreaInfo, RenderBox,
+    ConstantMedium, FlipNormals, HitRecord, Hittable,MovingSphere, RayAreaInfo, RenderBox,
     RotateY, Sphere, Translate, XYRect, XZRect, YZRect,
 };
 #[allow(unused_imports)]
@@ -174,18 +174,12 @@ impl RayTracer {
             },
         )
     }
-    fn tracing_loop(
-        &self,
-        world: &World,
-        camera: &Camera,
-        rgb_img: &mut RgbImage,
-        num_samples: usize,
-    ) {
+    fn tracing_loop(&self, world: &World, rgb_img: &mut RgbImage, num_samples: usize) {
         for x in 0..IMAGE_WIDTH {
             for y in 0..IMAGE_WIDTH {
                 let u = (x as f32 + rand_f32(0.0, 1.0)) / (IMAGE_WIDTH as f32 - 1.0);
                 let v = (y as f32 + rand_f32(0.0, 1.0)) / (IMAGE_HEIGHT as f32 - 1.0);
-                let r = camera.get_ray(u, v);
+                let r = world.camera.get_ray(u, v);
                 let c = ray_color(r, &world, 50);
                 if c.is_nan() {
                     error!("ray color retuned NaN");
@@ -214,8 +208,8 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        let (mut world, mut camera) = world::cornell_smoke();
-        let mut world = world.into_bvh(camera.start_time(), camera.end_time());
+        let mut world = world::cornell_smoke();
+        let mut world = world.into_bvh();
         println!(
             "world bounding box: {:#?}",
             world.spheres[0].bounding_box(0.0, 0.0)
@@ -229,8 +223,8 @@ impl RayTracer {
                 match message {
                     Message::LoadScenario(scenario) => {
                         if let Some(scenario) = self.scenarios.get(&scenario) {
-                            (world, camera) = (scenario.ctor)();
-                            world = world.into_bvh(camera.start_time(), camera.end_time());
+                            world = (scenario.ctor)();
+                            world = world.into_bvh();
                             rgb_img = RgbImage::new_black(1000, 1000);
                             //camera = t_camera;
                             num_samples = 1;
@@ -241,7 +235,7 @@ impl RayTracer {
                     }
                 }
             }
-            self.tracing_loop(&world, &camera, &mut rgb_img, num_samples);
+            self.tracing_loop(&world, &mut rgb_img, num_samples);
             let average_time_s = total_time.elapsed().as_secs_f32() / (num_samples) as f32;
             info!(
                 "frame: {}, average time per frame: {} (s)",

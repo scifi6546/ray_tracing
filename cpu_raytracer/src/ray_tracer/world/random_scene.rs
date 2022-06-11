@@ -6,7 +6,7 @@ use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
 #[allow(dead_code)]
-pub fn random_scene() -> (World, Camera) {
+pub fn random_scene() -> World {
     let big: [Rc<dyn Hittable>; 4] = [
         Rc::new(Sphere {
             radius: 1000.0,
@@ -101,13 +101,12 @@ pub fn random_scene() -> (World, Camera) {
         })
         .chain(big)
         .collect();
-    (
-        World {
-            spheres,
-            lights: vec![],
-            background: Box::new(Sky {}),
-        },
-        Camera::new(
+
+    World {
+        spheres,
+        lights: vec![],
+        background: Box::new(Sky {}),
+        camera: Camera::new(
             IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
             20.0,
             Point3::new(13.0, 2.0, 3.0),
@@ -118,5 +117,5 @@ pub fn random_scene() -> (World, Camera) {
             0.0,
             1.0,
         ),
-    )
+    }
 }

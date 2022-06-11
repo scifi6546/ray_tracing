@@ -1,4 +1,4 @@
-use super::{Aabb, HitRecord, Hittable, Light, Material};
+use super::{Aabb, HitRecord, Hittable, Material};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::RayAreaInfo;
 use crate::ray_tracer::rand_unit_vec;
@@ -48,8 +48,6 @@ impl Hittable for Sphere {
             maximum: self.origin + Vector3::new(self.radius, self.radius, self.radius),
         })
     }
-}
-impl Light for Sphere {
     fn prob(&self, ray: Ray) -> f32 {
         let area = f32::PI() * self.radius.powi(2);
         let to_light = self.origin - ray.origin;
@@ -75,6 +73,7 @@ impl Light for Sphere {
         }
     }
 }
+
 impl Sphere {
     fn area(&self) -> f32 {
         f32::PI() * self.radius.powi(2)
@@ -141,5 +140,11 @@ impl Hittable for MovingSphere {
                 maximum: self.center(time_1) + Vector3::new(self.radius, self.radius, self.radius),
             }),
         )
+    }
+    fn prob(&self, ray: Ray) -> f32{
+        todo!()
+    }
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo{
+        todo!()
     }
 }

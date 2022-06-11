@@ -1,6 +1,6 @@
-use super::{Aabb, HitRecord, Hittable, Material};
+use super::{Aabb, HitRecord, Hittable,RayAreaInfo, Material};
 use crate::prelude::*;
-use cgmath::{Point2, Vector3};
+use cgmath::{Point2, Vector3,Point3};
 use std::{cell::RefCell, rc::Rc};
 pub struct ConstantMedium {
     boundary: Rc<dyn Hittable>,
@@ -67,5 +67,11 @@ impl Hittable for ConstantMedium {
 
     fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
         self.boundary.bounding_box(time_0, time_1)
+    }
+    fn prob(&self, ray: Ray) -> f32{
+        todo!()
+    }
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo{
+        todo!()
     }
 }

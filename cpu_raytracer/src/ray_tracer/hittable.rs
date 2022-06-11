@@ -23,6 +23,9 @@ pub use translate::Translate;
 pub trait Hittable {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
     fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb>;
+    /// probability of hitting the box for given ray going towards point
+    fn prob(&self, ray: Ray) -> f32;
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo;
 }
 #[derive(Clone)]
 pub struct HitRecord {
@@ -61,9 +64,6 @@ pub struct RayAreaInfo {
     pub normal: Vector3<f32>,
 }
 
-pub trait Light: Hittable {
-    /// probability of hitting the box for given ray going towards point
-    fn prob(&self, ray: Ray) -> f32;
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo;
-}
+
+

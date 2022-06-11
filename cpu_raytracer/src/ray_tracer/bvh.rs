@@ -1,6 +1,6 @@
 use super::Ray;
 use crate::prelude::*;
-use crate::ray_tracer::hittable::Hittable;
+use crate::ray_tracer::hittable::{Hittable, RayAreaInfo};
 use cgmath::Point3;
 
 use crate::ray_tracer::HitRecord;
@@ -158,5 +158,11 @@ impl Hittable for BvhNode {
 
     fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
         Some(self.bounding_box)
+    }
+    fn prob(&self, ray: Ray) -> f32{
+       todo!()
+    }
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo{
+        todo!()
     }
 }
