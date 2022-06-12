@@ -1,6 +1,6 @@
-use super::{Aabb, HitRecord, Hittable,RayAreaInfo};
+use super::{Aabb, HitRecord, Hittable, RayAreaInfo};
 use crate::prelude::*;
-use cgmath::{Vector3,Point3};
+use cgmath::{Point3, Vector3};
 
 pub struct Translate<T: Hittable> {
     pub item: T,
@@ -33,14 +33,14 @@ impl<T: Hittable> Hittable for Translate<T> {
             maximum: b.maximum + self.offset,
         })
     }
-    fn prob(&self, ray: Ray) -> f32{
-        self.item.prob( Ray {
+    fn prob(&self, ray: Ray) -> f32 {
+        self.item.prob(Ray {
             origin: ray.origin - self.offset,
             direction: ray.direction,
             time: ray.time,
         })
     }
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo{
-        self.item.generate_ray_in_area(origin-self.offset,time)
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+        self.item.generate_ray_in_area(origin - self.offset, time)
     }
 }

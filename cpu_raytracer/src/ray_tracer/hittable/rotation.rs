@@ -1,4 +1,4 @@
-use super::{Aabb, HitRecord, Hittable,RayAreaInfo};
+use super::{Aabb, HitRecord, Hittable, RayAreaInfo};
 use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, Point3, Vector3};
 
@@ -92,8 +92,10 @@ impl<T: Hittable> Hittable for RotateY<T> {
     fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
         self.item_box
     }
-    fn prob(&self, ray: Ray) -> f32{todo!()}
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo{
+    fn prob(&self, ray: Ray) -> f32 {
+        todo!()
+    }
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
         todo!()
     }
 }

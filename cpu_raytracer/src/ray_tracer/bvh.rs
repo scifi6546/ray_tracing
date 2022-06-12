@@ -159,10 +159,10 @@ impl Hittable for BvhNode {
     fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
         Some(self.bounding_box)
     }
-    fn prob(&self, ray: Ray) -> f32{
-       todo!()
+    fn prob(&self, ray: Ray) -> f32 {
+        todo!()
     }
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo{
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
         todo!()
     }
 }

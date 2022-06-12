@@ -1,4 +1,4 @@
-use super::{Aabb, HitRecord, Hittable,  Material, RayAreaInfo};
+use super::{Aabb, HitRecord, Hittable, Material, RayAreaInfo};
 use crate::prelude::*;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};

@@ -1,6 +1,6 @@
 use super::{Aabb, FlipNormals, HitRecord, Hittable, Material, XYRect, XZRect, YZRect};
 use crate::prelude::*;
-use crate::ray_tracer::hittable::{RayAreaInfo};
+use crate::ray_tracer::hittable::RayAreaInfo;
 use cgmath::Point3;
 use std::{cell::RefCell, rc::Rc};
 

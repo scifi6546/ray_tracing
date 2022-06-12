@@ -63,7 +63,3 @@ pub struct RayAreaInfo {
     pub direction: Vector3<f32>,
     pub normal: Vector3<f32>,
 }
-
-
-
-

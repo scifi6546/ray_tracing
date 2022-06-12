@@ -141,10 +141,10 @@ impl Hittable for MovingSphere {
             }),
         )
     }
-    fn prob(&self, ray: Ray) -> f32{
+    fn prob(&self, ray: Ray) -> f32 {
         todo!()
     }
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo{
+    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
         todo!()
     }
 }

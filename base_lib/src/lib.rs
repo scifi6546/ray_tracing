@@ -4,7 +4,7 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, Sub},
 };
 pub struct Scene {
-    pub name:String,
+    pub name: String,
     pub objects: Vec<Object>,
     pub camera: Camera,
     pub background: Background,
@@ -46,8 +46,33 @@ pub fn clamp<T: std::cmp::PartialOrd>(x: T, min: T, max: T) -> T {
         x
     }
 }
-pub fn get_scenarios()->Vec<fn() -> Scene>{
-    todo!()
+pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
+    vec![("from baselib".to_string(), || Scene {
+        name: "test baselib scene".to_string(),
+        objects: vec![Object {
+            shape: Shape::Sphere {
+                radius: 0.5,
+                origin: Point3::new(0.0, 0.0, 0.0),
+            },
+            material: Material::Light(Texture::ConstantColor(RgbColor::new(
+                200000000000.0,
+                0.0,
+                0.0,
+            ))),
+        }],
+        background: Background::Sky,
+        camera: Camera {
+            aspect_ratio: 1.0,
+            fov: 20.0,
+            origin: Point3::new(10.0, 10.0, 10.0),
+            look_at: Point3::new(0.0, 0.0, 0.0),
+            up_vector: Vector3::new(0.0, 1.0, 0.0),
+            aperture: 0.00001,
+            focus_distance: 10.0,
+            start_time: 0.0,
+            end_time: 0.0,
+        },
+    })]
 }
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]

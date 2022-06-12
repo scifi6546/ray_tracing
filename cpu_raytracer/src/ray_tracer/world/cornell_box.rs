@@ -1,11 +1,10 @@
 use super::{
     Camera, ConstantColor, DiffuseLight, FlipNormals, Lambertian, RenderBox, SolidColor, Translate,
-    World, XYRect, XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    World, XYRect, XZRect,ScenarioCtor, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
-#[allow(dead_code)]
 pub fn cornell_box() -> World {
     let look_at = Point3::new(278.0f32, 278.0, 0.0);
     let origin = Point3::new(278.0, 278.0, -800.0);

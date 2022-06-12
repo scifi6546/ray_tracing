@@ -17,6 +17,7 @@ pub use easy_cornell_box::easy_cornell_box;
 pub use easy_scene::easy_scene;
 pub use one_sphere::one_sphere;
 pub use random_scene::random_scene;
+use std::ffi::OsString;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub use two_spheres::two_spheres;
@@ -43,7 +44,7 @@ impl World {
                     })),
                 };
                 let obj_out: Rc<dyn Hittable> = match obj.shape {
-                    base_lib::Shape::Sphere{radius,origin} => Rc::new(Sphere {
+                    base_lib::Shape::Sphere { radius, origin } => Rc::new(Sphere {
                         radius,
                         origin,
                         material,
@@ -56,7 +57,7 @@ impl World {
                     obj_out,
                 )
             })
-            .collect::<Vec<(bool,Rc<dyn Hittable>)>>();
+            .collect::<Vec<(bool, Rc<dyn Hittable>)>>();
         let lights = objects_temp
             .iter()
             .filter(|(is_light, _obj)| *is_light)
@@ -122,75 +123,77 @@ impl World {
         }
     }
 }
-#[derive(Clone)]
-pub struct Scenario {
-    pub name: String,
-    pub ctor: fn() -> World,
+pub trait ScenarioCtor {
+    fn build(&self) -> World;
+    fn name(&self) -> String;
 }
-pub fn get_scenarios() -> HashMap<String, Scenario> {
+pub struct ScenarioFn {
+    f: fn() -> World,
+    name: String,
+}
+struct BaselibScenario {
+    ctor: fn() -> base_lib::Scene,
+    name: String,
+}
+impl ScenarioCtor for BaselibScenario {
+    fn build(&self) -> World {
+        World::from_scene(&(self.ctor)())
+    }
 
-    [
-        Scenario {
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+}
+impl ScenarioCtor for ScenarioFn {
+    fn build(&self) -> World {
+        (self.f)()
+    }
+
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+}
+pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
+    let mut scenes: Vec<Box<dyn ScenarioCtor>> = vec![
+        Box::new(ScenarioFn {
             name: "Cornell Box".to_string(),
-            ctor: cornell_box,
-        },
-        Scenario {
+            f: cornell_box,
+        }),
+        Box::new(ScenarioFn {
             name: "Cornell Smoke".to_string(),
-            ctor: cornell_smoke,
-        },
-        Scenario {
+            f: cornell_smoke,
+        }),
+        Box::new(ScenarioFn {
             name: "Easy Cornell Box".to_string(),
-            ctor: easy_cornell_box,
-        },
-        Scenario {
+            f: easy_cornell_box,
+        }),
+        Box::new(ScenarioFn {
             name: "Easy Scene".to_string(),
-            ctor: easy_scene,
-        },
-        Scenario {
+            f: easy_scene,
+        }),
+        Box::new(ScenarioFn {
             name: "One Sphere".to_string(),
-            ctor: one_sphere,
-        },
-        Scenario {
+            f: one_sphere,
+        }),
+        Box::new(ScenarioFn {
             name: "Random Scene".to_string(),
-            ctor: random_scene,
-        },
-        Scenario {
+            f: random_scene,
+        }),
+        Box::new(ScenarioFn {
             name: "Two Sphere".to_string(),
-            ctor: two_spheres,
-        },
-        Scenario {
-            name: "test baselib scene".to_string(),
-            ctor: || {
-                let s = base_lib::Scene {
-                    name: "test baselib scene".to_string(),
-                    objects: vec![base_lib::Object {
-                        shape: base_lib::Shape::Sphere {
-                            radius: 0.5,
-                            origin: Point3::new(0.0, 0.0, 0.0),
-                        },
-                        material: base_lib::Material::Light(base_lib::Texture::ConstantColor(
-                            RgbColor::new(200000000000.0,0.0,0.0),
-                        )),
-                    }],
-                    background: base_lib::Background::Sky,
-                    camera: base_lib::Camera {
-                        aspect_ratio: IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
-                        fov: 20.0,
-                        origin: Point3::new(10.0, 10.0, 10.0),
-                        look_at: Point3::new(0.0, 0.0, 0.0),
-                        up_vector: Vector3::new(0.0, 1.0, 0.0),
-                        aperture: 0.00001,
-                        focus_distance: 10.0,
-                        start_time: 0.0,
-                        end_time: 0.0,
-                    },
-                };
-                World::from_scene(&s)
-            },
-        },
-    ]
-    .iter()
-    .cloned()
-    .map(|scenario| (scenario.name.clone(), scenario))
-    .collect()
+            f: two_spheres,
+        }),
+    ];
+    let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
+        .drain(..)
+        .map(|scenario| (scenario.name(), scenario))
+        .collect::<HashMap<String, _>>();
+    for (name, scene) in base_lib::get_scenarios() {
+        let ctor = Box::new(BaselibScenario {
+            ctor: scene,
+            name: name.clone(),
+        });
+        map.insert(name, ctor);
+    }
+    map
 }

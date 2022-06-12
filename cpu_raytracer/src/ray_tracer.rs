@@ -22,7 +22,7 @@ use camera::Camera;
 use cgmath::{InnerSpace, Vector3};
 #[allow(unused_imports)]
 use hittable::{
-    ConstantMedium, FlipNormals, HitRecord, Hittable,MovingSphere, RayAreaInfo, RenderBox,
+    ConstantMedium, FlipNormals, HitRecord, Hittable, MovingSphere, RayAreaInfo, RenderBox,
     RotateY, Sphere, Translate, XYRect, XZRect, YZRect,
 };
 #[allow(unused_imports)]
@@ -32,14 +32,13 @@ use pdf::{CosinePdf, LightPdf, PdfList, ScatterRecord};
 use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
 use world::World;
 
-use crate::ray_tracer::world::Scenario;
-use egui::Key::R;
 use std::collections::HashMap;
 use std::{
     sync::mpsc::{channel, Receiver, Sender},
     thread,
     time::Instant,
 };
+use world::ScenarioCtor;
 
 const IMAGE_HEIGHT: u32 = 1000;
 const IMAGE_WIDTH: u32 = 1000;
@@ -131,7 +130,7 @@ pub struct RayTracer {
     msg_reciever: Receiver<Message>,
     num_samples: usize,
 
-    scenarios: HashMap<String, Scenario>,
+    scenarios: HashMap<String, Box<dyn ScenarioCtor>>,
 }
 pub struct RayTracerInfo {
     pub scenarios: Vec<String>,
@@ -156,21 +155,27 @@ impl RayTracer {
             .expect("failed to set logger");
         let (sender, recvier) = channel();
         let (message_sender, msg_reciever) = channel();
-        let scenarios = world::get_scenarios();
-        let scenario_names = scenarios.keys().cloned().collect();
-        let s = Self {
-            sender,
-            msg_reciever,
-            num_samples: 0,
-            scenarios,
-        };
-        thread::spawn(move || s.start_tracing());
+
+        let (info_send, info_rcv) = channel::<Vec<String>>();
+        thread::spawn(move || {
+            let scenarios = world::get_scenarios();
+            let scenario_names = scenarios.keys().cloned().collect::<Vec<_>>();
+            let s = Self {
+                sender,
+                msg_reciever,
+                num_samples: 0,
+                scenarios,
+            };
+            info_send.send(scenario_names.clone());
+
+            s.start_tracing()
+        });
         (
             recvier,
             message_sender,
             log_reciever,
             RayTracerInfo {
-                scenarios: scenario_names,
+                scenarios: info_rcv.recv().unwrap(),
             },
         )
     }
@@ -223,7 +228,7 @@ impl RayTracer {
                 match message {
                     Message::LoadScenario(scenario) => {
                         if let Some(scenario) = self.scenarios.get(&scenario) {
-                            world = (scenario.ctor)();
+                            world = scenario.build();
                             world = world.into_bvh();
                             rgb_img = RgbImage::new_black(1000, 1000);
                             //camera = t_camera;
