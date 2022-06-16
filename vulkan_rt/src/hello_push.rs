@@ -1,5 +1,4 @@
 use super::{
-    cgmath::Vector4,
     find_memory_type_index,
     matrix::{Mat4, Mat4ToBytes},
     Base,
@@ -10,6 +9,7 @@ use ash::{
     vk,
 };
 use cgmath::SquareMatrix;
+//use cgmath::Vector4;
 use std::{
     default::Default,
     ffi::CStr,
