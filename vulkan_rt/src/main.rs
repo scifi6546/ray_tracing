@@ -1,7 +1,7 @@
 mod hello_push;
 mod hello_texture;
 mod hello_triangle;
-pub mod matrix;
+pub mod prelude;
 
 use ash::extensions::khr;
 

@@ -1,6 +1,6 @@
 use super::{
     find_memory_type_index,
-    matrix::{Mat4, Mat4ToBytes},
+    prelude::{Mat4, Mat4ToBytes, Mesh, Vector2, Vector4, Vertex},
     Base,
 };
 use crate::record_submit_commandbuffer;
@@ -9,43 +9,12 @@ use ash::{
     vk,
 };
 use cgmath::SquareMatrix;
-//use cgmath::Vector4;
 use std::{
     default::Default,
     ffi::CStr,
     io::Cursor,
     mem::{align_of, size_of, size_of_val},
 };
-
-#[repr(C)]
-#[derive(Clone, Debug, Copy)]
-pub struct Vector2 {
-    x: f32,
-    y: f32,
-}
-impl Vector2 {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self { x, y }
-    }
-}
-#[repr(C)]
-#[derive(Clone, Debug, Copy)]
-pub struct Vector4 {
-    x: f32,
-    y: f32,
-    z: f32,
-    w: f32,
-}
-impl Vector4 {
-    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
-        Self { x, y, z, w }
-    }
-}
-#[derive(Clone, Debug, Copy)]
-pub struct Vertex {
-    pos: Vector4,
-    uv: Vector2,
-}
 
 pub fn run(base: &Base) {
     let renderpass_attachments = [
@@ -110,9 +79,10 @@ pub fn run(base: &Base) {
             })
             .collect::<Vec<_>>()
     };
-    let index_buffer_data = [0u32, 1, 2, 2, 3, 0];
+    let mesh = Mesh::cylinder();
+
     let index_buffer_info = vk::BufferCreateInfo::builder()
-        .size(size_of_val(&index_buffer_data) as u64)
+        .size(size_of::<u32>() as u64 * mesh.indices.len() as u64)
         .usage(vk::BufferUsageFlags::INDEX_BUFFER)
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
     let index_buffer = unsafe {
@@ -156,33 +126,15 @@ pub fn run(base: &Base) {
         )
     };
     unsafe {
-        index_slice.copy_from_slice(&index_buffer_data);
+        index_slice.copy_from_slice(&mesh.indices);
         base.device.unmap_memory(index_buffer_memory);
         base.device
             .bind_buffer_memory(index_buffer, index_buffer_memory, 0)
             .unwrap();
     }
-    let vertices = [
-        Vertex {
-            pos: Vector4::new(-1.0, -1.0, -4.0, 1.0),
-            uv: Vector2::new(0.0, 0.0),
-        },
-        Vertex {
-            pos: Vector4::new(-1.0, 1.0, -4.0, 1.0),
-            uv: Vector2::new(0.0, 1.0),
-        },
-        Vertex {
-            pos: Vector4::new(1.0, 1.0, -4.0, 1.0),
-            uv: Vector2::new(1.0, 1.0),
-        },
-        Vertex {
-            pos: Vector4::new(1.0, -1.0, -4.0, 1.0),
-            uv: Vector2::new(1.0, 0.0),
-        },
-    ];
 
     let vertex_input_buffer_info = vk::BufferCreateInfo::builder()
-        .size(size_of_val(&vertices) as u64)
+        .size(size_of::<Vertex>() as u64 * mesh.vertices.len() as u64)
         .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
         .sharing_mode(vk::SharingMode::EXCLUSIVE);
     let vertex_input_buffer = unsafe {
@@ -226,7 +178,7 @@ pub fn run(base: &Base) {
             align_of::<Vertex>() as u64,
             vertex_input_buffer_memory_req.size,
         );
-        slice.copy_from_slice(&vertices);
+        slice.copy_from_slice(&mesh.vertices);
         base.device.unmap_memory(vertex_input_buffer_memory);
         base.device
             .bind_buffer_memory(vertex_input_buffer, vertex_input_buffer_memory, 0)
@@ -709,7 +661,7 @@ pub fn run(base: &Base) {
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 0.0],
+                    float32: [0.0, 0.0, 0.3, 0.0],
                 },
             },
             vk::ClearValue {
@@ -735,9 +687,8 @@ pub fn run(base: &Base) {
                 &[base.present_complete_semaphore],
                 &[base.rendering_complete_semaphore],
                 |device, draw_command_buffer| {
-                    let mat = Mat4::identity();
-                    let mat2 = cgmath::perspective(cgmath::Rad(3.14 / 2.0), 1.0, 0.1, 10.0);
-                    // let mat2: cgmath::Matrix4<f32> = cgmath::Matrix4::identity();
+                    let mat2 = cgmath::perspective(cgmath::Rad(3.14 / 2.0), 1.0, 0.1, 10.0)
+                        * cgmath::Matrix4::from_translation(cgmath::Vector3::new(0.0, 1.0, -4.0));
                     device.cmd_begin_render_pass(
                         draw_command_buffer,
                         &renderpass_begin_info,
@@ -779,7 +730,7 @@ pub fn run(base: &Base) {
                     );
                     device.cmd_draw_indexed(
                         draw_command_buffer,
-                        index_buffer_data.len() as u32,
+                        mesh.indices.len() as u32,
                         1,
                         0,
                         0,
