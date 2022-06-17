@@ -690,7 +690,10 @@ pub fn run(base: &Base) {
                 &[base.rendering_complete_semaphore],
                 |device, draw_command_buffer| {
                     let mat2 = cgmath::perspective(cgmath::Rad(3.14 / 2.0), 1.0, 0.1, 10.0)
-                        * cgmath::Matrix4::from_translation(cgmath::Vector3::new(0.0, 1.0, -4.0));
+                        * cgmath::Matrix4::from_translation(cgmath::Vector3::new(0.0, 1.0, -4.0))
+                        * cgmath::Matrix4::from_angle_x(cgmath::Rad(
+                            frame_counter as f32 / 10000.0,
+                        ));
                     device.cmd_begin_render_pass(
                         draw_command_buffer,
                         &renderpass_begin_info,

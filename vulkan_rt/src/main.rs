@@ -562,9 +562,9 @@ fn main() {
     let window_height = 800;
     let base = Base::new(window_width, window_height);
     println!("hello push constant");
-    //hello_push::run(&base);
+    hello_push::run(&base);
     println!("hello texture");
-    //hello_texture::run(&base);
+    hello_texture::run(&base);
     println!("hello triangle");
     hello_triangle::run(&base);
 }
