@@ -497,17 +497,32 @@ impl Base {
             depth_image_memory,
         }
     }
-    pub fn render_loop<F: Fn()>(&self, f: F) {
+    pub fn render_loop<F: Fn(usize)>(&self, f: F) {
+        let mut frame_counter = 0;
         self.event_loop
             .borrow_mut()
-            .run_return(|event, _, controll_flow| {
+            .run_return(|event, t, controll_flow| {
                 *controll_flow = ControlFlow::Poll;
                 match event {
                     Event::WindowEvent {
                         event: WindowEvent::CloseRequested,
                         ..
-                    } => *controll_flow = ControlFlow::Exit,
-                    Event::MainEventsCleared => f(),
+                    } => {
+                        println!("exit");
+                        *controll_flow = ControlFlow::Exit
+                    }
+                    Event::WindowEvent {
+                        event: WindowEvent::KeyboardInput { input, .. },
+                        ..
+                    } => {
+                        println!("keyboard input, input: {:?}", input);
+                    }
+                    Event::MainEventsCleared => {
+                        f(frame_counter);
+                        self.window.request_redraw();
+                        println!("ran f {}", frame_counter);
+                        frame_counter += 1;
+                    }
                     _ => {}
                 };
             });
@@ -547,9 +562,9 @@ fn main() {
     let window_height = 800;
     let base = Base::new(window_width, window_height);
     println!("hello push constant");
-    hello_push::run(&base);
+    //hello_push::run(&base);
     println!("hello texture");
-    hello_texture::run(&base);
+    //hello_texture::run(&base);
     println!("hello triangle");
     hello_triangle::run(&base);
 }

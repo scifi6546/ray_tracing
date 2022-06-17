@@ -683,7 +683,7 @@ pub fn run(base: &Base) {
             .create_graphics_pipelines(vk::PipelineCache::null(), &[graphics_pipeline_info], None)
             .expect("failed to create graphics_pipeline")[0]
     };
-    base.render_loop(|| {
+    base.render_loop(|_| {
         let (present_index, _) = unsafe {
             base.swapchain_loader
                 .acquire_next_image(
