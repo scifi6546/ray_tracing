@@ -1,3 +1,4 @@
+mod hello_many_meshes;
 mod hello_push;
 mod hello_texture;
 mod hello_triangle;
@@ -561,6 +562,8 @@ fn main() {
     let window_width = 1000;
     let window_height = 1000;
     let base = Base::new(window_width, window_height);
+    println!("hello many meshes");
+    hello_many_meshes::run(&base);
     println!("hello push constant");
     hello_push::run(&base);
     println!("hello texture");

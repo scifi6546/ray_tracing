@@ -12,5 +12,5 @@ winit = "0.26.1"
 backtrace = "0.3"
 bytemuck = {version = "1.9.1",features = ["derive"]}
 image = "0.23"
-gpu-allocator = "0.18.0"
+gpu-allocator = {version = "0.18.0",features = ["vulkan"]}
 cgmath = "0.18.0"

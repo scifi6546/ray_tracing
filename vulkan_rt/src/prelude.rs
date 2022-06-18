@@ -160,7 +160,7 @@ impl Mesh {
                         j as f32 / (num_horizontal_segments) as f32,
                         i as f32 / num_vertical_segments as f32,
                     );
-                    println!("u: {}, v: {}", uv.x, uv.y);
+
                     Vertex {
                         pos: Vector4::new(x, y, z, 1.0),
                         uv,
