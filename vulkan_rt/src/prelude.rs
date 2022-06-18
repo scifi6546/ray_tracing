@@ -145,26 +145,93 @@ impl Mesh {
         Self { vertices, indices }
     }
     pub fn sphere(num_vertical_segments: u32, num_horizontal_segments: u32) -> Self {
-        let vertices = (1..num_vertical_segments - 1)
+        let vertices = (1..num_vertical_segments)
             .flat_map(|i| {
                 let phi = (i as f32 / num_vertical_segments as f32 - 0.5) * f32::PI();
-                (0..num_segments).map(|j| {
-                    let theta = 2.0 * f32::PI() * ((j) as f32 / num_segments as f32);
-                    let r = phi.cos();
+                let r = phi.cos();
+                println!("r: {}", r);
+                (0..num_horizontal_segments).map(move |j| {
+                    let theta = 2.0 * f32::PI() * ((j) as f32 / num_horizontal_segments as f32);
+
                     let x = theta.sin() * r;
                     let y = phi.sin();
                     let z = theta.cos() * r;
 
-                    let v = ((j) as f32 / num_segments as f32);
+                    println!("x: {}, y: {}, z: {}", x, y, z);
                     Vertex {
                         pos: Vector4::new(x, y, z, 1.0),
-                        uv: Vector2::new((y + 1.0) / 2.0, v),
+                        uv: Vector2::new(
+                            j as f32 / (num_horizontal_segments) as f32,
+                            i as f32 / num_vertical_segments as f32,
+                        ),
                     }
                 })
             })
+            .chain([
+                Vertex {
+                    pos: Vector4::new(0.0, -1.0, 0.0, 1.0),
+                    uv: Vector2::new(0.5, 0.0),
+                },
+                Vertex {
+                    pos: Vector4::new(0.0, 1.0, 0.0, 1.0),
+                    uv: Vector2::new(0.5, 1.0),
+                },
+            ])
             .collect::<Vec<_>>();
-        let indices = (1..num_vertical_segments - 1);
-
-        todo!()
+        let indices = (0..num_vertical_segments - 2)
+            .flat_map(|i| {
+                (0..num_horizontal_segments).flat_map(move |j| {
+                    let next_j = if j + 1 < num_horizontal_segments {
+                        j + 1
+                    } else {
+                        0
+                    };
+                    let zero = i * num_horizontal_segments + j;
+                    let one = i * num_horizontal_segments + next_j;
+                    let two = (i + 1) * num_horizontal_segments + next_j;
+                    let three = (i + 1) * num_horizontal_segments + j;
+                    [zero, one, three, one, two, three]
+                })
+            })
+            .chain((0..num_horizontal_segments).flat_map(|i| {
+                let i_next = if i + 1 < num_horizontal_segments {
+                    i + 1
+                } else {
+                    0
+                };
+                [
+                    i,
+                    num_horizontal_segments * (num_vertical_segments - 1),
+                    i_next,
+                ]
+            }))
+            .chain((0..num_horizontal_segments).flat_map(|i| {
+                let i_next = if i + 1 < num_horizontal_segments {
+                    i + 1
+                } else {
+                    0
+                };
+                let offset = num_horizontal_segments * (num_vertical_segments - 2);
+                [
+                    i + offset,
+                    i_next + offset,
+                    num_horizontal_segments * (num_vertical_segments - 1) + 1,
+                ]
+            }))
+            .collect::<Vec<_>>();
+        for idx in indices.iter() {
+            if *idx >= vertices.len() as u32 {
+                let vert_idx = idx / num_horizontal_segments;
+                let horiz_idx = idx % num_horizontal_segments;
+                println!(
+                    "idx out of range: {}, vert_idx: {}, horiz_idx: {}, len: {}",
+                    idx,
+                    vert_idx,
+                    horiz_idx,
+                    vertices.len()
+                );
+            }
+        }
+        Self { vertices, indices }
     }
 }

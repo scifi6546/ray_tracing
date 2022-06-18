@@ -520,7 +520,7 @@ impl Base {
                     Event::MainEventsCleared => {
                         f(frame_counter);
                         self.window.request_redraw();
-                        println!("ran f {}", frame_counter);
+
                         frame_counter += 1;
                     }
                     _ => {}

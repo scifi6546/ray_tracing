@@ -79,8 +79,8 @@ pub fn run(base: &Base) {
             })
             .collect::<Vec<_>>()
     };
-    let mesh = Mesh::cylinder();
 
+    let mesh = Mesh::sphere(8, 8);
     let index_buffer_info = vk::BufferCreateInfo::builder()
         .size(size_of::<u32>() as u64 * mesh.indices.len() as u64)
         .usage(vk::BufferUsageFlags::INDEX_BUFFER)
@@ -235,7 +235,7 @@ pub fn run(base: &Base) {
             .bind_buffer_memory(uniform_color_buffer, uniform_color_buffer_memory, 0)
             .expect("failed tp bind memory");
     }
-    let image = image::load_from_memory(include_bytes!("../rust.png"))
+    let image = image::load_from_memory(include_bytes!("../../assets/earthmap.jpg"))
         .unwrap()
         .to_rgba8();
     let (width, height) = image.dimensions();
@@ -649,7 +649,6 @@ pub fn run(base: &Base) {
     };
 
     base.render_loop(|frame_counter| {
-        println!("runnng render loop: {}", frame_counter);
         let (present_index, _) = unsafe {
             base.swapchain_loader
                 .acquire_next_image(
