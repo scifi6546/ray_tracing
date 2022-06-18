@@ -80,7 +80,7 @@ pub fn run(base: &Base) {
             .collect::<Vec<_>>()
     };
 
-    let mesh = Mesh::sphere(8, 8);
+    let mesh = Mesh::sphere(64, 32);
     let index_buffer_info = vk::BufferCreateInfo::builder()
         .size(size_of::<u32>() as u64 * mesh.indices.len() as u64)
         .usage(vk::BufferUsageFlags::INDEX_BUFFER)

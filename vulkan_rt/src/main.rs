@@ -559,7 +559,7 @@ impl Drop for Base {
 }
 fn main() {
     let window_width = 1000;
-    let window_height = 800;
+    let window_height = 1000;
     let base = Base::new(window_width, window_height);
     println!("hello push constant");
     hello_push::run(&base);

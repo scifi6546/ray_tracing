@@ -149,21 +149,21 @@ impl Mesh {
             .flat_map(|i| {
                 let phi = (i as f32 / num_vertical_segments as f32 - 0.5) * f32::PI();
                 let r = phi.cos();
-                println!("r: {}", r);
-                (0..num_horizontal_segments).map(move |j| {
+
+                (0..num_horizontal_segments + 1).map(move |j| {
                     let theta = 2.0 * f32::PI() * ((j) as f32 / num_horizontal_segments as f32);
 
                     let x = theta.sin() * r;
                     let y = phi.sin();
                     let z = theta.cos() * r;
-
-                    println!("x: {}, y: {}, z: {}", x, y, z);
+                    let uv = Vector2::new(
+                        j as f32 / (num_horizontal_segments) as f32,
+                        i as f32 / num_vertical_segments as f32,
+                    );
+                    println!("u: {}, v: {}", uv.x, uv.y);
                     Vertex {
                         pos: Vector4::new(x, y, z, 1.0),
-                        uv: Vector2::new(
-                            j as f32 / (num_horizontal_segments) as f32,
-                            i as f32 / num_vertical_segments as f32,
-                        ),
+                        uv,
                     }
                 })
             })
@@ -181,37 +181,25 @@ impl Mesh {
         let indices = (0..num_vertical_segments - 2)
             .flat_map(|i| {
                 (0..num_horizontal_segments).flat_map(move |j| {
-                    let next_j = if j + 1 < num_horizontal_segments {
-                        j + 1
-                    } else {
-                        0
-                    };
-                    let zero = i * num_horizontal_segments + j;
-                    let one = i * num_horizontal_segments + next_j;
-                    let two = (i + 1) * num_horizontal_segments + next_j;
-                    let three = (i + 1) * num_horizontal_segments + j;
+                    let next_j = j + 1;
+                    let zero = i * (num_horizontal_segments + 1) + j;
+                    let one = i * (num_horizontal_segments + 1) + next_j;
+                    let two = (i + 1) * (num_horizontal_segments + 1) + next_j;
+                    let three = (i + 1) * (num_horizontal_segments + 1) + j;
                     [zero, one, three, one, two, three]
                 })
             })
             .chain((0..num_horizontal_segments).flat_map(|i| {
-                let i_next = if i + 1 < num_horizontal_segments {
-                    i + 1
-                } else {
-                    0
-                };
+                let i_next = i + 1;
                 [
                     i,
-                    num_horizontal_segments * (num_vertical_segments - 1),
+                    (num_horizontal_segments + 1) * (num_vertical_segments - 1),
                     i_next,
                 ]
             }))
             .chain((0..num_horizontal_segments).flat_map(|i| {
-                let i_next = if i + 1 < num_horizontal_segments {
-                    i + 1
-                } else {
-                    0
-                };
-                let offset = num_horizontal_segments * (num_vertical_segments - 2);
+                let i_next = i + 1;
+                let offset = (num_horizontal_segments + 1) * (num_vertical_segments - 2);
                 [
                     i + offset,
                     i_next + offset,
