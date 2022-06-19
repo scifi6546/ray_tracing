@@ -565,6 +565,9 @@ impl Drop for Base {
         }
     }
 }
+pub trait GraphicsApp {
+    fn run_frame(&mut self, frame_number: u32);
+}
 fn main() {
     let window_width = 1000;
     let window_height = 1000;

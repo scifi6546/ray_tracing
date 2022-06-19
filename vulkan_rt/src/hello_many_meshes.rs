@@ -10,24 +10,30 @@ use cgmath::{SquareMatrix, Vector3};
 use gpu_allocator::vulkan::*;
 use gpu_allocator::{AllocatorDebugSettings, MemoryLocation};
 use image::RgbaImage;
+use std::borrow::BorrowMut;
 use std::ffi::c_void;
 use std::{
+    cell::RefCell,
     default::Default,
     ffi::CStr,
     io::Cursor,
     mem::{align_of, size_of, size_of_val},
     rc::Rc,
+    sync::{Arc, Mutex},
 };
-
+pub struct App {}
 pub fn run(base: &Base) {
-    let mut allocator = Allocator::new(&AllocatorCreateDesc {
-        instance: base.instance.clone(),
-        device: base.device.clone(),
-        physical_device: base.p_device.clone(),
-        debug_settings: AllocatorDebugSettings::default(),
-        buffer_device_address: false,
-    })
-    .expect("created allocator");
+    let mut allocator = Arc::new(Mutex::new(
+        Allocator::new(&AllocatorCreateDesc {
+            instance: base.instance.clone(),
+            device: base.device.clone(),
+            physical_device: base.p_device.clone(),
+            debug_settings: AllocatorDebugSettings::default(),
+            buffer_device_address: false,
+        })
+        .expect("created allocator"),
+    ));
+
     let renderpass_attachments = [
         vk::AttachmentDescription::builder()
             .format(base.surface_format.format)
@@ -72,7 +78,26 @@ pub fn run(base: &Base) {
         base.device
             .create_render_pass(&renderpass_create_info, None)
             .unwrap()
-    };
+    }; /*
+       let mut imgui_ctx = imgui::Context::create();
+
+       let mut imgui_renderer = Rc::new(RefCell::new(
+           imgui_rs_vulkan_renderer::Renderer::with_gpu_allocator(
+               allocator.clone(),
+               base.device.clone(),
+               base.present_queue.clone(),
+               base.pool,
+               renderpass,
+               &mut imgui_ctx,
+               Some(imgui_rs_vulkan_renderer::Options {
+                   in_flight_frames: base.present_image_views.len(),
+                   ..Default::default()
+               }),
+           )
+           .expect("failed to make imgui renderer"),
+       ));
+
+        */
     let framebuffers = unsafe {
         base.present_image_views
             .iter()
@@ -125,7 +150,12 @@ pub fn run(base: &Base) {
             position: cgmath::Point3::new(0.0, 1.0, -4.0),
         })]),
     }
-    .build_render_model(base, &mut allocator, &descriptor_pool, &desc_set_layouts);
+    .build_render_model(
+        base,
+        &mut allocator.lock().expect("failed to get mut"),
+        &descriptor_pool,
+        &desc_set_layouts,
+    );
     let planet = Model {
         mesh: Mesh::sphere(64, 32),
         texture: image::load_from_memory(include_bytes!("../../assets/earthmap.jpg"))
@@ -145,7 +175,12 @@ pub fn run(base: &Base) {
             }),
         ]),
     }
-    .build_render_model(base, &mut allocator, &descriptor_pool, &desc_set_layouts);
+    .build_render_model(
+        base,
+        &mut allocator.lock().expect("failed to get"),
+        &descriptor_pool,
+        &desc_set_layouts,
+    );
     let mut mesh_list = vec![sun, planet];
 
     let mut vertex_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.vert.glsl"));
@@ -278,7 +313,7 @@ pub fn run(base: &Base) {
             .create_graphics_pipelines(vk::PipelineCache::null(), &[graphics_pipeline_info], None)
             .expect("failed to create graphics_pipeline")[0]
     };
-
+    //  let draw_data = imgui_ctx.frame().render();
     base.render_loop(|frame_counter| {
         let (present_index, _) = unsafe {
             base.swapchain_loader
@@ -324,6 +359,14 @@ pub fn run(base: &Base) {
                         &renderpass_begin_info,
                         vk::SubpassContents::INLINE,
                     );
+                    /*
+                                       Rc::get_mut(&mut imgui_renderer)
+                                           .unwrap()
+                                           .get_mut()
+                                           .cmd_draw(draw_command_buffer, draw_data);
+
+
+                    */
                     for mesh in mesh_list.iter() {
                         let transform_mat =
                             cgmath::perspective(cgmath::Rad(3.14 / 2.0), 1.0, 0.1, 10.0)
@@ -369,6 +412,7 @@ pub fn run(base: &Base) {
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
             );
+
             let present_index_arr = [present_index];
             let render_complete_sem_arr = [base.rendering_complete_semaphore];
 
@@ -382,6 +426,7 @@ pub fn run(base: &Base) {
         }
     });
     unsafe {
+        // drop(imgui_renderer.borrow_mut());
         base.device.device_wait_idle().expect("failed to wait idle");
         base.device.destroy_pipeline(graphics_pipelines, None);
         base.device.destroy_pipeline_layout(pipeline_layout, None);
@@ -390,7 +435,10 @@ pub fn run(base: &Base) {
         base.device.destroy_shader_module(frag_shader_module, None);
 
         for mesh in mesh_list.drain(..) {
-            mesh.free_resources(base, &mut allocator)
+            mesh.free_resources(
+                base,
+                &mut allocator.lock().expect("failed to get allocator"),
+            )
         }
         for &descriptor_set_layout in desc_set_layouts.iter() {
             base.device
