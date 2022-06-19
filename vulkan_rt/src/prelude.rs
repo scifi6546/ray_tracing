@@ -1,7 +1,7 @@
 mod mesh;
 use cgmath::{
-    num_traits::FloatConst, Euler, Matrix, Matrix4, Point3, Quaternion, Rad, SquareMatrix, Vector3,
-    Zero,
+    num_traits::FloatConst, Deg, Euler, Matrix, Matrix4, Point3, Quaternion, Rad, SquareMatrix,
+    Vector3, Zero,
 };
 pub use mesh::*;
 use std::rc::Rc;
@@ -323,5 +323,26 @@ impl Transform {
         Matrix4::from_translation(self.position.to_homogeneous().truncate())
             * rotation_matrix
             * Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z)
+    }
+}
+#[derive(Clone, Debug)]
+pub struct Camera {
+    pub fov: f32,
+    pub aspect_ratio: f32,
+    pub near_clip: f32,
+    pub far_clip: f32,
+    pub position: Point3<f32>,
+    pub look_at: Point3<f32>,
+    pub up: Vector3<f32>,
+}
+impl Camera {
+    pub fn make_transform_mat(&self) -> Matrix4<f32> {
+        cgmath::perspective(
+            Deg(self.fov),
+            self.aspect_ratio,
+            self.near_clip,
+            self.far_clip,
+        ) * Matrix4::from_diagonal(cgmath::Vector4::new(1.0, 1.0, -1.0, 1.0))
+            * Matrix4::look_at_lh(self.position, self.look_at, self.up)
     }
 }

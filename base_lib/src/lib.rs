@@ -23,9 +23,11 @@ pub struct Camera {
     pub start_time: f32,
     pub end_time: f32,
 }
+#[derive(Clone, Debug)]
 pub enum Texture {
     ConstantColor(RgbColor),
 }
+#[derive(Clone, Debug)]
 pub enum Material {
     Light(Texture),
 }

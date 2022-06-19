@@ -6,6 +6,7 @@ use ash::{
     util::{read_spv, Align},
     vk,
 };
+use base_lib::Object;
 use cgmath::{SquareMatrix, Vector3};
 use gpu_allocator::vulkan::*;
 use gpu_allocator::{AllocatorDebugSettings, MemoryLocation};
@@ -20,8 +21,58 @@ use std::{
     rc::Rc,
     sync::Arc,
 };
-fn make_meshes() {
-    let s = (base_lib::get_scenarios()[0].1)();
+
+fn make_meshes() -> (Vec<Model>, Camera) {
+    let scene = (base_lib::get_scenarios()[0].1)();
+    let models = scene
+        .objects
+        .iter()
+        .map(|object| {
+            let texture = match object.material.clone() {
+                base_lib::Material::Light(texture) => match texture {
+                    base_lib::Texture::ConstantColor(c) => image::RgbaImage::from_pixel(
+                        100,
+                        100,
+                        image::Rgba([
+                            (c.red / 255.0) as u8,
+                            (c.green / 255.0) as u8,
+                            (c.blue / 255.0) as u8,
+                            255,
+                        ]),
+                    ),
+                },
+            };
+            let (mesh, animation) = match object.shape {
+                base_lib::Shape::Sphere { radius, origin } => {
+                    let mesh = Mesh::sphere(64, 64);
+                    let transform = AnimationList::new(vec![
+                        Rc::new(StaticPosition { position: origin }),
+                        Rc::new(Scale {
+                            scale: Vector3::new(radius, radius, radius),
+                        }),
+                    ]);
+                    (mesh, transform)
+                }
+            };
+            Model {
+                animation,
+                mesh,
+                texture,
+            }
+        })
+        .collect::<Vec<_>>();
+    (
+        models,
+        Camera {
+            fov: scene.camera.fov,
+            aspect_ratio: scene.camera.aspect_ratio,
+            near_clip: 0.1,
+            far_clip: 100.0,
+            position: scene.camera.origin,
+            look_at: scene.camera.look_at,
+            up: scene.camera.up_vector,
+        },
+    )
 }
 pub fn run(base: &Base) {
     let mut allocator = Allocator::new(&AllocatorCreateDesc {
@@ -123,36 +174,13 @@ pub fn run(base: &Base) {
             .create_descriptor_set_layout(&descriptor_info, None)
             .expect("failed to create descriptor set layout")]
     };
-    let sun = Model {
-        mesh: Mesh::sphere(64, 32),
-        texture: image::RgbaImage::from_pixel(100, 100, image::Rgba([255, 255, 255, 255])),
-        animation: AnimationList::new(vec![Rc::new(StaticPosition {
-            position: cgmath::Point3::new(0.0, 1.0, -4.0),
-        })]),
-    }
-    .build_render_model(base, &mut allocator, &descriptor_pool, &desc_set_layouts);
-    let planet = Model {
-        mesh: Mesh::sphere(64, 32),
-        texture: image::load_from_memory(include_bytes!("../../assets/earthmap.jpg"))
-            .unwrap()
-            .to_rgba8(),
-        animation: AnimationList::new(vec![
-            Rc::new(StaticPosition {
-                position: cgmath::Point3::new(0.0, 1.0, -4.0),
-            }),
-            Rc::new(Orbit {
-                radius: 2.0,
-                orbit_period: 10000.0,
-            }),
-            Rc::new(RotateX { rotate_rate: 0.01 }),
-            Rc::new(Scale {
-                scale: Vector3::new(0.1, 0.1, 0.1),
-            }),
-        ]),
-    }
-    .build_render_model(base, &mut allocator, &descriptor_pool, &desc_set_layouts);
-    let mut mesh_list = vec![sun, planet];
+    let (meshes, camera) = make_meshes();
+    println!("camera: {:#?}", camera);
 
+    let mut mesh_list = meshes
+        .iter()
+        .map(|m| m.build_render_model(base, &mut allocator, &descriptor_pool, &desc_set_layouts))
+        .collect::<Vec<_>>();
     let mut vertex_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.vert.glsl"));
     let mut frag_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.frag.glsl"));
     let vertex_code = read_spv(&mut vertex_spv_file).expect("failed tp read vertex shader code");
@@ -333,7 +361,8 @@ pub fn run(base: &Base) {
                         let transform_mat =
                             cgmath::perspective(cgmath::Rad(3.14 / 2.0), 1.0, 0.1, 10.0)
                                 * mesh.animation.build_transform_mat(frame_counter);
-
+                        let transform_mat = camera.make_transform_mat()
+                            * mesh.animation.build_transform_mat(frame_counter);
                         device.cmd_bind_descriptor_sets(
                             draw_command_buffer,
                             vk::PipelineBindPoint::GRAPHICS,
