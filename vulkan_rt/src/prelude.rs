@@ -1,5 +1,8 @@
-use cgmath::{num_traits::FloatConst, Matrix};
-
+use cgmath::{
+    num_traits::FloatConst, Euler, Matrix, Matrix4, Point3, Quaternion, Rad, SquareMatrix, Vector3,
+    Zero,
+};
+use std::rc::Rc;
 #[repr(C)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy)]
 pub struct Mat4 {
@@ -221,5 +224,102 @@ impl Mesh {
             }
         }
         Self { vertices, indices }
+    }
+}
+#[derive(Clone)]
+pub struct AnimationList {
+    animations: Vec<Rc<dyn Animation>>,
+}
+impl AnimationList {
+    pub fn new(animations: Vec<Rc<dyn Animation>>) -> Self {
+        Self { animations }
+    }
+    pub fn build_transform_mat(&self, frame_number: usize) -> Matrix4<f32> {
+        self.animations
+            .iter()
+            .map(|anm| anm.get_transform(frame_number).build_matrix())
+            .fold(Matrix4::identity(), |acc, x| acc * x)
+    }
+}
+pub trait Animation {
+    fn get_transform(&self, frame_number: usize) -> Transform;
+}
+pub struct StaticPosition {
+    pub position: Point3<f32>,
+}
+impl Animation for StaticPosition {
+    fn get_transform(&self, _frame_number: usize) -> Transform {
+        Transform {
+            position: self.position,
+            rotation: Quaternion::from(Euler {
+                x: Rad(0.0),
+                y: Rad(0.0),
+                z: Rad(0.0),
+            }),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        }
+    }
+}
+pub struct RotateX {
+    pub rotate_rate: f32,
+}
+impl Animation for RotateX {
+    fn get_transform(&self, frame_number: usize) -> Transform {
+        Transform {
+            position: Point3::new(0.0, 0.0, 0.0),
+            rotation: Quaternion::from(Euler {
+                x: Rad(frame_number as f32 * self.rotate_rate),
+                y: Rad(0.0),
+                z: Rad(0.0),
+            }),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        }
+    }
+}
+pub struct Orbit {
+    pub radius: f32,
+    pub orbit_period: f32,
+}
+impl Animation for Orbit {
+    fn get_transform(&self, frame_number: usize) -> Transform {
+        let theta = (frame_number as f32 / self.orbit_period) * 2.0 * f32::PI();
+        Transform {
+            position: Point3::new(theta.sin() * self.radius, 0.0, theta.cos() * self.radius),
+            rotation: Quaternion::from(Euler {
+                x: Rad(0.0),
+                y: Rad(0.0),
+                z: Rad(0.0),
+            }),
+            scale: Vector3::new(1.0, 1.0, 1.0),
+        }
+    }
+}
+pub struct Scale {
+    pub scale: Vector3<f32>,
+}
+impl Animation for Scale {
+    fn get_transform(&self, frame_number: usize) -> Transform {
+        Transform {
+            position: Point3::new(0.0, 0.0, 0.0),
+            rotation: Quaternion::from(Euler {
+                x: Rad(0.0),
+                y: Rad(0.0),
+                z: Rad(0.0),
+            }),
+            scale: self.scale,
+        }
+    }
+}
+pub struct Transform {
+    pub position: Point3<f32>,
+    pub rotation: Quaternion<f32>,
+    pub scale: Vector3<f32>,
+}
+impl Transform {
+    pub fn build_matrix(&self) -> Matrix4<f32> {
+        let rotation_matrix: Matrix4<f32> = self.rotation.into();
+        Matrix4::from_translation(self.position.to_homogeneous().truncate())
+            * rotation_matrix
+            * Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z)
     }
 }

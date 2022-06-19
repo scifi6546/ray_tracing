@@ -1,23 +1,22 @@
-use super::{
-    find_memory_type_index,
-    prelude::{Mat4, Mat4ToBytes, Mesh, Vector2, Vector4, Vertex},
-    Base,
-};
+use super::{find_memory_type_index, prelude::*, Base};
+use crate::prelude::Animation;
 use crate::record_submit_commandbuffer;
 use ash::vk::SemaphoreWaitInfo;
 use ash::{
     util::{read_spv, Align},
     vk,
 };
-use cgmath::SquareMatrix;
+use cgmath::{SquareMatrix, Vector3};
 use gpu_allocator::vulkan::*;
 use gpu_allocator::{AllocatorDebugSettings, MemoryLocation};
+use image::RgbaImage;
 use std::ffi::c_void;
 use std::{
     default::Default,
     ffi::CStr,
     io::Cursor,
     mem::{align_of, size_of, size_of_val},
+    rc::Rc,
 };
 
 struct RenderModel {
@@ -31,6 +30,7 @@ struct RenderModel {
     texture_image_view: vk::ImageView,
     sampler: vk::Sampler,
     num_indices: u32,
+    animation: AnimationList,
 }
 impl RenderModel {
     pub unsafe fn free_resources(self, base: &Base, allocator: &mut Allocator) {
@@ -54,6 +54,7 @@ impl RenderModel {
     }
 }
 struct Model {
+    animation: AnimationList,
     mesh: Mesh,
     texture: image::RgbaImage,
 }
@@ -223,14 +224,11 @@ impl Model {
         let texture_allocation = allocator
             .allocate(&AllocationCreateDesc {
                 name: "image buffer allocation",
-                requirements: image_buffer_memory_req,
+                requirements: texture_memory_req,
                 location: MemoryLocation::GpuOnly,
                 linear: true,
             })
             .expect("failed to free allocation");
-        let texture_alloc_info = vk::MemoryAllocateInfo::builder()
-            .allocation_size(texture_memory_req.size)
-            .memory_type_index(texture_memory_index);
 
         unsafe {
             base.device
@@ -388,6 +386,7 @@ impl Model {
             texture_image_view,
             sampler,
             num_indices: self.mesh.indices.len() as u32,
+            animation: self.animation.clone(),
         }
     }
 }
@@ -491,13 +490,35 @@ pub fn run(base: &Base) {
             .create_descriptor_set_layout(&descriptor_info, None)
             .expect("failed to create descriptor set layout")]
     };
-    let t_mesh = Model {
+    let sun = Model {
+        mesh: Mesh::sphere(64, 32),
+        texture: image::RgbaImage::from_pixel(100, 100, image::Rgba([255, 255, 255, 255])),
+        animation: AnimationList::new(vec![Rc::new(StaticPosition {
+            position: cgmath::Point3::new(0.0, 1.0, -4.0),
+        })]),
+    }
+    .build_render_model(base, &mut allocator, &descriptor_pool, &desc_set_layouts);
+    let planet = Model {
         mesh: Mesh::sphere(64, 32),
         texture: image::load_from_memory(include_bytes!("../../assets/earthmap.jpg"))
             .unwrap()
             .to_rgba8(),
+        animation: AnimationList::new(vec![
+            Rc::new(StaticPosition {
+                position: cgmath::Point3::new(0.0, 1.0, -4.0),
+            }),
+            Rc::new(Orbit {
+                radius: 2.0,
+                orbit_period: 10000.0,
+            }),
+            Rc::new(RotateX { rotate_rate: 0.01 }),
+            Rc::new(Scale {
+                scale: Vector3::new(0.1, 0.1, 0.1),
+            }),
+        ]),
     }
     .build_render_model(base, &mut allocator, &descriptor_pool, &desc_set_layouts);
+    let mut mesh_list = vec![sun, planet];
 
     let mut vertex_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.vert.glsl"));
     let mut frag_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.frag.glsl"));
@@ -670,51 +691,53 @@ pub fn run(base: &Base) {
                 &[base.present_complete_semaphore],
                 &[base.rendering_complete_semaphore],
                 |device, draw_command_buffer| {
-                    let mat2 = cgmath::perspective(cgmath::Rad(3.14 / 2.0), 1.0, 0.1, 10.0)
-                        * cgmath::Matrix4::from_translation(cgmath::Vector3::new(0.0, 1.0, -4.0))
-                        * cgmath::Matrix4::from_angle_x(cgmath::Rad(
-                            frame_counter as f32 / 10000.0,
-                        ));
                     device.cmd_begin_render_pass(
                         draw_command_buffer,
                         &renderpass_begin_info,
                         vk::SubpassContents::INLINE,
                     );
-                    device.cmd_bind_descriptor_sets(
-                        draw_command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        pipeline_layout,
-                        0,
-                        &[t_mesh.descriptor_set],
-                        &[],
-                    );
-                    device.cmd_bind_pipeline(
-                        draw_command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        graphics_pipelines,
-                    );
-                    device.cmd_set_viewport(draw_command_buffer, 0, &viewports);
-                    device.cmd_set_scissor(draw_command_buffer, 0, &scissors);
-                    device.cmd_bind_vertex_buffers(
-                        draw_command_buffer,
-                        0,
-                        &[t_mesh.vertex_buffer],
-                        &[0],
-                    );
-                    device.cmd_push_constants(
-                        draw_command_buffer,
-                        pipeline_layout,
-                        vk::ShaderStageFlags::VERTEX,
-                        0,
-                        Mat4ToBytes(&mat2),
-                    );
-                    device.cmd_bind_index_buffer(
-                        draw_command_buffer,
-                        t_mesh.index_buffer,
-                        0,
-                        vk::IndexType::UINT32,
-                    );
-                    device.cmd_draw_indexed(draw_command_buffer, t_mesh.num_indices, 1, 0, 0, 1);
+                    for mesh in mesh_list.iter() {
+                        let transform_mat =
+                            cgmath::perspective(cgmath::Rad(3.14 / 2.0), 1.0, 0.1, 10.0)
+                                * mesh.animation.build_transform_mat(frame_counter);
+
+                        device.cmd_bind_descriptor_sets(
+                            draw_command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            pipeline_layout,
+                            0,
+                            &[mesh.descriptor_set],
+                            &[],
+                        );
+                        device.cmd_bind_pipeline(
+                            draw_command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            graphics_pipelines,
+                        );
+                        device.cmd_set_viewport(draw_command_buffer, 0, &viewports);
+                        device.cmd_set_scissor(draw_command_buffer, 0, &scissors);
+                        device.cmd_bind_vertex_buffers(
+                            draw_command_buffer,
+                            0,
+                            &[mesh.vertex_buffer],
+                            &[0],
+                        );
+                        device.cmd_push_constants(
+                            draw_command_buffer,
+                            pipeline_layout,
+                            vk::ShaderStageFlags::VERTEX,
+                            0,
+                            Mat4ToBytes(&transform_mat),
+                        );
+                        device.cmd_bind_index_buffer(
+                            draw_command_buffer,
+                            mesh.index_buffer,
+                            0,
+                            vk::IndexType::UINT32,
+                        );
+                        device.cmd_draw_indexed(draw_command_buffer, mesh.num_indices, 1, 0, 0, 1);
+                    }
+
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
             );
@@ -737,8 +760,10 @@ pub fn run(base: &Base) {
         base.device
             .destroy_shader_module(vertex_shader_module, None);
         base.device.destroy_shader_module(frag_shader_module, None);
-        t_mesh.free_resources(base, &mut allocator);
 
+        for mesh in mesh_list.drain(..) {
+            mesh.free_resources(base, &mut allocator)
+        }
         for &descriptor_set_layout in desc_set_layouts.iter() {
             base.device
                 .destroy_descriptor_set_layout(descriptor_set_layout, None);
