@@ -1,7 +1,9 @@
+mod mesh;
 use cgmath::{
     num_traits::FloatConst, Euler, Matrix, Matrix4, Point3, Quaternion, Rad, SquareMatrix, Vector3,
     Zero,
 };
+pub use mesh::*;
 use std::rc::Rc;
 #[repr(C)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy)]

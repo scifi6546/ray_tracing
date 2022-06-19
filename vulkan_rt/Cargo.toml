@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ash = {version = "0.37.0+1.3.209",features = ["linked"]}
+ash = {version = "0.37.0",features = ["linked"]}
 ash-window = "0.10.0"
 winit = "0.26.1"
 backtrace = "0.3"
@@ -14,3 +14,4 @@ bytemuck = {version = "1.9.1",features = ["derive"]}
 image = "0.23"
 gpu-allocator = {version = "0.18.0",features = ["vulkan"]}
 cgmath = "0.18.0"
+base_lib = {path = "../base_lib"}

@@ -15,10 +15,14 @@ use std::{
     default::Default,
     ffi::CStr,
     io::Cursor,
+    mem::ManuallyDrop,
     mem::{align_of, size_of, size_of_val},
     rc::Rc,
+    sync::Arc,
 };
-
+fn make_meshes() {
+    let s = (base_lib::get_scenarios()[0].1)();
+}
 pub fn run(base: &Base) {
     let mut allocator = Allocator::new(&AllocatorCreateDesc {
         instance: base.instance.clone(),
@@ -28,6 +32,7 @@ pub fn run(base: &Base) {
         buffer_device_address: false,
     })
     .expect("created allocator");
+
     let renderpass_attachments = [
         vk::AttachmentDescription::builder()
             .format(base.surface_format.format)

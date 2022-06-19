@@ -1,5 +1,6 @@
 mod hello_many_meshes;
 mod hello_push;
+mod hello_scenelib;
 mod hello_texture;
 mod hello_triangle;
 pub mod prelude;
@@ -151,6 +152,9 @@ pub struct Base {
 
     pub draw_commands_reuse_fence: vk::Fence,
     pub setup_commands_reuse_fence: vk::Fence,
+
+    pub window_width: u32,
+    pub window_height: u32,
 }
 impl Base {
     pub fn new(window_width: u32, window_height: u32) -> Self {
@@ -496,6 +500,9 @@ impl Base {
             debug_callback,
             debug_utils_loader,
             depth_image_memory,
+
+            window_width,
+            window_height,
         }
     }
     pub fn render_loop<F: Fn(usize)>(&self, f: F) {
@@ -562,6 +569,8 @@ fn main() {
     let window_width = 1000;
     let window_height = 1000;
     let base = Base::new(window_width, window_height);
+    println!("hello scenelib");
+    hello_scenelib::run(&base);
     println!("hello many meshes");
     hello_many_meshes::run(&base);
     println!("hello push constant");
