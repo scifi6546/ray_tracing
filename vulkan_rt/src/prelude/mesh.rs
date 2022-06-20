@@ -201,14 +201,7 @@ impl Model {
         };
         let texture_memory_req =
             unsafe { base.device.get_image_memory_requirements(texture_image) };
-        let texture_memory_index = unsafe {
-            find_memory_type_index(
-                &texture_memory_req,
-                &base.device_memory_properties,
-                vk::MemoryPropertyFlags::DEVICE_LOCAL,
-            )
-            .expect("failed to get memory index")
-        };
+
         let texture_allocation = allocator
             .allocate(&AllocationCreateDesc {
                 name: "image buffer allocation",
@@ -304,6 +297,7 @@ impl Model {
         allocator
             .free(image_buffer_allocation)
             .expect("failed to free");
+
         let sampler_info = vk::SamplerCreateInfo::builder()
             .mag_filter(vk::Filter::LINEAR)
             .min_filter(vk::Filter::LINEAR)

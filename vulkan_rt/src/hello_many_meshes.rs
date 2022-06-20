@@ -21,7 +21,7 @@ use std::{
     rc::Rc,
     sync::{Arc, Mutex},
 };
-pub struct App {}
+
 pub fn run(base: &Base) {
     let mut allocator = Arc::new(Mutex::new(
         Allocator::new(&AllocatorCreateDesc {

@@ -536,6 +536,7 @@ impl Base {
             });
     }
 }
+
 impl Drop for Base {
     fn drop(&mut self) {
         unsafe {
@@ -566,14 +567,63 @@ impl Drop for Base {
     }
 }
 pub trait GraphicsApp {
-    fn run_frame(&mut self, frame_number: u32);
+    fn run_frame(&mut self, base: &Base, frame_number: u32);
+    fn free_resources(self, base: &Base);
+}
+struct GraphicsAppRunner<App: GraphicsApp> {
+    base: Base,
+    app: App,
+}
+impl<App: GraphicsApp> GraphicsAppRunner<App> {
+    pub fn drain_base(self) -> Base {
+        self.app.free_resources(&self.base);
+        self.base
+    }
+
+    pub fn run(&mut self) {
+        let mut frame_counter = 0;
+        self.base
+            .event_loop
+            .borrow_mut()
+            .run_return(|event, t, controll_flow| {
+                *controll_flow = ControlFlow::Poll;
+                match event {
+                    Event::WindowEvent {
+                        event: WindowEvent::CloseRequested,
+                        ..
+                    } => {
+                        println!("exit");
+                        *controll_flow = ControlFlow::Exit
+                    }
+                    Event::WindowEvent {
+                        event: WindowEvent::KeyboardInput { input, .. },
+                        ..
+                    } => {
+                        println!("keyboard input, input: {:?}", input);
+                    }
+                    Event::MainEventsCleared => {
+                        self.app.run_frame(&self.base, frame_counter);
+                        self.base.window.request_redraw();
+
+                        frame_counter += 1;
+                    }
+                    _ => {}
+                };
+            });
+    }
 }
 fn main() {
     let window_width = 1000;
     let window_height = 1000;
     let base = Base::new(window_width, window_height);
-    println!("hello scenelib");
-    hello_scenelib::run(&base);
+    let base = {
+        let mut runner = GraphicsAppRunner {
+            app: hello_scenelib::App::new(&base),
+            base,
+        };
+        runner.run();
+        runner.drain_base()
+    };
     println!("hello many meshes");
     hello_many_meshes::run(&base);
     println!("hello push constant");
