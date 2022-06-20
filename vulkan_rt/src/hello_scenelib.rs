@@ -7,7 +7,7 @@ use ash::{
     vk,
 };
 use base_lib::Object;
-use cgmath::{SquareMatrix, Vector3};
+use cgmath::{Point3, SquareMatrix, Vector3};
 use gpu_allocator::vulkan::*;
 use gpu_allocator::{AllocatorDebugSettings, MemoryLocation};
 use image::RgbaImage;
@@ -22,7 +22,20 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-
+fn base_lib_te_to_texture(texture: &base_lib::Texture) -> image::RgbaImage {
+    match texture {
+        base_lib::Texture::ConstantColor(c) => image::RgbaImage::from_pixel(
+            100,
+            100,
+            image::Rgba([
+                (c.red / 255.0) as u8,
+                (c.green / 255.0) as u8,
+                (c.blue / 255.0) as u8,
+                255,
+            ]),
+        ),
+    }
+}
 fn make_meshes() -> (Vec<Model>, Camera) {
     let scene = (base_lib::get_scenarios()[0].1)();
     let models = scene
@@ -30,18 +43,8 @@ fn make_meshes() -> (Vec<Model>, Camera) {
         .iter()
         .map(|object| {
             let texture = match object.material.clone() {
-                base_lib::Material::Light(texture) => match texture {
-                    base_lib::Texture::ConstantColor(c) => image::RgbaImage::from_pixel(
-                        100,
-                        100,
-                        image::Rgba([
-                            (c.red / 255.0) as u8,
-                            (c.green / 255.0) as u8,
-                            (c.blue / 255.0) as u8,
-                            255,
-                        ]),
-                    ),
-                },
+                base_lib::Material::Light(texture) => base_lib_te_to_texture(&texture),
+                base_lib::Material::Lambertian(texture) => base_lib_te_to_texture(&texture),
             };
             let (mesh, animation) = match object.shape {
                 base_lib::Shape::Sphere { radius, origin } => {
@@ -53,6 +56,17 @@ fn make_meshes() -> (Vec<Model>, Camera) {
                         }),
                     ]);
                     (mesh, transform)
+                }
+                base_lib::Shape::XYRect {
+                    center,
+                    size_x,
+                    size_y,
+                } => {
+                    let mesh = Mesh::YZRect();
+                    let transform = vec![Rc::new(StaticPosition {
+                        position: Point3::new(center.x, center.y, center.z),
+                    })];
+                    todo!()
                 }
             };
             Model {

@@ -10,6 +10,7 @@ use super::{
     HitRecord, Hittable, Sky, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
+
 use cgmath::{Point3, Vector3};
 pub use cornell_box::cornell_box;
 pub use cornell_smoke::cornell_smoke;
@@ -42,6 +43,13 @@ impl World {
                             }
                         },
                     })),
+                    base_lib::Material::Lambertian(tex) => Rc::new(RefCell::new(Lambertian {
+                        albedo: match tex {
+                            base_lib::Texture::ConstantColor(color) => {
+                                Box::new(SolidColor { color: *color })
+                            }
+                        },
+                    })),
                 };
                 let obj_out: Rc<dyn Hittable> = match obj.shape {
                     base_lib::Shape::Sphere { radius, origin } => Rc::new(Sphere {
@@ -49,10 +57,23 @@ impl World {
                         origin,
                         material,
                     }),
+                    base_lib::Shape::XYRect {
+                        center,
+                        size_x,
+                        size_y,
+                    } => Rc::new(XYRect {
+                        material,
+                        x0: center.x - size_x,
+                        x1: center.x + size_x,
+                        y0: center.y - size_y,
+                        y1: center.y + size_y,
+                        k: center.z,
+                    }),
                 };
                 (
                     match obj.material {
                         base_lib::Material::Light(..) => true,
+                        base_lib::Material::Lambertian(_) => false,
                     },
                     obj_out,
                 )
@@ -67,8 +88,9 @@ impl World {
             .iter()
             .map(|(_is_light, obj)| obj.clone())
             .collect::<Vec<Rc<dyn Hittable>>>();
-        let background = match scene.background {
+        let background: Box<dyn Background> = match scene.background {
             base_lib::Background::Sky => Box::new(Sky {}),
+            base_lib::Background::ConstantColor(color) => Box::new(ConstantColor { color }),
         };
         World {
             spheres,
