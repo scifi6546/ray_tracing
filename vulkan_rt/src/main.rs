@@ -5,17 +5,22 @@ mod hello_texture;
 mod hello_triangle;
 pub mod prelude;
 
-use ash::extensions::khr;
-
 use ash::{
     extensions::{
         ext::DebugUtils,
+        khr,
         khr::{Surface, Swapchain},
     },
     vk, Device, Entry, Instance,
 };
-use std::{borrow::Cow, cell::RefCell, ffi::CStr, os::raw::c_char};
-use winit::event::VirtualKeyCode::D;
+use std::{
+    borrow::Cow,
+    cell::RefCell,
+    ffi::CStr,
+    os::raw::c_char,
+    time::{Duration, Instant},
+};
+
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -568,11 +573,14 @@ impl Drop for Base {
 }
 pub trait GraphicsApp {
     fn run_frame(&mut self, base: &Base, frame_number: u32);
+    fn process_event(&mut self, elapsed_time: Duration);
+    fn handle_event(&mut self, base: &Base, event: &winit::event::Event<()>);
     fn free_resources(self, base: &Base);
 }
 struct GraphicsAppRunner<App: GraphicsApp> {
     base: Base,
     app: App,
+    last_update_time: Instant,
 }
 impl<App: GraphicsApp> GraphicsAppRunner<App> {
     pub fn drain_base(self) -> Base {
@@ -587,7 +595,13 @@ impl<App: GraphicsApp> GraphicsAppRunner<App> {
             .borrow_mut()
             .run_return(|event, t, controll_flow| {
                 *controll_flow = ControlFlow::Poll;
+                self.app.handle_event(&self.base, &event);
                 match event {
+                    Event::NewEvents(_) => {
+                        let now = Instant::now();
+                        self.app.process_event(now - self.last_update_time);
+                        self.last_update_time = Instant::now();
+                    }
                     Event::WindowEvent {
                         event: WindowEvent::CloseRequested,
                         ..
@@ -620,6 +634,7 @@ fn main() {
         let mut runner = GraphicsAppRunner {
             app: hello_scenelib::App::new(&base),
             base,
+            last_update_time: Instant::now(),
         };
         runner.run();
         runner.drain_base()

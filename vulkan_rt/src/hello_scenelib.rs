@@ -19,7 +19,8 @@ use std::{
     mem::ManuallyDrop,
     mem::{align_of, size_of, size_of_val},
     rc::Rc,
-    sync::Arc,
+    sync::{Arc, Mutex},
+    time::Duration,
 };
 
 fn make_meshes() -> (Vec<Model>, Camera) {
@@ -75,7 +76,10 @@ fn make_meshes() -> (Vec<Model>, Camera) {
     )
 }
 pub struct App {
-    allocator: Allocator,
+    imgui_context: imgui::Context,
+    imgui_renderer: imgui_rs_vulkan_renderer::Renderer,
+    imgui_platform: imgui_winit_support::WinitPlatform,
+    allocator: Arc<Mutex<Allocator>>,
     framebuffers: Vec<vk::Framebuffer>,
     renderpass: vk::RenderPass,
     descriptor_pool: vk::DescriptorPool,
@@ -92,14 +96,25 @@ pub struct App {
 }
 impl App {
     pub fn new(base: &Base) -> Self {
-        let mut allocator = Allocator::new(&AllocatorCreateDesc {
-            instance: base.instance.clone(),
-            device: base.device.clone(),
-            physical_device: base.p_device.clone(),
-            debug_settings: AllocatorDebugSettings::default(),
-            buffer_device_address: false,
-        })
-        .expect("created allocator");
+        let mut imgui_context = imgui::Context::create();
+        let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui_context);
+        let hidipi_factor = imgui_platform.hidpi_factor();
+        imgui_platform.attach_window(
+            imgui_context.io_mut(),
+            &base.window,
+            imgui_winit_support::HiDpiMode::Rounded,
+        );
+        imgui_context.io_mut().font_global_scale = (1.0 / hidipi_factor as f32);
+        let mut allocator = Arc::new(Mutex::new(
+            Allocator::new(&AllocatorCreateDesc {
+                instance: base.instance.clone(),
+                device: base.device.clone(),
+                physical_device: base.p_device.clone(),
+                debug_settings: AllocatorDebugSettings::default(),
+                buffer_device_address: false,
+            })
+            .expect("created allocator"),
+        ));
 
         let renderpass_attachments = [
             vk::AttachmentDescription::builder()
@@ -199,7 +214,7 @@ impl App {
             .map(|m| {
                 m.build_render_model(
                     base,
-                    &mut allocator,
+                    &mut allocator.lock().expect("failed to lock"),
                     &descriptor_pool,
                     &descriptor_set_layouts,
                 )
@@ -340,7 +355,23 @@ impl App {
                 )
                 .expect("failed to create graphics_pipeline")[0]
         };
+        let imgui_renderer = imgui_rs_vulkan_renderer::Renderer::with_gpu_allocator(
+            allocator.clone(),
+            base.device.clone(),
+            base.present_queue,
+            base.pool,
+            renderpass,
+            &mut imgui_context,
+            Some(imgui_rs_vulkan_renderer::Options {
+                in_flight_frames: framebuffers.len(),
+                ..Default::default()
+            }),
+        )
+        .expect("failed to make renderer");
         Self {
+            imgui_context,
+            imgui_renderer,
+            imgui_platform,
             camera,
             allocator,
             framebuffers,
@@ -369,6 +400,18 @@ impl GraphicsApp for App {
                 )
                 .expect("failed to acquire image")
         };
+        self.imgui_platform
+            .prepare_frame(self.imgui_context.io_mut(), &base.window)
+            .expect("failed to prepare frame");
+
+        let ui = self.imgui_context.frame();
+        self.imgui_platform.prepare_render(&ui, &base.window);
+        let button_res = ui.button("Hello!!");
+        if button_res {
+            println!("pressed button {}", button_res)
+        }
+
+        let draw_data = ui.render();
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -403,6 +446,9 @@ impl GraphicsApp for App {
                         &renderpass_begin_info,
                         vk::SubpassContents::INLINE,
                     );
+                    self.imgui_renderer
+                        .cmd_draw(draw_command_buffer, draw_data)
+                        .expect("fai;ed to draw");
                     for mesh in self.mesh_list.iter() {
                         let transform_mat =
                             cgmath::perspective(cgmath::Rad(3.14 / 2.0), 1.0, 0.1, 10.0)
@@ -473,7 +519,10 @@ impl GraphicsApp for App {
                 .destroy_shader_module(self.fragment_shader_module, None);
 
             for mesh in self.mesh_list.drain(..) {
-                mesh.free_resources(base, &mut self.allocator)
+                mesh.free_resources(
+                    base,
+                    &mut self.allocator.lock().expect("failed to get lock"),
+                )
             }
             for &descriptor_set_layout in self.descriptor_set_layouts.iter() {
                 base.device
@@ -488,5 +537,12 @@ impl GraphicsApp for App {
             base.device.destroy_render_pass(self.renderpass, None);
             drop(self.allocator);
         }
+    }
+    fn process_event(&mut self, elapsed_time: Duration) {
+        self.imgui_context.io_mut().update_delta_time(elapsed_time)
+    }
+    fn handle_event(&mut self, base: &Base, event: &winit::event::Event<()>) {
+        self.imgui_platform
+            .handle_event(self.imgui_context.io_mut(), &base.window, event)
     }
 }
