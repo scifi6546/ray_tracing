@@ -1,3 +1,45 @@
+# Minya Renderer
+A CPU raytracer based off of the Raytracing in a Weekend book series by Peter Shirley (https://raytracing.github.io/) and an in progress real time Vulkan rendering engine. It uses a bounding volume hierarchy inorder to accelerate ray tracing.
+
+## Cpu Renderer
+
+The cpu raytracer is based off of the Raytracing in a Weekend series by Peter Shirley. It features multiple materials, a GUI written with egui and support for loading arbitrary scenes. It is currently single threaded. The supported materials are 
+
+###  Lambertian
+
+A diffuse material that scatters light in random directions and absorbs a specifc color based on the color of the object.
+
+INSERT PRETTY SCREENSHOT!!!!!
+
+### Metal
+
+Models a metalic surface. It reflects rays about the normal vector with a random blur based on a predifined "fuzz" variable inorder to model metalic surfaces that are not completly polished.
+
+INSERT SCREENSHOT OF NO FUZZ
+
+INDERT SCREENSHOT OF A LOT OF FUZZ
+
+
+### Dielectric
+
+
+### DiffuseLight
+
+The renderer also supports several shapes. The shapes are
+
+### Sphere
+
+### Axis Aligned Box
+
+### Axis Aligned Rectangles
+
+## Vulkan Renderer
+
+The vulkan renderer curently supports loading textures and arbitrary scenes.
+
+INSERT SCREENSHOTS HERE!!!
+
+
 # Performance on desktop
 initial: 3.61 per frame
 
