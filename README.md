@@ -3,7 +3,7 @@ A CPU raytracer based off of the Raytracing in a Weekend book series by Peter Sh
 
 ## Cpu Renderer
 
-The cpu raytracer is based off of the Raytracing in a Weekend series by Peter Shirley. It features multiple materials, a GUI written with egui and support for loading arbitrary scenes. It is currently single threaded. The supported materials are 
+The cpu raytracer is based off of the Raytracing in a Weekend series by Peter Shirley. It features multiple materials, a GUI written with egui and support for loading arbitrary scenes. It is currently single threaded. The supported materials are described below.
 
 ###  Lambertian
 
@@ -32,6 +32,13 @@ The renderer also supports several shapes. The shapes are
 ### Axis Aligned Box
 
 ### Axis Aligned Rectangles
+
+## Egui Gui
+
+The gui was built inorder to make debuging and interacting with the renderer easier. It currently has a window for selecting new scenes and a debug log window. The debug log window utilizes the [log](https://crates.io/crates/log) crate inorder to provide a convient API that differentiates between debug, info, warnings and errors.
+
+INSERT PICTURE HERE
+
 
 ## Vulkan Renderer
 
