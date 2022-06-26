@@ -1,4 +1,3 @@
-mod cornell_box;
 mod cornell_smoke;
 mod easy_cornell_box;
 mod easy_scene;
@@ -11,7 +10,7 @@ use super::{
 };
 use crate::prelude::*;
 use cgmath::{Point3, Vector3};
-pub use cornell_box::cornell_box;
+
 pub use cornell_smoke::cornell_smoke;
 pub use easy_cornell_box::easy_cornell_box;
 pub use easy_scene::easy_scene;
@@ -218,10 +217,6 @@ impl ScenarioCtor for ScenarioFn {
 }
 pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
     let mut scenes: Vec<Box<dyn ScenarioCtor>> = vec![
-        Box::new(ScenarioFn {
-            name: "Cornell Box".to_string(),
-            f: cornell_box,
-        }),
         Box::new(ScenarioFn {
             name: "Cornell Smoke".to_string(),
             f: cornell_smoke,
