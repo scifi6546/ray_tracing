@@ -11,8 +11,10 @@ use cgmath::{Point3, SquareMatrix, Vector3};
 use gpu_allocator::vulkan::*;
 use gpu_allocator::{AllocatorDebugSettings, MemoryLocation};
 use image::RgbaImage;
+use imgui_rs_vulkan_renderer::Options;
 use std::ffi::c_void;
 use std::{
+    collections::HashMap,
     default::Default,
     ffi::CStr,
     io::Cursor,
@@ -22,29 +24,29 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-fn base_lib_te_to_texture(texture: &base_lib::Texture) -> image::RgbaImage {
+
+fn base_lib_to_texture(texture: &base_lib::Texture) -> image::RgbaImage {
     match texture {
         base_lib::Texture::ConstantColor(c) => image::RgbaImage::from_pixel(
             100,
             100,
             image::Rgba([
-                (c.red / 255.0) as u8,
-                (c.green / 255.0) as u8,
-                (c.blue / 255.0) as u8,
+                (c.red * 255.0) as u8,
+                (c.green * 255.0) as u8,
+                (c.blue * 255.0) as u8,
                 255,
             ]),
         ),
     }
 }
-fn make_meshes() -> (Vec<Model>, Camera) {
-    let scene = (base_lib::get_scenarios()[0].1)();
+fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
     let models = scene
         .objects
         .iter()
         .map(|object| {
             let texture = match object.material.clone() {
-                base_lib::Material::Light(texture) => base_lib_te_to_texture(&texture),
-                base_lib::Material::Lambertian(texture) => base_lib_te_to_texture(&texture),
+                base_lib::Material::Light(texture) => base_lib_to_texture(&texture),
+                base_lib::Material::Lambertian(texture) => base_lib_to_texture(&texture),
             };
             let (mesh, animation) = match object.shape {
                 base_lib::Shape::Sphere { radius, origin } => {
@@ -62,11 +64,65 @@ fn make_meshes() -> (Vec<Model>, Camera) {
                     size_x,
                     size_y,
                 } => {
+                    let mesh = Mesh::XYRect();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(2.0 * size_x, 2.0 * size_y, 1.0),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+                base_lib::Shape::YZRect {
+                    center,
+                    size_y,
+                    size_z,
+                } => {
                     let mesh = Mesh::YZRect();
-                    let transform = vec![Rc::new(StaticPosition {
-                        position: Point3::new(center.x, center.y, center.z),
-                    })];
-                    todo!()
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(1.0, 2.0 * size_y, 2.0 * size_z),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+                base_lib::Shape::XZRect {
+                    center,
+                    size_x,
+                    size_z,
+                } => {
+                    let mesh = Mesh::XZRect();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(2.0 * size_x, 1.0, 2.0 * size_z),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+                base_lib::Shape::RenderBox {
+                    center,
+                    size_x,
+                    size_y,
+                    size_z,
+                } => {
+                    let mesh = Mesh::cube();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(2.0 * size_x, 2.0 * size_y, 2.0 * size_z),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
                 }
             };
             Model {
@@ -81,19 +137,96 @@ fn make_meshes() -> (Vec<Model>, Camera) {
         Camera {
             fov: scene.camera.fov,
             aspect_ratio: scene.camera.aspect_ratio,
-            near_clip: 0.1,
-            far_clip: 100.0,
+            near_clip: scene.camera.near_clip,
+            far_clip: scene.camera.far_clip,
             position: scene.camera.origin,
             look_at: scene.camera.look_at,
             up: scene.camera.up_vector,
         },
     )
 }
+fn make_meshes() -> (Vec<Model>, Camera) {
+    let scene = (base_lib::get_scenarios()[0].1)();
+
+    meshes_from_scene(&scene)
+}
+struct RuntimeScenerio {
+    mesh_ids: Vec<usize>,
+    camera_id: usize,
+}
+struct EngineEntities {
+    meshes: Vec<RenderModel>,
+    cameras: Vec<Camera>,
+    selected_name: String,
+    scenes: HashMap<String, RuntimeScenerio>,
+}
+impl EngineEntities {
+    pub fn new(
+        base: &Base,
+        allocator: &mut Allocator,
+        descriptor_pool: &vk::DescriptorPool,
+        descriptor_layouts: &[vk::DescriptorSetLayout],
+    ) -> Self {
+        let raw_scenes = base_lib::get_scenarios();
+        let mut meshes = vec![];
+        let mut cameras = vec![];
+        let mut scenes = HashMap::new();
+        let mut selected_name = String::new();
+        for (name, raw_scene_fn) in raw_scenes.iter() {
+            selected_name = name.clone();
+            let raw_scene = (*raw_scene_fn)();
+            let (scene_mesh, camera) = meshes_from_scene(&raw_scene);
+            let mut mesh_ids = vec![];
+            for mesh in scene_mesh.iter() {
+                let runtime_model =
+                    mesh.build_render_model(base, allocator, descriptor_pool, descriptor_layouts);
+                mesh_ids.push(meshes.len());
+                meshes.push(runtime_model);
+            }
+            let camera_id = cameras.len();
+            cameras.push(camera);
+            scenes.insert(
+                name.to_string(),
+                RuntimeScenerio {
+                    mesh_ids,
+                    camera_id,
+                },
+            );
+        }
+        Self {
+            meshes,
+            cameras,
+            scenes,
+            selected_name,
+        }
+    }
+    pub fn get_selected_meshes(&self) -> (&Camera, Vec<&RenderModel>) {
+        let scene = self.scenes.get(&self.selected_name).unwrap();
+        let camera = &self.cameras[scene.camera_id];
+
+        (
+            camera,
+            scene.mesh_ids.iter().map(|id| &self.meshes[*id]).collect(),
+        )
+    }
+    pub fn names(&self) -> Vec<&str> {
+        self.scenes.keys().map(|s| s.as_str()).collect()
+    }
+    pub fn set_name(&mut self, name: String) {
+        self.selected_name = name
+    }
+    pub unsafe fn free_resources(mut self, base: &Base, allocator: &mut Allocator) {
+        for model in self.meshes.drain(..) {
+            model.free_resources(base, allocator)
+        }
+    }
+}
 pub struct App {
     imgui_context: imgui::Context,
     imgui_renderer: imgui_rs_vulkan_renderer::Renderer,
     imgui_platform: imgui_winit_support::WinitPlatform,
     allocator: Arc<Mutex<Allocator>>,
+    engine_entities: EngineEntities,
     framebuffers: Vec<vk::Framebuffer>,
     renderpass: vk::RenderPass,
     descriptor_pool: vk::DescriptorPool,
@@ -198,7 +331,7 @@ impl App {
         }];
         let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&descriptor_sizes)
-            .max_sets(2);
+            .max_sets(100);
         let descriptor_pool = unsafe {
             base.device
                 .create_descriptor_pool(&descriptor_pool_info, None)
@@ -221,6 +354,7 @@ impl App {
                 .expect("failed to create descriptor set layout")]
         };
         let (meshes, camera) = make_meshes();
+
         println!("camera: {:#?}", camera);
 
         let mut mesh_list = meshes
@@ -234,6 +368,12 @@ impl App {
                 )
             })
             .collect::<Vec<_>>();
+        let engine_entities = EngineEntities::new(
+            base,
+            &mut allocator.lock().expect("failed to lock"),
+            &descriptor_pool,
+            &descriptor_set_layouts,
+        );
         let mut vertex_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.vert.glsl"));
         let mut frag_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.frag.glsl"));
         let vertex_code =
@@ -386,6 +526,7 @@ impl App {
             imgui_context,
             imgui_renderer,
             imgui_platform,
+            engine_entities,
             camera,
             allocator,
             framebuffers,
@@ -419,10 +560,18 @@ impl GraphicsApp for App {
             .expect("failed to prepare frame");
 
         let ui = self.imgui_context.frame();
+        let mut set_name: Option<String> = None;
         self.imgui_platform.prepare_render(&ui, &base.window);
-        let button_res = ui.button("Hello!!");
-        if button_res {
-            println!("pressed button {}", button_res)
+        for scene_name in self.engine_entities.names().iter() {
+            let button_res = ui.button(scene_name);
+            if button_res {
+                set_name = Some(scene_name.to_string());
+
+                println!("pressed button {} for scene: {}", button_res, scene_name)
+            }
+        }
+        if let Some(n) = set_name {
+            self.engine_entities.set_name(n);
         }
 
         let draw_data = ui.render();
@@ -460,14 +609,10 @@ impl GraphicsApp for App {
                         &renderpass_begin_info,
                         vk::SubpassContents::INLINE,
                     );
-                    self.imgui_renderer
-                        .cmd_draw(draw_command_buffer, draw_data)
-                        .expect("fai;ed to draw");
-                    for mesh in self.mesh_list.iter() {
-                        let transform_mat =
-                            cgmath::perspective(cgmath::Rad(3.14 / 2.0), 1.0, 0.1, 10.0)
-                                * mesh.animation.build_transform_mat(frame_number as usize);
-                        let transform_mat = self.camera.make_transform_mat()
+
+                    let (camera, mesh_list) = self.engine_entities.get_selected_meshes();
+                    for mesh in mesh_list.iter() {
+                        let transform_mat = camera.make_transform_mat()
                             * mesh.animation.build_transform_mat(frame_number as usize);
                         device.cmd_bind_descriptor_sets(
                             draw_command_buffer,
@@ -505,12 +650,12 @@ impl GraphicsApp for App {
                         );
                         device.cmd_draw_indexed(draw_command_buffer, mesh.num_indices, 1, 0, 0, 1);
                     }
-
+                    self.imgui_renderer
+                        .cmd_draw(draw_command_buffer, draw_data)
+                        .expect("fai;ed to draw");
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
             );
-            let present_index_arr = [present_index];
-            let render_complete_sem_arr = [base.rendering_complete_semaphore];
 
             let present_info = vk::PresentInfoKHR::builder()
                 .wait_semaphores(std::slice::from_ref(&base.rendering_complete_semaphore))
@@ -531,7 +676,10 @@ impl GraphicsApp for App {
                 .destroy_shader_module(self.vertex_shader_module, None);
             base.device
                 .destroy_shader_module(self.fragment_shader_module, None);
-
+            self.engine_entities.free_resources(
+                base,
+                &mut self.allocator.lock().expect("failed to get lock"),
+            );
             for mesh in self.mesh_list.drain(..) {
                 mesh.free_resources(
                     base,

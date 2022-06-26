@@ -1,8 +1,10 @@
+use crate::Shape::XZRect;
 use cgmath::{InnerSpace, Point3, Vector3};
 use std::{
     fmt::{Display, Formatter},
     ops::{Add, AddAssign, Div, Mul, Sub},
 };
+
 pub struct Scene {
     pub name: String,
     pub objects: Vec<Object>,
@@ -14,6 +16,8 @@ pub enum Background {
     ConstantColor(RgbColor),
 }
 pub struct Camera {
+    pub near_clip: f32,
+    pub far_clip: f32,
     pub aspect_ratio: f32,
     pub fov: f32,
     pub look_at: Point3<f32>,
@@ -33,20 +37,39 @@ pub enum Material {
     Light(Texture),
     Lambertian(Texture),
 }
-
+pub enum Modifiers {
+    FlipNormals,
+}
 pub struct Object {
     pub shape: Shape,
     pub material: Material,
+    pub modifiers: Vec<Modifiers>,
 }
 pub enum Shape {
     Sphere {
         radius: f32,
         origin: Point3<f32>,
     },
+    XZRect {
+        center: Vector3<f32>,
+        size_x: f32,
+        size_z: f32,
+    },
+    YZRect {
+        center: Vector3<f32>,
+        size_y: f32,
+        size_z: f32,
+    },
     XYRect {
         center: Vector3<f32>,
         size_x: f32,
         size_y: f32,
+    },
+    RenderBox {
+        center: Vector3<f32>,
+        size_x: f32,
+        size_y: f32,
+        size_z: f32,
     },
 }
 pub fn clamp<T: std::cmp::PartialOrd>(x: T, min: T, max: T) -> T {
@@ -67,11 +90,8 @@ pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
                     radius: 0.5,
                     origin: Point3::new(0.0, 0.0, 0.0),
                 },
-                material: Material::Light(Texture::ConstantColor(RgbColor::new(
-                    200000000000.0,
-                    0.0,
-                    0.0,
-                ))),
+                modifiers: vec![],
+                material: Material::Light(Texture::ConstantColor(RgbColor::new(20.0, 0.0, 0.0))),
             }],
             background: Background::Sky,
             camera: Camera {
@@ -84,27 +104,124 @@ pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
                 focus_distance: 10.0,
                 start_time: 0.0,
                 end_time: 0.0,
+                near_clip: 0.1,
+                far_clip: 100.0,
             },
         }),
-        ("Easy Cornell Box Baselib".to_string(), || {
-            let origin = Point3::new(278.0, 278.0, -800.0);
+        ("Cornell Box Baselib".to_string(), || {
             let look_at = Point3::new(278.0f32, 278.0, 0.0);
+            let origin = Point3::new(278.0, 278.0, -800.0);
+
             Scene {
-                name: "Easy Cornell Box".to_string(),
-                objects: vec![Object {
-                    shape: Shape::XYRect {
-                        center: Vector3::new(555.0 / 2.0, 555.0 / 2.0, 555.0),
-                        size_x: 555.0 / 2.0,
-                        size_y: 555.0 / 2.0,
+                name: "Cornell Box".to_string(),
+                objects: vec![
+                    Object {
+                        shape: Shape::XYRect {
+                            center: Vector3::new(555.0 / 2.0, 555.0 / 2.0, 555.0),
+                            size_x: 555.0 / 2.0,
+                            size_y: 555.0 / 2.0,
+                        },
+                        material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                            0.73, 0.73, 0.73,
+                        ))),
+                        modifiers: vec![],
                     },
-                    material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
-                        0.73, 0.73, 0.73,
-                    ))),
-                }],
+                    Object {
+                        shape: Shape::YZRect {
+                            center: Vector3::new(555.0, 555.0 / 2.0, 555.0 / 2.0),
+                            size_y: 555.0 / 2.0,
+                            size_z: 555.0 / 2.0,
+                        },
+                        material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                            0.12, 0.45, 0.15,
+                        ))),
+                        modifiers: vec![],
+                    },
+                    Object {
+                        shape: Shape::YZRect {
+                            center: Vector3::new(0.0, 555.0 / 2.0, 555.0 / 2.0),
+                            size_y: 555.0 / 2.0,
+                            size_z: 555.0 / 2.0,
+                        },
+                        material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                            0.65, 0.05, 0.05,
+                        ))),
+                        modifiers: vec![],
+                    },
+                    Object {
+                        shape: Shape::XZRect {
+                            center: Vector3::new(555.0 / 2.0, 0.0, 555.0 / 2.0),
+                            size_x: 555.0 / 2.0,
+                            size_z: 555.0 / 2.0,
+                        },
+                        material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                            0.73, 0.73, 0.73,
+                        ))),
+                        modifiers: vec![],
+                    },
+                    Object {
+                        shape: Shape::XZRect {
+                            center: Vector3::new(555.0 / 2.0, 555.0, 555.0 / 2.0),
+                            size_x: 555.0 / 2.0,
+                            size_z: 555.0 / 2.0,
+                        },
+                        material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                            0.73, 0.73, 0.73,
+                        ))),
+                        modifiers: vec![],
+                    },
+                    Object {
+                        shape: Shape::RenderBox {
+                            center: Vector3::new(
+                                165.0 / 2.0 + 265.0,
+                                333.0 / 2.0,
+                                165.0 / 2.0 + 295.0,
+                            ),
+                            size_x: 165.0 / 2.0,
+                            size_y: 330.0 / 2.0,
+                            size_z: 165.0 / 2.0,
+                        },
+                        material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                            0.73, 0.73, 0.73,
+                        ))),
+                        modifiers: vec![],
+                    },
+                    Object {
+                        shape: Shape::RenderBox {
+                            center: Vector3::new(
+                                165.0 / 2.0 + 130.0,
+                                165.0 / 2.0,
+                                165.0 / 2.0 + 65.0,
+                            ),
+                            size_x: 165.0 / 2.0,
+                            size_y: 330.0 / 2.0,
+                            size_z: 165.0 / 2.0,
+                        },
+                        material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                            0.73, 0.73, 0.73,
+                        ))),
+                        modifiers: vec![],
+                    },
+                    Object {
+                        shape: Shape::XZRect {
+                            center: Vector3::new(
+                                (343.0 + 213.0) / 2.0,
+                                554.0,
+                                (332.0 + 227.0) / 2.0,
+                            ),
+                            size_x: (343.0 - 213.0) / 2.0,
+                            size_z: (332.0 - 227.0) / 2.0,
+                        },
+                        material: Material::Light(Texture::ConstantColor(RgbColor::new(
+                            15.0, 15.0, 15.0,
+                        ))),
+                        modifiers: vec![Modifiers::FlipNormals],
+                    },
+                ],
                 background: Background::ConstantColor(RgbColor::new(0.0, 0.0, 0.0)),
                 camera: Camera {
                     aspect_ratio: 1.0,
-                    fov: 20.0,
+                    fov: 40.0,
                     origin,
                     look_at,
                     up_vector: Vector3::new(0.0, 1.0, 0.0),
@@ -115,6 +232,82 @@ pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
                     },
                     start_time: 0.0,
                     end_time: 0.0,
+                    near_clip: 1.0,
+                    far_clip: 10000.0,
+                },
+            }
+        }),
+        ("Cornell Box Only".to_string(), || {
+            let look_at = Point3::new(278.0f32, 278.0, 0.0);
+            let origin = Point3::new(278.0, 278.0, -800.0);
+
+            Scene {
+                name: "Cornell Box Only".to_string(),
+                objects: vec![
+                    Object {
+                        shape: Shape::RenderBox {
+                            center: Vector3::new(
+                                165.0 / 2.0 + 265.0,
+                                333.0 / 2.0,
+                                165.0 / 2.0 + 295.0,
+                            ),
+                            size_x: 165.0 / 2.0,
+                            size_y: 330.0 / 2.0,
+                            size_z: 165.0 / 2.0,
+                        },
+                        material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                            0.73, 0.73, 0.73,
+                        ))),
+                        modifiers: vec![],
+                    },
+                    Object {
+                        shape: Shape::RenderBox {
+                            center: Vector3::new(
+                                165.0 / 2.0 + 130.0,
+                                165.0 / 2.0,
+                                165.0 / 2.0 + 65.0,
+                            ),
+                            size_x: 165.0 / 2.0,
+                            size_y: 330.0 / 2.0,
+                            size_z: 165.0 / 2.0,
+                        },
+                        material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                            0.73, 0.73, 0.73,
+                        ))),
+                        modifiers: vec![],
+                    },
+                    Object {
+                        shape: Shape::XZRect {
+                            center: Vector3::new(
+                                (343.0 + 213.0) / 2.0,
+                                554.0,
+                                (332.0 + 227.0) / 2.0,
+                            ),
+                            size_x: (343.0 - 213.0) / 2.0,
+                            size_z: (332.0 - 227.0) / 2.0,
+                        },
+                        material: Material::Light(Texture::ConstantColor(RgbColor::new(
+                            15.0, 15.0, 15.0,
+                        ))),
+                        modifiers: vec![Modifiers::FlipNormals],
+                    },
+                ],
+                background: Background::ConstantColor(RgbColor::new(0.0, 0.0, 0.0)),
+                camera: Camera {
+                    aspect_ratio: 1.0,
+                    fov: 40.0,
+                    origin,
+                    look_at,
+                    up_vector: Vector3::new(0.0, 1.0, 0.0),
+                    aperture: 0.00001,
+                    focus_distance: {
+                        let t = look_at - origin;
+                        (t.dot(t)).sqrt()
+                    },
+                    start_time: 0.0,
+                    end_time: 0.0,
+                    near_clip: 1.0,
+                    far_clip: 10000.0,
                 },
             }
         }),

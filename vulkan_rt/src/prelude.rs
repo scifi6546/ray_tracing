@@ -227,7 +227,8 @@ impl Mesh {
         }
         Self { vertices, indices }
     }
-    pub fn YZRect() -> Self {
+
+    pub fn XYRect() -> Self {
         let vertices = vec![
             Vertex {
                 pos: Vector4::new(-0.5, -0.5, 0.0, 1.0),
@@ -246,7 +247,73 @@ impl Mesh {
                 uv: Vector2::new(0.0, 1.0),
             },
         ];
-        let indices = vec![0, 3, 2, 0, 2, 1];
+        let indices = vec![0, 3, 2, 0, 2, 1, 2, 3, 0, 1, 2, 0];
+        Self { vertices, indices }
+    }
+    pub fn YZRect() -> Self {
+        let vertices = vec![
+            Vertex {
+                pos: Vector4::new(0.0, -0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.0, -0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.0, 0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.0, 0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+        ];
+        let indices = vec![0, 3, 2, 0, 2, 1, 2, 3, 0, 1, 2, 0];
+        Self { vertices, indices }
+    }
+    pub fn XZRect() -> Self {
+        let vertices = vec![
+            Vertex {
+                pos: Vector4::new(-0.5, 0.0, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.0, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.0, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.0, -0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+        ];
+        let indices = vec![0, 3, 2, 0, 2, 1, 2, 3, 0, 1, 2, 0];
+        Self { vertices, indices }
+    }
+    pub fn cube() -> Self {
+        let vertices = vec![
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+        ];
+        let indices = vec![0, 2, 3, 0, 1, 2];
         Self { vertices, indices }
     }
 }
@@ -261,6 +328,7 @@ impl AnimationList {
     pub fn build_transform_mat(&self, frame_number: usize) -> Matrix4<f32> {
         self.animations
             .iter()
+            .rev()
             .map(|anm| anm.get_transform(frame_number).build_matrix())
             .fold(Matrix4::identity(), |acc, x| acc * x)
     }
@@ -359,12 +427,13 @@ pub struct Camera {
 }
 impl Camera {
     pub fn make_transform_mat(&self) -> Matrix4<f32> {
-        cgmath::perspective(
-            Deg(self.fov),
-            self.aspect_ratio,
-            self.near_clip,
-            self.far_clip,
-        ) * Matrix4::from_diagonal(cgmath::Vector4::new(1.0, 1.0, -1.0, 1.0))
-            * Matrix4::look_at_lh(self.position, self.look_at, self.up)
+        Matrix4::from_diagonal(cgmath::Vector4::new(1.0, -1.0, 1.0, 1.0))
+            * cgmath::perspective(
+                Deg(self.fov),
+                self.aspect_ratio,
+                self.near_clip,
+                self.far_clip,
+            )
+            * cgmath::Matrix4::look_at_rh(self.position, self.look_at, self.up)
     }
 }
