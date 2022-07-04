@@ -312,8 +312,107 @@ impl Mesh {
                 pos: Vector4::new(-0.5, 0.5, -0.5, 1.0),
                 uv: Vector2::new(0.0, 0.0),
             },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(1.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(1.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(1.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
         ];
-        let indices = vec![0, 2, 3, 0, 1, 2];
+        #[rustfmt::skip]
+        let indices = vec![
+            0, 2, 3,
+            0, 1, 2,
+
+            4, 5, 6,
+            4, 6, 7,
+
+            10, 9, 8,
+            11, 10, 8,
+
+            12, 13, 14,
+            12, 14, 15,
+
+            16,17,20,
+            17,18,20,
+
+            21,24,22,
+            22,24,23
+        ];
         Self { vertices, indices }
     }
 }

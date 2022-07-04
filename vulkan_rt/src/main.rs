@@ -4,6 +4,7 @@ mod hello_scenelib;
 mod hello_texture;
 mod hello_triangle;
 pub mod prelude;
+mod render_graph;
 
 use ash::{
     extensions::{

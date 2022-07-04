@@ -18,3 +18,4 @@ base_lib = {path = "../base_lib"}
 imgui-rs-vulkan-renderer = {version = "1.3.0", features = ["gpu-allocator"]}
 imgui = "0.8.2"
 imgui-winit-support = {version = "0.8.2",features = ["winit-26"]}
+generational-arena = "0.2.8"
