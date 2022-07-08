@@ -729,7 +729,7 @@ impl EngineEntities {
     pub fn set_name(&mut self, name: String) {
         self.selected_name = name
     }
-    pub unsafe fn free_resources(mut self, base: &Base, allocator: &mut Allocator) {
+    pub unsafe fn free_resources(&mut self, base: &Base, allocator: &mut Allocator) {
         for model in self.meshes.drain(..) {
             model.free_resources(base, allocator)
         }

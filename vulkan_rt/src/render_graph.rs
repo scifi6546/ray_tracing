@@ -1,4 +1,6 @@
 mod graph;
+mod output_pass;
+
 use super::{prelude::*, record_submit_commandbuffer, Base, GraphicsApp};
 use ash::{util::read_spv, vk};
 use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
@@ -13,15 +15,52 @@ use std::{
 };
 use winit::event::Event;
 
-enum VulkanOutput {}
+pub enum VulkanOutput {
+    /// view that a pass draws to
+    Framebuffer { view: vk::ImageView },
+}
 #[derive(PartialEq, Eq, Clone)]
-enum VulkanOutputType {}
-struct VulkanPass {
+pub enum VulkanOutputType {
+    FrameBuffer,
+}
+pub trait VulkanPass {
+    fn get_dependencies(&self) -> Vec<VulkanOutputType>;
+    fn get_output(&self) -> Vec<VulkanOutputType>;
+    fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput>;
+    /// frees resources, will only be called once
+    fn free(&mut self, base: &PassBase);
+}
+impl RenderPass for Box<dyn VulkanPass> {
+    type Base = PassBase;
+    type RenderPassOutputMarker = VulkanOutputType;
+    type RenderPassOutput = VulkanOutput;
+
+    fn get_dependencies(&self) -> Vec<Self::RenderPassOutputMarker> {
+        VulkanPass::get_dependencies(self.as_ref())
+    }
+
+    fn get_output(&self) -> Vec<Self::RenderPassOutputMarker> {
+        VulkanPass::get_output(self.as_ref())
+    }
+
+    fn process(
+        &mut self,
+        base: &Self::Base,
+        input: Vec<&Self::RenderPassOutput>,
+    ) -> Vec<Self::RenderPassOutput> {
+        VulkanPass::process(self.as_mut(), base, input)
+    }
+
+    fn free(mut self, base: &Self::Base) {
+        VulkanPass::free(self.as_mut(), base)
+    }
+}
+struct BasicVulkanPass {
     frame_number: u32,
     imgui_context: imgui::Context,
     imgui_renderer: imgui_rs_vulkan_renderer::Renderer,
     imgui_platform: imgui_winit_support::WinitPlatform,
-    allocator: Arc<Mutex<Allocator>>,
+
     engine_entities: EngineEntities,
     framebuffers: Vec<vk::Framebuffer>,
     renderpass: vk::RenderPass,
@@ -37,31 +76,21 @@ struct VulkanPass {
 
     viewports: [vk::Viewport; 1],
 }
-impl VulkanPass {
-    pub fn new(base: &Base) -> Self {
+impl BasicVulkanPass {
+    pub fn new(base: &PassBase) -> Self {
         let mut imgui_context = imgui::Context::create();
         let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui_context);
         let hidipi_factor = imgui_platform.hidpi_factor();
         imgui_platform.attach_window(
             imgui_context.io_mut(),
-            &base.window,
+            &base.base.window,
             imgui_winit_support::HiDpiMode::Rounded,
         );
         imgui_context.io_mut().font_global_scale = (1.0 / hidipi_factor as f32);
-        let mut allocator = Arc::new(Mutex::new(
-            Allocator::new(&AllocatorCreateDesc {
-                instance: base.instance.clone(),
-                device: base.device.clone(),
-                physical_device: base.p_device.clone(),
-                debug_settings: AllocatorDebugSettings::default(),
-                buffer_device_address: false,
-            })
-            .expect("created allocator"),
-        ));
 
         let renderpass_attachments = [
             vk::AttachmentDescription::builder()
-                .format(base.surface_format.format)
+                .format(base.base.surface_format.format)
                 .samples(vk::SampleCountFlags::TYPE_1)
                 .load_op(vk::AttachmentLoadOp::CLEAR)
                 .store_op(vk::AttachmentStoreOp::STORE)
@@ -100,22 +129,25 @@ impl VulkanPass {
             .subpasses(std::slice::from_ref(&subpass))
             .dependencies(&dependencies);
         let renderpass = unsafe {
-            base.device
+            base.base
+                .device
                 .create_render_pass(&renderpass_create_info, None)
                 .unwrap()
         };
         let framebuffers = unsafe {
-            base.present_image_views
+            base.base
+                .present_image_views
                 .iter()
                 .map(|&present_image_view| {
-                    let framebuffer_attachments = [present_image_view, base.depth_image_view];
+                    let framebuffer_attachments = [present_image_view, base.base.depth_image_view];
                     let framebuffer_create_info = vk::FramebufferCreateInfo::builder()
                         .render_pass(renderpass)
                         .attachments(&framebuffer_attachments)
-                        .width(base.surface_resolution.width)
-                        .height(base.surface_resolution.height)
+                        .width(base.base.surface_resolution.width)
+                        .height(base.base.surface_resolution.height)
                         .layers(1);
-                    base.device
+                    base.base
+                        .device
                         .create_framebuffer(&framebuffer_create_info, None)
                         .expect("failed to create framebuffer")
                 })
@@ -129,7 +161,8 @@ impl VulkanPass {
             .pool_sizes(&descriptor_sizes)
             .max_sets(100);
         let descriptor_pool = unsafe {
-            base.device
+            base.base
+                .device
                 .create_descriptor_pool(&descriptor_pool_info, None)
                 .expect("failed to get descriptor pool")
         };
@@ -145,6 +178,7 @@ impl VulkanPass {
             vk::DescriptorSetLayoutCreateInfo::builder().bindings(&desc_layout_bindings);
         let descriptor_set_layouts = unsafe {
             [base
+                .base
                 .device
                 .create_descriptor_set_layout(&descriptor_info, None)
                 .expect("failed to create descriptor set layout")]
@@ -157,8 +191,8 @@ impl VulkanPass {
             .iter()
             .map(|m| {
                 m.build_render_model(
-                    base,
-                    &mut allocator.lock().expect("failed to lock"),
+                    base.base.as_ref(),
+                    &mut base.allocator.lock().expect("failed to lock"),
                     &descriptor_pool,
                     &descriptor_set_layouts,
                 )
@@ -166,8 +200,8 @@ impl VulkanPass {
             .collect::<Vec<_>>();
 
         let engine_entities = EngineEntities::new(
-            base,
-            &mut allocator.lock().expect("failed to lock"),
+            base.base.as_ref(),
+            &mut base.allocator.lock().expect("failed to lock"),
             &descriptor_pool,
             &descriptor_set_layouts,
         );
@@ -179,12 +213,14 @@ impl VulkanPass {
         let frag_code = read_spv(&mut frag_spv_file).expect("failed to read fragment spv file");
         let frag_shader_info = vk::ShaderModuleCreateInfo::builder().code(&frag_code);
         let vertex_shader_module = unsafe {
-            base.device
+            base.base
+                .device
                 .create_shader_module(&vert_shader_info, None)
                 .expect("vertex shader compile info")
         };
         let fragment_shader_module = unsafe {
-            base.device
+            base.base
+                .device
                 .create_shader_module(&frag_shader_info, None)
                 .expect("failed tp compile fragment shader")
         };
@@ -196,7 +232,8 @@ impl VulkanPass {
             .push_constant_ranges(std::slice::from_ref(&push_constant_range))
             .set_layouts(&descriptor_set_layouts);
         let pipeline_layout = unsafe {
-            base.device
+            base.base
+                .device
                 .create_pipeline_layout(&layout_create_info, None)
                 .expect("failed to get pipeline layout")
         };
@@ -240,12 +277,12 @@ impl VulkanPass {
         let viewports = [vk::Viewport {
             x: 0.0,
             y: 0.0,
-            width: base.surface_resolution.width as f32,
-            height: base.surface_resolution.height as f32,
+            width: base.base.surface_resolution.width as f32,
+            height: base.base.surface_resolution.height as f32,
             min_depth: 0.0,
             max_depth: 1.0,
         }];
-        let scissors = [base.surface_resolution.into()];
+        let scissors = [base.base.surface_resolution.into()];
         let viewport_state_info = vk::PipelineViewportStateCreateInfo::builder()
             .scissors(&scissors)
             .viewports(&viewports);
@@ -298,7 +335,8 @@ impl VulkanPass {
             .render_pass(renderpass)
             .build();
         let graphics_pipeline = unsafe {
-            base.device
+            base.base
+                .device
                 .create_graphics_pipelines(
                     vk::PipelineCache::null(),
                     &[graphics_pipeline_info],
@@ -307,10 +345,10 @@ impl VulkanPass {
                 .expect("failed to create graphics_pipeline")[0]
         };
         let imgui_renderer = imgui_rs_vulkan_renderer::Renderer::with_gpu_allocator(
-            allocator.clone(),
-            base.device.clone(),
-            base.present_queue,
-            base.pool,
+            base.allocator.clone(),
+            base.base.device.clone(),
+            base.base.present_queue,
+            base.base.pool,
             renderpass,
             &mut imgui_context,
             Some(imgui_rs_vulkan_renderer::Options {
@@ -326,7 +364,6 @@ impl VulkanPass {
             imgui_platform,
             engine_entities,
             camera,
-            allocator,
             framebuffers,
             renderpass,
             descriptor_pool,
@@ -341,27 +378,20 @@ impl VulkanPass {
         }
     }
 }
-struct PassBase {
-    base: Rc<Base>,
+pub struct PassBase {
+    pub base: Rc<Base>,
+    pub allocator: Arc<Mutex<Allocator>>,
 }
-impl RenderPass for VulkanPass {
-    type Base = PassBase;
-    type RenderPassOutputMarker = VulkanOutputType;
-    type RenderPassOutput = VulkanOutput;
-
-    fn get_dependencies(&self) -> Vec<Self::RenderPassOutputMarker> {
+impl VulkanPass for BasicVulkanPass {
+    fn get_dependencies(&self) -> Vec<VulkanOutputType> {
         Vec::new()
     }
 
-    fn get_output(&self) -> Vec<Self::RenderPassOutputMarker> {
+    fn get_output(&self) -> Vec<VulkanOutputType> {
         Vec::new()
     }
 
-    fn process(
-        &mut self,
-        base: &Self::Base,
-        input: Vec<&Self::RenderPassOutput>,
-    ) -> Vec<Self::RenderPassOutput> {
+    fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
         let (present_index, _) = unsafe {
             base.base
                 .swapchain_loader
@@ -492,7 +522,7 @@ impl RenderPass for VulkanPass {
         Vec::new()
     }
 
-    fn free(mut self, base: &Self::Base) {
+    fn free(&mut self, base: &PassBase) {
         unsafe {
             base.base
                 .device
@@ -512,12 +542,12 @@ impl RenderPass for VulkanPass {
                 .destroy_shader_module(self.fragment_shader_module, None);
             self.engine_entities.free_resources(
                 base.base.as_ref(),
-                &mut self.allocator.lock().expect("failed to get lock"),
+                &mut base.allocator.lock().expect("failed to get lock"),
             );
             for mesh in self.mesh_list.drain(..) {
                 mesh.free_resources(
                     base.base.as_ref(),
-                    &mut self.allocator.lock().expect("failed to get lock"),
+                    &mut base.allocator.lock().expect("failed to get lock"),
                 )
             }
             for &descriptor_set_layout in self.descriptor_set_layouts.iter() {
@@ -533,23 +563,42 @@ impl RenderPass for VulkanPass {
                 base.base.device.destroy_framebuffer(framebuffer, None);
             }
             base.base.device.destroy_render_pass(self.renderpass, None);
-            drop(self.allocator);
         }
     }
 }
 pub struct RenderPassApp {
-    graph: RenderGraph<VulkanPass>,
+    graph: RenderGraph<Box<dyn VulkanPass>>,
+    allocator: Arc<Mutex<Allocator>>,
 }
 impl RenderPassApp {
-    pub fn new(base: &Base) -> Self {
+    pub fn new(base: Rc<Base>) -> Self {
         let mut graph = RenderGraph::new();
-        graph.insert_output_pass(VulkanPass::new(base), Vec::new());
-        Self { graph }
+        let allocator = Arc::new(Mutex::new(
+            Allocator::new(&AllocatorCreateDesc {
+                instance: base.instance.clone(),
+                device: base.device.clone(),
+                physical_device: base.p_device.clone(),
+                debug_settings: AllocatorDebugSettings::default(),
+                buffer_device_address: false,
+            })
+            .expect("created allocator"),
+        ));
+        let pass_base = PassBase {
+            base,
+            allocator: allocator.clone(),
+        };
+        let pass: Box<dyn VulkanPass> = Box::new(BasicVulkanPass::new(&pass_base));
+        graph.insert_output_pass(pass, Vec::new());
+
+        Self { graph, allocator }
     }
 }
 impl GraphicsApp for RenderPassApp {
     fn run_frame(&mut self, base: Rc<Base>, frame_number: u32) {
-        let pass_base = PassBase { base };
+        let pass_base = PassBase {
+            base,
+            allocator: self.allocator.clone(),
+        };
         self.graph.run_graph(&pass_base);
     }
 
@@ -558,7 +607,14 @@ impl GraphicsApp for RenderPassApp {
     fn handle_event(&mut self, base: Rc<Base>, event: &Event<()>) {}
 
     fn free_resources(self, base: Rc<Base>) {
-        let pass_base = PassBase { base };
-        self.graph.free_passes(&pass_base);
+        {
+            let pass_base = PassBase {
+                base,
+                allocator: self.allocator.clone(),
+            };
+            self.graph.free_passes(&pass_base);
+        }
+
+        drop(self.allocator);
     }
 }

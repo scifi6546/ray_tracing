@@ -638,9 +638,10 @@ fn main() {
     let base = Base::new(window_width, window_height);
     println!("hello rendergraph");
     let base = {
+        let base = Rc::new(base);
         let mut runner = GraphicsAppRunner {
-            app: render_graph::RenderPassApp::new(&base),
-            base: Rc::new(base),
+            app: render_graph::RenderPassApp::new(base.clone()),
+            base,
             last_update_time: Instant::now(),
         };
         runner.run();
