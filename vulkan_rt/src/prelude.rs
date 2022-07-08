@@ -1,10 +1,13 @@
 mod mesh;
+use crate::Base;
+use ash::vk;
 use cgmath::{
     num_traits::FloatConst, Deg, Euler, Matrix, Matrix4, Point3, Quaternion, Rad, SquareMatrix,
     Vector3, Zero,
 };
+use gpu_allocator::vulkan::*;
 pub use mesh::*;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 #[repr(C)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy)]
 pub struct Mat4 {
@@ -416,6 +419,131 @@ impl Mesh {
         Self { vertices, indices }
     }
 }
+fn base_lib_to_texture(texture: &base_lib::Texture) -> image::RgbaImage {
+    match texture {
+        base_lib::Texture::ConstantColor(c) => image::RgbaImage::from_pixel(
+            100,
+            100,
+            image::Rgba([
+                (c.red * 255.0) as u8,
+                (c.green * 255.0) as u8,
+                (c.blue * 255.0) as u8,
+                255,
+            ]),
+        ),
+    }
+}
+pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
+    let models = scene
+        .objects
+        .iter()
+        .map(|object| {
+            let texture = match object.material.clone() {
+                base_lib::Material::Light(texture) => base_lib_to_texture(&texture),
+                base_lib::Material::Lambertian(texture) => base_lib_to_texture(&texture),
+            };
+            let (mesh, animation) = match object.shape {
+                base_lib::Shape::Sphere { radius, origin } => {
+                    let mesh = Mesh::sphere(64, 64);
+                    let transform = AnimationList::new(vec![
+                        Rc::new(StaticPosition { position: origin }),
+                        Rc::new(Scale {
+                            scale: Vector3::new(radius, radius, radius),
+                        }),
+                    ]);
+                    (mesh, transform)
+                }
+                base_lib::Shape::XYRect {
+                    center,
+                    size_x,
+                    size_y,
+                } => {
+                    let mesh = Mesh::XYRect();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(2.0 * size_x, 2.0 * size_y, 1.0),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+                base_lib::Shape::YZRect {
+                    center,
+                    size_y,
+                    size_z,
+                } => {
+                    let mesh = Mesh::YZRect();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(1.0, 2.0 * size_y, 2.0 * size_z),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+                base_lib::Shape::XZRect {
+                    center,
+                    size_x,
+                    size_z,
+                } => {
+                    let mesh = Mesh::XZRect();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(2.0 * size_x, 1.0, 2.0 * size_z),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+                base_lib::Shape::RenderBox {
+                    center,
+                    size_x,
+                    size_y,
+                    size_z,
+                } => {
+                    let mesh = Mesh::cube();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(2.0 * size_x, 2.0 * size_y, 2.0 * size_z),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+            };
+            Model {
+                animation,
+                mesh,
+                texture,
+            }
+        })
+        .collect::<Vec<_>>();
+    (
+        models,
+        Camera {
+            fov: scene.camera.fov,
+            aspect_ratio: scene.camera.aspect_ratio,
+            near_clip: scene.camera.near_clip,
+            far_clip: scene.camera.far_clip,
+            position: scene.camera.origin,
+            look_at: scene.camera.look_at,
+            up: scene.camera.up_vector,
+        },
+    )
+}
+pub fn make_meshes() -> (Vec<Model>, Camera) {
+    let scene = (base_lib::get_scenarios()[0].1)();
+
+    meshes_from_scene(&scene)
+}
 #[derive(Clone)]
 pub struct AnimationList {
     animations: Vec<Rc<dyn Animation>>,
@@ -534,5 +662,76 @@ impl Camera {
                 self.far_clip,
             )
             * cgmath::Matrix4::look_at_rh(self.position, self.look_at, self.up)
+    }
+}
+struct RuntimeScenerio {
+    mesh_ids: Vec<usize>,
+    camera_id: usize,
+}
+pub struct EngineEntities {
+    meshes: Vec<RenderModel>,
+    cameras: Vec<Camera>,
+    selected_name: String,
+    scenes: HashMap<String, RuntimeScenerio>,
+}
+impl EngineEntities {
+    pub fn new(
+        base: &Base,
+        allocator: &mut Allocator,
+        descriptor_pool: &vk::DescriptorPool,
+        descriptor_layouts: &[vk::DescriptorSetLayout],
+    ) -> Self {
+        let raw_scenes = base_lib::get_scenarios();
+        let mut meshes = vec![];
+        let mut cameras = vec![];
+        let mut scenes = HashMap::new();
+        let mut selected_name = String::new();
+        for (name, raw_scene_fn) in raw_scenes.iter() {
+            selected_name = name.clone();
+            let raw_scene = (*raw_scene_fn)();
+            let (scene_mesh, camera) = meshes_from_scene(&raw_scene);
+            let mut mesh_ids = vec![];
+            for mesh in scene_mesh.iter() {
+                let runtime_model =
+                    mesh.build_render_model(base, allocator, descriptor_pool, descriptor_layouts);
+                mesh_ids.push(meshes.len());
+                meshes.push(runtime_model);
+            }
+            let camera_id = cameras.len();
+            cameras.push(camera);
+            scenes.insert(
+                name.to_string(),
+                RuntimeScenerio {
+                    mesh_ids,
+                    camera_id,
+                },
+            );
+        }
+        Self {
+            meshes,
+            cameras,
+            scenes,
+            selected_name,
+        }
+    }
+    pub fn get_selected_meshes(&self) -> (&Camera, Vec<&RenderModel>) {
+        let scene = self.scenes.get(&self.selected_name).unwrap();
+        let camera = &self.cameras[scene.camera_id];
+
+        (
+            camera,
+            scene.mesh_ids.iter().map(|id| &self.meshes[*id]).collect(),
+        )
+    }
+    pub fn names(&self) -> Vec<&str> {
+        self.scenes.keys().map(|s| s.as_str()).collect()
+    }
+    pub fn set_name(&mut self, name: String) {
+        self.selected_name = name
+    }
+    pub unsafe fn free_resources(mut self, base: &Base, allocator: &mut Allocator) {
+        for model in self.meshes.drain(..) {
+            model.free_resources(base, allocator)
+        }
     }
 }

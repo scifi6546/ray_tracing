@@ -12,6 +12,7 @@ use gpu_allocator::vulkan::*;
 use gpu_allocator::{AllocatorDebugSettings, MemoryLocation};
 use image::RgbaImage;
 use imgui_rs_vulkan_renderer::Options;
+use std::borrow::Borrow;
 use std::ffi::c_void;
 use std::{
     collections::HashMap,
@@ -25,202 +26,6 @@ use std::{
     time::Duration,
 };
 
-fn base_lib_to_texture(texture: &base_lib::Texture) -> image::RgbaImage {
-    match texture {
-        base_lib::Texture::ConstantColor(c) => image::RgbaImage::from_pixel(
-            100,
-            100,
-            image::Rgba([
-                (c.red * 255.0) as u8,
-                (c.green * 255.0) as u8,
-                (c.blue * 255.0) as u8,
-                255,
-            ]),
-        ),
-    }
-}
-fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
-    let models = scene
-        .objects
-        .iter()
-        .map(|object| {
-            let texture = match object.material.clone() {
-                base_lib::Material::Light(texture) => base_lib_to_texture(&texture),
-                base_lib::Material::Lambertian(texture) => base_lib_to_texture(&texture),
-            };
-            let (mesh, animation) = match object.shape {
-                base_lib::Shape::Sphere { radius, origin } => {
-                    let mesh = Mesh::sphere(64, 64);
-                    let transform = AnimationList::new(vec![
-                        Rc::new(StaticPosition { position: origin }),
-                        Rc::new(Scale {
-                            scale: Vector3::new(radius, radius, radius),
-                        }),
-                    ]);
-                    (mesh, transform)
-                }
-                base_lib::Shape::XYRect {
-                    center,
-                    size_x,
-                    size_y,
-                } => {
-                    let mesh = Mesh::XYRect();
-                    let transform: Vec<Rc<dyn Animation>> = vec![
-                        Rc::new(Scale {
-                            scale: Vector3::new(2.0 * size_x, 2.0 * size_y, 1.0),
-                        }),
-                        Rc::new(StaticPosition {
-                            position: Point3::new(center.x, center.y, center.z),
-                        }),
-                    ];
-                    (mesh, AnimationList::new(transform))
-                }
-                base_lib::Shape::YZRect {
-                    center,
-                    size_y,
-                    size_z,
-                } => {
-                    let mesh = Mesh::YZRect();
-                    let transform: Vec<Rc<dyn Animation>> = vec![
-                        Rc::new(Scale {
-                            scale: Vector3::new(1.0, 2.0 * size_y, 2.0 * size_z),
-                        }),
-                        Rc::new(StaticPosition {
-                            position: Point3::new(center.x, center.y, center.z),
-                        }),
-                    ];
-                    (mesh, AnimationList::new(transform))
-                }
-                base_lib::Shape::XZRect {
-                    center,
-                    size_x,
-                    size_z,
-                } => {
-                    let mesh = Mesh::XZRect();
-                    let transform: Vec<Rc<dyn Animation>> = vec![
-                        Rc::new(Scale {
-                            scale: Vector3::new(2.0 * size_x, 1.0, 2.0 * size_z),
-                        }),
-                        Rc::new(StaticPosition {
-                            position: Point3::new(center.x, center.y, center.z),
-                        }),
-                    ];
-                    (mesh, AnimationList::new(transform))
-                }
-                base_lib::Shape::RenderBox {
-                    center,
-                    size_x,
-                    size_y,
-                    size_z,
-                } => {
-                    let mesh = Mesh::cube();
-                    let transform: Vec<Rc<dyn Animation>> = vec![
-                        Rc::new(Scale {
-                            scale: Vector3::new(2.0 * size_x, 2.0 * size_y, 2.0 * size_z),
-                        }),
-                        Rc::new(StaticPosition {
-                            position: Point3::new(center.x, center.y, center.z),
-                        }),
-                    ];
-                    (mesh, AnimationList::new(transform))
-                }
-            };
-            Model {
-                animation,
-                mesh,
-                texture,
-            }
-        })
-        .collect::<Vec<_>>();
-    (
-        models,
-        Camera {
-            fov: scene.camera.fov,
-            aspect_ratio: scene.camera.aspect_ratio,
-            near_clip: scene.camera.near_clip,
-            far_clip: scene.camera.far_clip,
-            position: scene.camera.origin,
-            look_at: scene.camera.look_at,
-            up: scene.camera.up_vector,
-        },
-    )
-}
-fn make_meshes() -> (Vec<Model>, Camera) {
-    let scene = (base_lib::get_scenarios()[0].1)();
-
-    meshes_from_scene(&scene)
-}
-struct RuntimeScenerio {
-    mesh_ids: Vec<usize>,
-    camera_id: usize,
-}
-struct EngineEntities {
-    meshes: Vec<RenderModel>,
-    cameras: Vec<Camera>,
-    selected_name: String,
-    scenes: HashMap<String, RuntimeScenerio>,
-}
-impl EngineEntities {
-    pub fn new(
-        base: &Base,
-        allocator: &mut Allocator,
-        descriptor_pool: &vk::DescriptorPool,
-        descriptor_layouts: &[vk::DescriptorSetLayout],
-    ) -> Self {
-        let raw_scenes = base_lib::get_scenarios();
-        let mut meshes = vec![];
-        let mut cameras = vec![];
-        let mut scenes = HashMap::new();
-        let mut selected_name = String::new();
-        for (name, raw_scene_fn) in raw_scenes.iter() {
-            selected_name = name.clone();
-            let raw_scene = (*raw_scene_fn)();
-            let (scene_mesh, camera) = meshes_from_scene(&raw_scene);
-            let mut mesh_ids = vec![];
-            for mesh in scene_mesh.iter() {
-                let runtime_model =
-                    mesh.build_render_model(base, allocator, descriptor_pool, descriptor_layouts);
-                mesh_ids.push(meshes.len());
-                meshes.push(runtime_model);
-            }
-            let camera_id = cameras.len();
-            cameras.push(camera);
-            scenes.insert(
-                name.to_string(),
-                RuntimeScenerio {
-                    mesh_ids,
-                    camera_id,
-                },
-            );
-        }
-        Self {
-            meshes,
-            cameras,
-            scenes,
-            selected_name,
-        }
-    }
-    pub fn get_selected_meshes(&self) -> (&Camera, Vec<&RenderModel>) {
-        let scene = self.scenes.get(&self.selected_name).unwrap();
-        let camera = &self.cameras[scene.camera_id];
-
-        (
-            camera,
-            scene.mesh_ids.iter().map(|id| &self.meshes[*id]).collect(),
-        )
-    }
-    pub fn names(&self) -> Vec<&str> {
-        self.scenes.keys().map(|s| s.as_str()).collect()
-    }
-    pub fn set_name(&mut self, name: String) {
-        self.selected_name = name
-    }
-    pub unsafe fn free_resources(mut self, base: &Base, allocator: &mut Allocator) {
-        for model in self.meshes.drain(..) {
-            model.free_resources(base, allocator)
-        }
-    }
-}
 pub struct App {
     imgui_context: imgui::Context,
     imgui_renderer: imgui_rs_vulkan_renderer::Renderer,
@@ -544,7 +349,7 @@ impl App {
     }
 }
 impl GraphicsApp for App {
-    fn run_frame(&mut self, base: &Base, frame_number: u32) {
+    fn run_frame(&mut self, base: Rc<Base>, frame_number: u32) {
         let (present_index, _) = unsafe {
             base.swapchain_loader
                 .acquire_next_image(
@@ -666,7 +471,7 @@ impl GraphicsApp for App {
                 .expect("failed to present render");
         }
     }
-    fn free_resources(mut self, base: &Base) {
+    fn free_resources(mut self, base: Rc<Base>) {
         unsafe {
             base.device.device_wait_idle().expect("failed to wait idle");
             base.device.destroy_pipeline(self.graphics_pipeline, None);
@@ -677,12 +482,12 @@ impl GraphicsApp for App {
             base.device
                 .destroy_shader_module(self.fragment_shader_module, None);
             self.engine_entities.free_resources(
-                base,
+                base.borrow(),
                 &mut self.allocator.lock().expect("failed to get lock"),
             );
             for mesh in self.mesh_list.drain(..) {
                 mesh.free_resources(
-                    base,
+                    base.borrow(),
                     &mut self.allocator.lock().expect("failed to get lock"),
                 )
             }
@@ -703,7 +508,7 @@ impl GraphicsApp for App {
     fn process_event(&mut self, elapsed_time: Duration) {
         self.imgui_context.io_mut().update_delta_time(elapsed_time)
     }
-    fn handle_event(&mut self, base: &Base, event: &winit::event::Event<()>) {
+    fn handle_event(&mut self, base: Rc<Base>, event: &winit::event::Event<()>) {
         self.imgui_platform
             .handle_event(self.imgui_context.io_mut(), &base.window, event)
     }

@@ -78,26 +78,7 @@ pub fn run(base: &Base) {
         base.device
             .create_render_pass(&renderpass_create_info, None)
             .unwrap()
-    }; /*
-       let mut imgui_ctx = imgui::Context::create();
-
-       let mut imgui_renderer = Rc::new(RefCell::new(
-           imgui_rs_vulkan_renderer::Renderer::with_gpu_allocator(
-               allocator.clone(),
-               base.device.clone(),
-               base.present_queue.clone(),
-               base.pool,
-               renderpass,
-               &mut imgui_ctx,
-               Some(imgui_rs_vulkan_renderer::Options {
-                   in_flight_frames: base.present_image_views.len(),
-                   ..Default::default()
-               }),
-           )
-           .expect("failed to make imgui renderer"),
-       ));
-
-        */
+    };
     let framebuffers = unsafe {
         base.present_image_views
             .iter()
@@ -313,7 +294,7 @@ pub fn run(base: &Base) {
             .create_graphics_pipelines(vk::PipelineCache::null(), &[graphics_pipeline_info], None)
             .expect("failed to create graphics_pipeline")[0]
     };
-    //  let draw_data = imgui_ctx.frame().render();
+
     base.render_loop(|frame_counter| {
         let (present_index, _) = unsafe {
             base.swapchain_loader
@@ -413,9 +394,6 @@ pub fn run(base: &Base) {
                 },
             );
 
-            let present_index_arr = [present_index];
-            let render_complete_sem_arr = [base.rendering_complete_semaphore];
-
             let present_info = vk::PresentInfoKHR::builder()
                 .wait_semaphores(std::slice::from_ref(&base.rendering_complete_semaphore))
                 .swapchains(std::slice::from_ref(&base.swapchain))
@@ -426,7 +404,6 @@ pub fn run(base: &Base) {
         }
     });
     unsafe {
-        // drop(imgui_renderer.borrow_mut());
         base.device.device_wait_idle().expect("failed to wait idle");
         base.device.destroy_pipeline(graphics_pipelines, None);
         base.device.destroy_pipeline_layout(pipeline_layout, None);

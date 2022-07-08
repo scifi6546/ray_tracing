@@ -19,6 +19,7 @@ use std::{
     cell::RefCell,
     ffi::CStr,
     os::raw::c_char,
+    rc::Rc,
     time::{Duration, Instant},
 };
 
@@ -573,20 +574,24 @@ impl Drop for Base {
     }
 }
 pub trait GraphicsApp {
-    fn run_frame(&mut self, base: &Base, frame_number: u32);
+    fn run_frame(&mut self, base: Rc<Base>, frame_number: u32);
     fn process_event(&mut self, elapsed_time: Duration);
-    fn handle_event(&mut self, base: &Base, event: &winit::event::Event<()>);
-    fn free_resources(self, base: &Base);
+    fn handle_event(&mut self, base: Rc<Base>, event: &winit::event::Event<()>);
+    fn free_resources(self, base: Rc<Base>);
 }
 struct GraphicsAppRunner<App: GraphicsApp> {
-    base: Base,
+    base: Rc<Base>,
     app: App,
     last_update_time: Instant,
 }
 impl<App: GraphicsApp> GraphicsAppRunner<App> {
     pub fn drain_base(self) -> Base {
-        self.app.free_resources(&self.base);
-        self.base
+        self.app.free_resources(self.base.clone());
+        let unwrap_res = Rc::try_unwrap(self.base);
+        match unwrap_res {
+            Ok(r) => r,
+            Err(_) => panic!("failed to unwrap base rc"),
+        }
     }
 
     pub fn run(&mut self) {
@@ -596,7 +601,7 @@ impl<App: GraphicsApp> GraphicsAppRunner<App> {
             .borrow_mut()
             .run_return(|event, t, controll_flow| {
                 *controll_flow = ControlFlow::Poll;
-                self.app.handle_event(&self.base, &event);
+                self.app.handle_event(self.base.clone(), &event);
                 match event {
                     Event::NewEvents(_) => {
                         let now = Instant::now();
@@ -617,7 +622,7 @@ impl<App: GraphicsApp> GraphicsAppRunner<App> {
                         println!("keyboard input, input: {:?}", input);
                     }
                     Event::MainEventsCleared => {
-                        self.app.run_frame(&self.base, frame_counter);
+                        self.app.run_frame(self.base.clone(), frame_counter);
                         self.base.window.request_redraw();
 
                         frame_counter += 1;
@@ -631,15 +636,27 @@ fn main() {
     let window_width = 1000;
     let window_height = 1000;
     let base = Base::new(window_width, window_height);
+    println!("hello rendergraph");
     let base = {
         let mut runner = GraphicsAppRunner {
-            app: hello_scenelib::App::new(&base),
-            base,
+            app: render_graph::RenderPassApp::new(&base),
+            base: Rc::new(base),
             last_update_time: Instant::now(),
         };
         runner.run();
         runner.drain_base()
     };
+    println!("hello scenelib");
+    let base = {
+        let mut runner = GraphicsAppRunner {
+            app: hello_scenelib::App::new(&base),
+            base: Rc::new(base),
+            last_update_time: Instant::now(),
+        };
+        runner.run();
+        runner.drain_base()
+    };
+
     println!("hello many meshes");
     hello_many_meshes::run(&base);
     println!("hello push constant");
