@@ -1,10 +1,10 @@
 mod graph;
 mod output_pass;
-
 use super::{prelude::*, record_submit_commandbuffer, Base, GraphicsApp};
 use ash::{util::read_spv, vk};
 use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
 use graph::{RenderGraph, RenderPass};
+use output_pass::OutputPass;
 use std::{
     ffi::CStr,
     io::Cursor,
@@ -587,7 +587,8 @@ impl RenderPassApp {
             base,
             allocator: allocator.clone(),
         };
-        let pass: Box<dyn VulkanPass> = Box::new(BasicVulkanPass::new(&pass_base));
+        let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&pass_base));
+        //    let pass: Box<dyn VulkanPass> = Box::new(BasicVulkanPass::new(&pass_base));
         graph.insert_output_pass(pass, Vec::new());
 
         Self { graph, allocator }

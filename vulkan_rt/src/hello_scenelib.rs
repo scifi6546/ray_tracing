@@ -485,7 +485,7 @@ impl GraphicsApp for App {
                 base.borrow(),
                 &mut self.allocator.lock().expect("failed to get lock"),
             );
-            for mesh in self.mesh_list.drain(..) {
+            for mut mesh in self.mesh_list.drain(..) {
                 mesh.free_resources(
                     base.borrow(),
                     &mut self.allocator.lock().expect("failed to get lock"),

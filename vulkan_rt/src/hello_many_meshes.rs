@@ -411,7 +411,7 @@ pub fn run(base: &Base) {
             .destroy_shader_module(vertex_shader_module, None);
         base.device.destroy_shader_module(frag_shader_module, None);
 
-        for mesh in mesh_list.drain(..) {
+        for mut mesh in mesh_list.drain(..) {
             mesh.free_resources(
                 base,
                 &mut allocator.lock().expect("failed to get allocator"),
