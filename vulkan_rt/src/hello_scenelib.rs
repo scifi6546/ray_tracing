@@ -424,7 +424,7 @@ impl GraphicsApp for App {
                             vk::PipelineBindPoint::GRAPHICS,
                             self.pipeline_layout,
                             0,
-                            &[mesh.descriptor_set],
+                            &[mesh.texture.descriptor_set],
                             &[],
                         );
                         device.cmd_bind_pipeline(

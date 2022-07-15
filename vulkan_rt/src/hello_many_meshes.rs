@@ -358,7 +358,7 @@ pub fn run(base: &Base) {
                             vk::PipelineBindPoint::GRAPHICS,
                             pipeline_layout,
                             0,
-                            &[mesh.descriptor_set],
+                            &[mesh.texture.descriptor_set],
                             &[],
                         );
                         device.cmd_bind_pipeline(

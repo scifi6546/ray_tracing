@@ -396,7 +396,7 @@ impl VulkanPass for OutputPass {
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline_layout,
                         0,
-                        &[self.render_plane.as_ref().unwrap().descriptor_set],
+                        &[self.render_plane.as_ref().unwrap().texture.descriptor_set],
                         &[],
                     );
                     device.cmd_bind_pipeline(
