@@ -323,7 +323,7 @@ impl OutputPass {
 }
 impl VulkanPass for OutputPass {
     fn get_dependencies(&self) -> Vec<VulkanOutputType> {
-        Vec::new()
+        vec![VulkanOutputType::Empty]
     }
 
     fn get_output(&self) -> Vec<VulkanOutputType> {
@@ -436,7 +436,7 @@ impl VulkanPass for OutputPass {
 
                     self.imgui_renderer
                         .cmd_draw(draw_command_buffer, draw_data)
-                        .expect("fai;ed to draw");
+                        .expect("failed to draw");
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
             );
