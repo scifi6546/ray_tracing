@@ -323,7 +323,7 @@ impl OutputPass {
 }
 impl VulkanPass for OutputPass {
     fn get_dependencies(&self) -> Vec<VulkanOutputType> {
-        vec![VulkanOutputType::Empty]
+        vec![VulkanOutputType::FrameBuffer]
     }
 
     fn get_output(&self) -> Vec<VulkanOutputType> {
@@ -331,6 +331,10 @@ impl VulkanPass for OutputPass {
     }
 
     fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
+        let fb_descriptor_set = match input[0] {
+            &VulkanOutput::Framebuffer { descriptor_set } => descriptor_set,
+            _ => panic!("invalid dependency"),
+        };
         let (present_index, _) = unsafe {
             base.base
                 .swapchain_loader
@@ -391,12 +395,22 @@ impl VulkanPass for OutputPass {
                         .unwrap()
                         .animation
                         .build_transform_mat(0);
+                    /*
                     device.cmd_bind_descriptor_sets(
                         draw_command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline_layout,
                         0,
                         &[self.render_plane.as_ref().unwrap().texture.descriptor_set],
+                        &[],
+                    );
+                    */
+                    device.cmd_bind_descriptor_sets(
+                        draw_command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.pipeline_layout,
+                        0,
+                        &[fb_descriptor_set],
                         &[],
                     );
                     device.cmd_bind_pipeline(

@@ -255,6 +255,7 @@ impl RenderTexture {
         }
     }
     pub unsafe fn free_resources(mut self, base: &Base, allocator: &mut Allocator) {
+        base.device.device_wait_idle();
         base.device
             .destroy_image_view(self.texture_image_view, None);
         base.device.destroy_sampler(self.sampler, None);

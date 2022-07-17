@@ -1,5 +1,7 @@
 use super::{PassBase, VulkanOutput, VulkanOutputType, VulkanPass};
 use crate::prelude::*;
+use std::borrow::BorrowMut;
+use std::ops::DerefMut;
 
 use ash::vk;
 
@@ -7,6 +9,7 @@ use ash::vk;
 pub struct SolidTexturePass {
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
+    texture: Option<RenderTexture>,
 }
 impl SolidTexturePass {
     pub fn new(base: &PassBase) -> Self {
@@ -39,9 +42,25 @@ impl SolidTexturePass {
                 .create_descriptor_set_layout(&descriptor_info, None)
                 .expect("failed to create descriptor set layout")
         };
+        let texture = RenderTexture::new(
+            &image::RgbaImage::from_fn(100, 100, |x, y| {
+                let r = (x % 255) as u8;
+                let g = (y % 255) as u8;
+                let b = r + g;
+                image::Rgba([r, g, b, 255])
+            }),
+            base.base.as_ref(),
+            base.allocator
+                .lock()
+                .expect("failed to get allocator")
+                .deref_mut(),
+            &descriptor_pool,
+            &[descriptor_set_layout],
+        );
         Self {
             descriptor_pool,
             descriptor_set_layout,
+            texture: Some(texture),
         }
     }
 }
@@ -51,16 +70,28 @@ impl VulkanPass for SolidTexturePass {
     }
 
     fn get_output(&self) -> Vec<VulkanOutputType> {
-        vec![VulkanOutputType::Empty]
+        vec![VulkanOutputType::FrameBuffer]
     }
 
     fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
-        println!("processing solid texture pass, todo: make do stuff");
-        vec![VulkanOutput::Empty]
+        vec![VulkanOutput::Framebuffer {
+            descriptor_set: self
+                .texture
+                .as_ref()
+                .expect("already freed")
+                .descriptor_set
+                .clone(),
+        }]
     }
 
     fn free(&mut self, base: &PassBase) {
+        let tex = self.texture.take().expect("pass already freed");
+
         unsafe {
+            tex.free_resources(
+                base.base.as_ref(),
+                &mut base.allocator.lock().expect("failed to get allocator"),
+            );
             base.base
                 .device
                 .destroy_descriptor_set_layout(self.descriptor_set_layout, None);
