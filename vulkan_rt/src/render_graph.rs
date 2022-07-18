@@ -8,6 +8,7 @@ use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
 use graph::{RenderGraph, RenderPass};
 use output_pass::OutputPass;
 use std::{
+    cell::RefCell,
     ffi::CStr,
     io::Cursor,
     mem::size_of,
@@ -66,11 +67,34 @@ impl RenderPass for Box<dyn VulkanPass> {
 pub struct PassBase {
     pub base: Rc<Base>,
     pub allocator: Arc<Mutex<Allocator>>,
+    pub scene_state: Rc<RefCell<SceneState>>,
 }
+pub struct SceneState {
+    pub imgui_context: imgui::Context,
+    pub imgui_platform: imgui_winit_support::WinitPlatform,
+}
+impl SceneState {
+    pub fn new(base: Rc<Base>) -> Self {
+        let mut imgui_context = imgui::Context::create();
+        let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui_context);
+        let hidipi_factor = imgui_platform.hidpi_factor();
+        imgui_platform.attach_window(
+            imgui_context.io_mut(),
+            &base.window,
+            imgui_winit_support::HiDpiMode::Rounded,
+        );
+        imgui_context.io_mut().font_global_scale = (1.0 / hidipi_factor as f32);
 
+        Self {
+            imgui_context,
+            imgui_platform,
+        }
+    }
+}
 pub struct RenderPassApp {
     graph: RenderGraph<Box<dyn VulkanPass>>,
     allocator: Arc<Mutex<Allocator>>,
+    scene_state: Rc<RefCell<SceneState>>,
 }
 impl RenderPassApp {
     pub fn new(base: Rc<Base>) -> Self {
@@ -85,18 +109,24 @@ impl RenderPassApp {
             })
             .expect("created allocator"),
         ));
-        let pass_base = PassBase {
+        let scene_state = Rc::new(RefCell::new(SceneState::new(base.clone())));
+        let mut pass_base = PassBase {
             base,
             allocator: allocator.clone(),
+            scene_state: scene_state.clone(),
         };
         let solid_texture: Box<dyn VulkanPass> =
             Box::new(solid_texture::SolidTexturePass::new(&pass_base));
         let (solid_pass_id, solid_pass_output) = graph.insert_pass(solid_texture, Vec::new());
-        let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&pass_base));
+        let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base));
         //    let pass: Box<dyn VulkanPass> = Box::new(BasicVulkanPass::new(&pass_base));
         graph.insert_output_pass(pass, solid_pass_output);
 
-        Self { graph, allocator }
+        Self {
+            graph,
+            allocator,
+            scene_state,
+        }
     }
 }
 impl GraphicsApp for RenderPassApp {
@@ -104,6 +134,7 @@ impl GraphicsApp for RenderPassApp {
         let pass_base = PassBase {
             base,
             allocator: self.allocator.clone(),
+            scene_state: self.scene_state.clone(),
         };
         self.graph.run_graph(&pass_base);
     }
@@ -117,6 +148,7 @@ impl GraphicsApp for RenderPassApp {
             let pass_base = PassBase {
                 base,
                 allocator: self.allocator.clone(),
+                scene_state: self.scene_state.clone(),
             };
             self.graph.free_passes(&pass_base);
         }

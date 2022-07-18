@@ -1,7 +1,9 @@
-use super::{PassBase, VulkanOutput, VulkanOutputType, VulkanPass};
+use super::{PassBase, SceneState, VulkanOutput, VulkanOutputType, VulkanPass};
 use crate::{prelude::*, record_submit_commandbuffer};
 use ash::{util::read_spv, vk};
 use image::Rgba;
+use std::borrow::BorrowMut;
+use std::cell::RefMut;
 use std::{
     ffi::CStr,
     io::Cursor,
@@ -10,11 +12,10 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
+
 /// Describes renderpass that render a framebuffer to screen
 pub struct OutputPass {
-    imgui_context: imgui::Context,
     imgui_renderer: imgui_rs_vulkan_renderer::Renderer,
-    imgui_platform: imgui_winit_support::WinitPlatform,
     render_plane: Option<RenderModel>,
     framebuffers: Vec<vk::Framebuffer>,
     renderpass: vk::RenderPass,
@@ -29,16 +30,20 @@ pub struct OutputPass {
     viewports: [vk::Viewport; 1],
 }
 impl OutputPass {
-    pub fn new(base: &PassBase) -> Self {
-        let mut imgui_context = imgui::Context::create();
-        let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui_context);
+    pub fn new(base: &mut PassBase) -> Self {
+        let mut scene_state = base.scene_state.as_ref().borrow_mut();
+        let imgui_platform = &mut scene_state.imgui_platform;
+        let imgui_context = &mut scene_state.imgui_context;
+
+        //    let scene_state = Rc::get_mut(&mut base.scene_state).unwrap().get_mut();
         let hidipi_factor = imgui_platform.hidpi_factor();
+
         imgui_platform.attach_window(
             imgui_context.io_mut(),
             &base.base.window,
             imgui_winit_support::HiDpiMode::Rounded,
         );
-        imgui_context.io_mut().font_global_scale = (1.0 / hidipi_factor as f32);
+        scene_state.imgui_context.io_mut().font_global_scale = (1.0 / hidipi_factor as f32);
 
         let renderpass_attachments = [
             vk::AttachmentDescription::builder()
@@ -295,7 +300,7 @@ impl OutputPass {
             base.base.present_queue,
             base.base.pool,
             renderpass,
-            &mut imgui_context,
+            &mut scene_state.imgui_context,
             Some(imgui_rs_vulkan_renderer::Options {
                 in_flight_frames: framebuffers.len(),
                 ..Default::default()
@@ -303,9 +308,7 @@ impl OutputPass {
         )
         .expect("failed to make renderer");
         Self {
-            imgui_context,
             imgui_renderer,
-            imgui_platform,
 
             framebuffers,
             renderpass,
@@ -331,6 +334,8 @@ impl VulkanPass for OutputPass {
     }
 
     fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
+        let mut scene_state_rc_clone = base.scene_state.clone();
+        let scene_state = Rc::get_mut(&mut scene_state_rc_clone).unwrap().get_mut();
         let fb_descriptor_set = match input[0] {
             &VulkanOutput::Framebuffer { descriptor_set } => descriptor_set,
             _ => panic!("invalid dependency"),
@@ -346,13 +351,16 @@ impl VulkanPass for OutputPass {
                 )
                 .expect("failed to acquire image")
         };
-        self.imgui_platform
-            .prepare_frame(self.imgui_context.io_mut(), &base.base.window)
+        scene_state
+            .imgui_platform
+            .prepare_frame(scene_state.imgui_context.io_mut(), &base.base.window)
             .expect("failed to prepare frame");
 
-        let ui = self.imgui_context.frame();
+        let ui = scene_state.imgui_context.frame();
 
-        self.imgui_platform.prepare_render(&ui, &base.base.window);
+        scene_state
+            .imgui_platform
+            .prepare_render(&ui, &base.base.window);
 
         let draw_data = ui.render();
         let clear_values = [
