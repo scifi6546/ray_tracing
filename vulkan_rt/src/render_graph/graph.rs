@@ -33,6 +33,26 @@ pub struct RenderPassOutputMarker<T: Clone> {
     /// renderpass that creates the output
     pub parent_pass: RenderPassID,
 }
+pub struct GraphIter<'a, T: RenderPass> {
+    iter: generational_arena::Iter<'a, RenderPassItem<T>>,
+}
+impl<'a, T: RenderPass> std::iter::Iterator for GraphIter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|i| &i.1.item)
+    }
+}
+pub struct GraphIterMut<'a, T: RenderPass> {
+    iter: generational_arena::IterMut<'a, RenderPassItem<T>>,
+}
+impl<'a, T: RenderPass> std::iter::Iterator for GraphIterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|i| &mut i.1.item)
+    }
+}
 pub struct RenderGraph<T: RenderPass> {
     graph_items: Arena<RenderPassItem<T>>,
     output_pass: Option<RenderPassID>,
@@ -43,6 +63,16 @@ impl<T: RenderPass> RenderGraph<T> {
         Self {
             graph_items: Arena::new(),
             output_pass: None,
+        }
+    }
+    pub fn iter(&self) -> GraphIter<T> {
+        GraphIter {
+            iter: self.graph_items.iter(),
+        }
+    }
+    pub fn iter_mut(&mut self) -> GraphIterMut<T> {
+        GraphIterMut {
+            iter: self.graph_items.iter_mut(),
         }
     }
     /// Dont have to do cycle checking as items can only depend on already existing passes
@@ -187,12 +217,13 @@ mod test {
 
         fn process(
             &mut self,
-            base: &mut Self::Base,
+            base: &Self::Base,
             input: Vec<&Self::RenderPassOutput>,
         ) -> Vec<Self::RenderPassOutput> {
             self.mock_run.borrow_mut().push(self.name.clone());
             self.output.iter().map(|_| ()).collect()
         }
+        fn free(self, base: &Self::Base) {}
     }
     #[test]
     fn build_rendergraph() {
@@ -234,6 +265,21 @@ mod test {
             },
             pass_outputs,
         );
+    }
+    #[test]
+    fn test_iter() {
+        let mock_run = Rc::new(RefCell::new(Vec::new()));
+        let mut pass: RenderGraph<TestPass> = RenderGraph::new();
+        let _ = pass.insert_pass(
+            TestPass {
+                deps: vec![],
+                output: vec![],
+                mock_run,
+                name: "p0".to_string(),
+            },
+            vec![],
+        );
+        pass.iter().collect::<Vec<_>>();
     }
     #[test]
     fn process() {

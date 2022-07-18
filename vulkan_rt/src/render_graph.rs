@@ -32,6 +32,7 @@ pub enum VulkanOutputType {
     Empty,
 }
 pub trait VulkanPass {
+    fn handle_event(&mut self, base: &PassBase, event: &winit::event::Event<()>) {}
     fn get_dependencies(&self) -> Vec<VulkanOutputType>;
     fn get_output(&self) -> Vec<VulkanOutputType>;
     fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput>;
@@ -71,7 +72,6 @@ pub struct PassBase {
 }
 pub struct SceneState {
     pub imgui_context: imgui::Context,
-    pub imgui_platform: imgui_winit_support::WinitPlatform,
 }
 impl SceneState {
     pub fn new(base: Rc<Base>) -> Self {
@@ -85,10 +85,7 @@ impl SceneState {
         );
         imgui_context.io_mut().font_global_scale = (1.0 / hidipi_factor as f32);
 
-        Self {
-            imgui_context,
-            imgui_platform,
-        }
+        Self { imgui_context }
     }
 }
 pub struct RenderPassApp {
@@ -119,7 +116,7 @@ impl RenderPassApp {
             Box::new(solid_texture::SolidTexturePass::new(&pass_base));
         let (solid_pass_id, solid_pass_output) = graph.insert_pass(solid_texture, Vec::new());
         let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base));
-        //    let pass: Box<dyn VulkanPass> = Box::new(BasicVulkanPass::new(&pass_base));
+
         graph.insert_output_pass(pass, solid_pass_output);
 
         Self {
@@ -131,6 +128,11 @@ impl RenderPassApp {
 }
 impl GraphicsApp for RenderPassApp {
     fn run_frame(&mut self, base: Rc<Base>, frame_number: u32) {
+        {
+            let mut scene_state = self.scene_state.as_ref().borrow_mut();
+            let frame = scene_state.imgui_context.frame();
+            frame.button("Test!!!");
+        }
         let pass_base = PassBase {
             base,
             allocator: self.allocator.clone(),
@@ -139,9 +141,24 @@ impl GraphicsApp for RenderPassApp {
         self.graph.run_graph(&pass_base);
     }
 
-    fn process_event(&mut self, elapsed_time: Duration) {}
+    fn update_delta_time(&mut self, elapsed_time: Duration) {
+        let mut scene_state = self.scene_state.as_ref().borrow_mut();
+        scene_state
+            .imgui_context
+            .io_mut()
+            .update_delta_time(elapsed_time)
+    }
 
-    fn handle_event(&mut self, base: Rc<Base>, event: &Event<()>) {}
+    fn handle_event(&mut self, base: Rc<Base>, event: &Event<()>) {
+        let pass_base = PassBase {
+            base,
+            allocator: self.allocator.clone(),
+            scene_state: self.scene_state.clone(),
+        };
+        for pass in self.graph.iter_mut() {
+            pass.handle_event(&pass_base, event)
+        }
+    }
 
     fn free_resources(self, base: Rc<Base>) {
         {

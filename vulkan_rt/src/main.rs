@@ -575,7 +575,7 @@ impl Drop for Base {
 }
 pub trait GraphicsApp {
     fn run_frame(&mut self, base: Rc<Base>, frame_number: u32);
-    fn process_event(&mut self, elapsed_time: Duration);
+    fn update_delta_time(&mut self, elapsed_time: Duration);
     fn handle_event(&mut self, base: Rc<Base>, event: &winit::event::Event<()>);
     fn free_resources(self, base: Rc<Base>);
 }
@@ -605,7 +605,7 @@ impl<App: GraphicsApp> GraphicsAppRunner<App> {
                 match event {
                     Event::NewEvents(_) => {
                         let now = Instant::now();
-                        self.app.process_event(now - self.last_update_time);
+                        self.app.update_delta_time(now - self.last_update_time);
                         self.last_update_time = Instant::now();
                     }
                     Event::WindowEvent {

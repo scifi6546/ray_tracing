@@ -457,7 +457,7 @@ impl GraphicsApp for App {
                     }
                     self.imgui_renderer
                         .cmd_draw(draw_command_buffer, draw_data)
-                        .expect("fai;ed to draw");
+                        .expect("failed to draw");
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
             );
@@ -505,7 +505,7 @@ impl GraphicsApp for App {
             drop(self.allocator);
         }
     }
-    fn process_event(&mut self, elapsed_time: Duration) {
+    fn update_delta_time(&mut self, elapsed_time: Duration) {
         self.imgui_context.io_mut().update_delta_time(elapsed_time)
     }
     fn handle_event(&mut self, base: Rc<Base>, event: &winit::event::Event<()>) {

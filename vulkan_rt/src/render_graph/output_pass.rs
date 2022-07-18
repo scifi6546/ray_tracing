@@ -16,6 +16,7 @@ use std::{
 /// Describes renderpass that render a framebuffer to screen
 pub struct OutputPass {
     imgui_renderer: imgui_rs_vulkan_renderer::Renderer,
+    imgui_platform: imgui_winit_support::WinitPlatform,
     render_plane: Option<RenderModel>,
     framebuffers: Vec<vk::Framebuffer>,
     renderpass: vk::RenderPass,
@@ -32,10 +33,10 @@ pub struct OutputPass {
 impl OutputPass {
     pub fn new(base: &mut PassBase) -> Self {
         let mut scene_state = base.scene_state.as_ref().borrow_mut();
-        let imgui_platform = &mut scene_state.imgui_platform;
-        let imgui_context = &mut scene_state.imgui_context;
 
-        //    let scene_state = Rc::get_mut(&mut base.scene_state).unwrap().get_mut();
+        let imgui_context = &mut scene_state.imgui_context;
+        let mut imgui_platform = imgui_winit_support::WinitPlatform::init(imgui_context);
+
         let hidipi_factor = imgui_platform.hidpi_factor();
 
         imgui_platform.attach_window(
@@ -309,7 +310,7 @@ impl OutputPass {
         .expect("failed to make renderer");
         Self {
             imgui_renderer,
-
+            imgui_platform,
             framebuffers,
             renderpass,
             descriptor_pool,
@@ -325,6 +326,14 @@ impl OutputPass {
     }
 }
 impl VulkanPass for OutputPass {
+    fn handle_event(&mut self, base: &PassBase, event: &winit::event::Event<()>) {
+        let mut scene_state = base.scene_state.as_ref().borrow_mut();
+        self.imgui_platform.handle_event(
+            scene_state.imgui_context.io_mut(),
+            &base.base.window,
+            event,
+        )
+    }
     fn get_dependencies(&self) -> Vec<VulkanOutputType> {
         vec![VulkanOutputType::FrameBuffer]
     }
@@ -334,8 +343,6 @@ impl VulkanPass for OutputPass {
     }
 
     fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
-        let mut scene_state_rc_clone = base.scene_state.clone();
-        let scene_state = Rc::get_mut(&mut scene_state_rc_clone).unwrap().get_mut();
         let fb_descriptor_set = match input[0] {
             &VulkanOutput::Framebuffer { descriptor_set } => descriptor_set,
             _ => panic!("invalid dependency"),
@@ -351,16 +358,16 @@ impl VulkanPass for OutputPass {
                 )
                 .expect("failed to acquire image")
         };
-        scene_state
-            .imgui_platform
+        let mut scene_state = base.scene_state.as_ref().borrow_mut();
+        self.imgui_platform
             .prepare_frame(scene_state.imgui_context.io_mut(), &base.base.window)
             .expect("failed to prepare frame");
 
         let ui = scene_state.imgui_context.frame();
-
-        scene_state
-            .imgui_platform
-            .prepare_render(&ui, &base.base.window);
+        self.imgui_platform.prepare_render(&ui, &base.base.window);
+        if ui.button("hello bttn!!!!") {
+            println!("clicked button")
+        }
 
         let draw_data = ui.render();
         let clear_values = [
