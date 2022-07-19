@@ -7,7 +7,11 @@ use cgmath::{
 };
 use gpu_allocator::vulkan::*;
 pub use mesh::*;
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::HashMap,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 #[repr(C)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy)]
 pub struct Mat4 {
@@ -677,7 +681,7 @@ pub struct EngineEntities {
 impl EngineEntities {
     pub fn new(
         base: &Base,
-        allocator: &mut Allocator,
+        allocator: Arc<Mutex<Allocator>>,
         descriptor_pool: &vk::DescriptorPool,
         descriptor_layouts: &[vk::DescriptorSetLayout],
     ) -> Self {
@@ -692,8 +696,12 @@ impl EngineEntities {
             let (scene_mesh, camera) = meshes_from_scene(&raw_scene);
             let mut mesh_ids = vec![];
             for mesh in scene_mesh.iter() {
-                let runtime_model =
-                    mesh.build_render_model(base, allocator, descriptor_pool, descriptor_layouts);
+                let runtime_model = mesh.build_render_model(
+                    base,
+                    &mut allocator.lock().expect("failed to get allocator"),
+                    descriptor_pool,
+                    descriptor_layouts,
+                );
                 mesh_ids.push(meshes.len());
                 meshes.push(runtime_model);
             }
@@ -729,9 +737,12 @@ impl EngineEntities {
     pub fn set_name(&mut self, name: String) {
         self.selected_name = name
     }
-    pub unsafe fn free_resources(&mut self, base: &Base, allocator: &mut Allocator) {
+    pub unsafe fn free_resources(&mut self, base: &Base, allocator: Arc<Mutex<Allocator>>) {
         for model in self.meshes.drain(..) {
-            model.free_resources(base, allocator)
+            model.free_resources(
+                base,
+                &mut allocator.lock().expect("failed to get allocator"),
+            )
         }
     }
 }

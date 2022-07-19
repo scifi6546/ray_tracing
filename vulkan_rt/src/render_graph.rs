@@ -1,8 +1,10 @@
 mod graph;
+mod mesh_descriptors;
 mod output_pass;
 mod solid_texture;
 
 use super::{prelude::*, record_submit_commandbuffer, Base, GraphicsApp};
+use crate::render_graph::mesh_descriptors::MeshDescriptors;
 use ash::{util::read_spv, vk};
 use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
 use graph::{RenderGraph, RenderPass};
@@ -17,6 +19,7 @@ use std::{
     time::Duration,
 };
 use winit::event::Event;
+
 /// Possible outputs of renderpass, todo: garbage collector
 pub enum VulkanOutput {
     /// view that a pass draws to
@@ -32,7 +35,8 @@ pub enum VulkanOutputType {
     Empty,
 }
 pub trait VulkanPass {
-    fn handle_event(&mut self, base: &PassBase, event: &winit::event::Event<()>) {}
+    fn handle_event(&mut self, _base: &PassBase, _event: &winit::event::Event<()>) {}
+    fn prepare_render(&mut self, _base: &PassBase) {}
     fn get_dependencies(&self) -> Vec<VulkanOutputType>;
     fn get_output(&self) -> Vec<VulkanOutputType>;
     fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput>;
@@ -64,7 +68,6 @@ impl RenderPass for Box<dyn VulkanPass> {
         VulkanPass::free(self.as_mut(), base)
     }
 }
-
 pub struct PassBase {
     pub base: Rc<Base>,
     pub allocator: Arc<Mutex<Allocator>>,
@@ -72,9 +75,11 @@ pub struct PassBase {
 }
 pub struct SceneState {
     pub imgui_context: imgui::Context,
+    pub engine_entities: EngineEntities,
+    pub mesh_descriptors: MeshDescriptors,
 }
 impl SceneState {
-    pub fn new(base: Rc<Base>) -> Self {
+    pub fn new(base: Rc<Base>, allocator: Arc<Mutex<Allocator>>) -> Self {
         let mut imgui_context = imgui::Context::create();
         let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui_context);
         let hidipi_factor = imgui_platform.hidpi_factor();
@@ -84,8 +89,18 @@ impl SceneState {
             imgui_winit_support::HiDpiMode::Rounded,
         );
         imgui_context.io_mut().font_global_scale = (1.0 / hidipi_factor as f32);
-
-        Self { imgui_context }
+        let mesh_descriptors = MeshDescriptors::new(base.clone());
+        let engine_entities = EngineEntities::new(
+            base.as_ref(),
+            allocator,
+            &mesh_descriptors.descriptor_pool,
+            &mesh_descriptors.descriptor_set_layouts,
+        );
+        Self {
+            imgui_context,
+            engine_entities,
+            mesh_descriptors,
+        }
     }
 }
 pub struct RenderPassApp {
@@ -106,7 +121,10 @@ impl RenderPassApp {
             })
             .expect("created allocator"),
         ));
-        let scene_state = Rc::new(RefCell::new(SceneState::new(base.clone())));
+        let scene_state = Rc::new(RefCell::new(SceneState::new(
+            base.clone(),
+            allocator.clone(),
+        )));
         let mut pass_base = PassBase {
             base,
             allocator: allocator.clone(),
@@ -128,6 +146,16 @@ impl RenderPassApp {
 }
 impl GraphicsApp for RenderPassApp {
     fn run_frame(&mut self, base: Rc<Base>, frame_number: u32) {
+        {
+            let pass_base = PassBase {
+                base: base.clone(),
+                allocator: self.allocator.clone(),
+                scene_state: self.scene_state.clone(),
+            };
+            for pass in self.graph.iter_mut() {
+                pass.prepare_render(&pass_base);
+            }
+        }
         {
             let mut scene_state = self.scene_state.as_ref().borrow_mut();
             let frame = scene_state.imgui_context.frame();
@@ -163,13 +191,22 @@ impl GraphicsApp for RenderPassApp {
     fn free_resources(self, base: Rc<Base>) {
         {
             let pass_base = PassBase {
-                base,
+                base: base.clone(),
                 allocator: self.allocator.clone(),
                 scene_state: self.scene_state.clone(),
             };
             self.graph.free_passes(&pass_base);
         }
+        {
+            let mut scene_state = self.scene_state.as_ref().borrow_mut();
+            unsafe {
+                scene_state
+                    .engine_entities
+                    .free_resources(base.as_ref(), self.allocator.clone());
+            }
 
+            scene_state.mesh_descriptors.free(base.clone())
+        }
         drop(self.allocator);
     }
 }

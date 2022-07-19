@@ -334,6 +334,7 @@ impl VulkanPass for OutputPass {
             event,
         )
     }
+    fn prepare_render(&mut self, base: &PassBase) {}
     fn get_dependencies(&self) -> Vec<VulkanOutputType> {
         vec![VulkanOutputType::FrameBuffer]
     }

@@ -175,7 +175,7 @@ impl App {
             .collect::<Vec<_>>();
         let engine_entities = EngineEntities::new(
             base,
-            &mut allocator.lock().expect("failed to lock"),
+            allocator.clone(),
             &descriptor_pool,
             &descriptor_set_layouts,
         );
@@ -366,7 +366,6 @@ impl GraphicsApp for App {
 
         let ui = self.imgui_context.frame();
         let mut set_name: Option<String> = None;
-        self.imgui_platform.prepare_render(&ui, &base.window);
         for scene_name in self.engine_entities.names().iter() {
             let button_res = ui.button(scene_name);
             if button_res {
@@ -378,6 +377,7 @@ impl GraphicsApp for App {
         if let Some(n) = set_name {
             self.engine_entities.set_name(n);
         }
+        self.imgui_platform.prepare_render(&ui, &base.window);
 
         let draw_data = ui.render();
         let clear_values = [
@@ -481,10 +481,8 @@ impl GraphicsApp for App {
                 .destroy_shader_module(self.vertex_shader_module, None);
             base.device
                 .destroy_shader_module(self.fragment_shader_module, None);
-            self.engine_entities.free_resources(
-                base.borrow(),
-                &mut self.allocator.lock().expect("failed to get lock"),
-            );
+            self.engine_entities
+                .free_resources(base.borrow(), self.allocator.clone());
             for mut mesh in self.mesh_list.drain(..) {
                 mesh.free_resources(
                     base.borrow(),
