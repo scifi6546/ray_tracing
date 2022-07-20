@@ -72,14 +72,14 @@ pub struct PassBase {
     pub base: Rc<Base>,
     pub allocator: Arc<Mutex<Allocator>>,
     pub scene_state: Rc<RefCell<SceneState>>,
+    pub engine_entities: Rc<RefCell<EngineEntities>>,
 }
 pub struct SceneState {
     pub imgui_context: imgui::Context,
-    pub engine_entities: EngineEntities,
     pub mesh_descriptors: MeshDescriptors,
 }
 impl SceneState {
-    pub fn new(base: Rc<Base>, allocator: Arc<Mutex<Allocator>>) -> Self {
+    pub fn new(base: Rc<Base>, allocator: Arc<Mutex<Allocator>>) -> (Self, EngineEntities) {
         let mut imgui_context = imgui::Context::create();
         let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui_context);
         let hidipi_factor = imgui_platform.hidpi_factor();
@@ -96,17 +96,21 @@ impl SceneState {
             &mesh_descriptors.descriptor_pool,
             &mesh_descriptors.descriptor_set_layouts,
         );
-        Self {
-            imgui_context,
+        (
+            Self {
+                imgui_context,
+
+                mesh_descriptors,
+            },
             engine_entities,
-            mesh_descriptors,
-        }
+        )
     }
 }
 pub struct RenderPassApp {
     graph: RenderGraph<Box<dyn VulkanPass>>,
     allocator: Arc<Mutex<Allocator>>,
     scene_state: Rc<RefCell<SceneState>>,
+    engine_entities: Rc<RefCell<EngineEntities>>,
 }
 impl RenderPassApp {
     pub fn new(base: Rc<Base>) -> Self {
@@ -121,14 +125,14 @@ impl RenderPassApp {
             })
             .expect("created allocator"),
         ));
-        let scene_state = Rc::new(RefCell::new(SceneState::new(
-            base.clone(),
-            allocator.clone(),
-        )));
+        let (scene_state, engine_entities) = SceneState::new(base.clone(), allocator.clone());
+        let scene_state = Rc::new(RefCell::new(scene_state));
+        let engine_entities = Rc::new(RefCell::new(engine_entities));
         let mut pass_base = PassBase {
             base,
             allocator: allocator.clone(),
             scene_state: scene_state.clone(),
+            engine_entities: engine_entities.clone(),
         };
         let solid_texture: Box<dyn VulkanPass> =
             Box::new(solid_texture::SolidTexturePass::new(&pass_base));
@@ -141,6 +145,7 @@ impl RenderPassApp {
             graph,
             allocator,
             scene_state,
+            engine_entities,
         }
     }
 }
@@ -151,6 +156,7 @@ impl GraphicsApp for RenderPassApp {
                 base: base.clone(),
                 allocator: self.allocator.clone(),
                 scene_state: self.scene_state.clone(),
+                engine_entities: self.engine_entities.clone(),
             };
             for pass in self.graph.iter_mut() {
                 pass.prepare_render(&pass_base);
@@ -165,6 +171,7 @@ impl GraphicsApp for RenderPassApp {
             base,
             allocator: self.allocator.clone(),
             scene_state: self.scene_state.clone(),
+            engine_entities: self.engine_entities.clone(),
         };
         self.graph.run_graph(&pass_base);
     }
@@ -182,6 +189,7 @@ impl GraphicsApp for RenderPassApp {
             base,
             allocator: self.allocator.clone(),
             scene_state: self.scene_state.clone(),
+            engine_entities: self.engine_entities.clone(),
         };
         for pass in self.graph.iter_mut() {
             pass.handle_event(&pass_base, event)
@@ -194,16 +202,19 @@ impl GraphicsApp for RenderPassApp {
                 base: base.clone(),
                 allocator: self.allocator.clone(),
                 scene_state: self.scene_state.clone(),
+                engine_entities: self.engine_entities.clone(),
             };
             self.graph.free_passes(&pass_base);
         }
         {
-            let mut scene_state = self.scene_state.as_ref().borrow_mut();
             unsafe {
-                scene_state
-                    .engine_entities
+                self.engine_entities
+                    .as_ref()
+                    .borrow_mut()
                     .free_resources(base.as_ref(), self.allocator.clone());
             }
+
+            let mut scene_state = self.scene_state.as_ref().borrow_mut();
 
             scene_state.mesh_descriptors.free(base.clone())
         }

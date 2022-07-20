@@ -366,10 +366,16 @@ impl VulkanPass for OutputPass {
 
         let ui = scene_state.imgui_context.frame();
         self.imgui_platform.prepare_render(&ui, &base.base.window);
-        if ui.button("hello bttn!!!!") {
-            println!("clicked button")
+        let mut engine_entities = base.engine_entities.as_ref().borrow_mut();
+        let mut new_active_scene: Option<String> = None;
+        for scene_name in engine_entities.names().iter() {
+            if ui.button(scene_name.to_string()) {
+                new_active_scene = Some(scene_name.to_string());
+            }
         }
-
+        if let Some(name) = new_active_scene {
+            engine_entities.set_name(name);
+        }
         let draw_data = ui.render();
         let clear_values = [
             vk::ClearValue {
