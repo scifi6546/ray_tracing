@@ -1,11 +1,12 @@
+mod diffuse_pass;
 mod graph;
 mod mesh_descriptors;
 mod output_pass;
 mod solid_texture;
-
 use super::{prelude::*, record_submit_commandbuffer, Base, GraphicsApp};
 use crate::render_graph::mesh_descriptors::MeshDescriptors;
 use ash::{util::read_spv, vk};
+use diffuse_pass::DiffusePass;
 use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
 use graph::{RenderGraph, RenderPass};
 use output_pass::OutputPass;
@@ -68,6 +69,7 @@ impl RenderPass for Box<dyn VulkanPass> {
         VulkanPass::free(self.as_mut(), base)
     }
 }
+#[derive(Clone)]
 pub struct PassBase {
     pub base: Rc<Base>,
     pub allocator: Arc<Mutex<Allocator>>,
@@ -138,7 +140,8 @@ impl RenderPassApp {
             Box::new(solid_texture::SolidTexturePass::new(&pass_base));
         let (solid_pass_id, solid_pass_output) = graph.insert_pass(solid_texture, Vec::new());
         let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base));
-
+        let diffuse_pass: Box<dyn VulkanPass> = Box::new(DiffusePass::new(pass_base.clone()));
+        let (_diffuse_pass_id, diffuse_pass_deps) = graph.insert_pass(diffuse_pass, vec![]);
         graph.insert_output_pass(pass, solid_pass_output);
 
         Self {
