@@ -20,16 +20,30 @@ use std::{
     time::Duration,
 };
 use winit::event::Event;
-
-/// Possible outputs of renderpass, todo: garbage collector
+pub fn get_semaphores(outputs: &[&VulkanOutput]) -> Vec<vk::Semaphore> {
+    outputs
+        .iter()
+        .map(|o| match o {
+            &VulkanOutput::Framebuffer {
+                write_semaphore, ..
+            } => Some(write_semaphore.clone()),
+            &VulkanOutput::Empty => None,
+        })
+        .filter_map(|s| s)
+        .filter_map(|s| s)
+        .collect()
+}
+/// Possible outputs of renderpass
 pub enum VulkanOutput {
-    /// view that a pass draws to
+    /// view that a pass draws to, todo: add semaphore
     Framebuffer {
         descriptor_set: vk::DescriptorSet,
+        /// signaled when safe to write to
+        write_semaphore: Option<vk::Semaphore>,
     },
     Empty,
 }
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum VulkanOutputType {
     FrameBuffer,
     /// Temporary pass used to mark dependency
@@ -142,7 +156,10 @@ impl RenderPassApp {
         let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base));
         let diffuse_pass: Box<dyn VulkanPass> = Box::new(DiffusePass::new(pass_base.clone()));
         let (_diffuse_pass_id, diffuse_pass_deps) = graph.insert_pass(diffuse_pass, vec![]);
-        graph.insert_output_pass(pass, solid_pass_output);
+        graph.insert_output_pass(
+            pass,
+            vec![solid_pass_output[0].clone(), diffuse_pass_deps[0].clone()],
+        );
 
         Self {
             graph,

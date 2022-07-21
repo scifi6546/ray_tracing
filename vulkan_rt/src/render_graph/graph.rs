@@ -27,7 +27,7 @@ struct RenderPassItem<T: RenderPass> {
     item: T,
     dependencies: Vec<RenderPassOutputMarker<T::RenderPassOutputMarker>>,
 }
-
+#[derive(Clone)]
 pub struct RenderPassOutputMarker<T: Clone> {
     pub ty: T,
     /// renderpass that creates the output

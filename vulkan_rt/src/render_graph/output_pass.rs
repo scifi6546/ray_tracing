@@ -1,4 +1,4 @@
-use super::{PassBase, SceneState, VulkanOutput, VulkanOutputType, VulkanPass};
+use super::{get_semaphores, PassBase, SceneState, VulkanOutput, VulkanOutputType, VulkanPass};
 use crate::{prelude::*, record_submit_commandbuffer};
 use ash::{util::read_spv, vk};
 use image::Rgba;
@@ -336,7 +336,7 @@ impl VulkanPass for OutputPass {
     }
     fn prepare_render(&mut self, base: &PassBase) {}
     fn get_dependencies(&self) -> Vec<VulkanOutputType> {
-        vec![VulkanOutputType::FrameBuffer]
+        vec![VulkanOutputType::FrameBuffer, VulkanOutputType::Empty]
     }
 
     fn get_output(&self) -> Vec<VulkanOutputType> {
@@ -344,8 +344,9 @@ impl VulkanPass for OutputPass {
     }
 
     fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
+        let mut depedency_semaphores = get_semaphores(&input);
         let fb_descriptor_set = match input[0] {
-            &VulkanOutput::Framebuffer { descriptor_set } => descriptor_set,
+            &VulkanOutput::Framebuffer { descriptor_set, .. } => descriptor_set,
             _ => panic!("invalid dependency"),
         };
         let (present_index, _) = unsafe {
@@ -395,7 +396,7 @@ impl VulkanPass for OutputPass {
             .framebuffer(self.framebuffers[present_index as usize])
             .render_area(base.base.surface_resolution.into())
             .clear_values(&clear_values);
-
+        depedency_semaphores.push(base.base.present_complete_semaphore);
         unsafe {
             record_submit_commandbuffer(
                 &base.base.device,
@@ -403,7 +404,7 @@ impl VulkanPass for OutputPass {
                 base.base.draw_commands_reuse_fence,
                 base.base.present_queue,
                 &[vk::PipelineStageFlags::BOTTOM_OF_PIPE],
-                &[base.base.present_complete_semaphore],
+                &depedency_semaphores,
                 &[base.base.rendering_complete_semaphore],
                 |device, draw_command_buffer| {
                     device.cmd_begin_render_pass(

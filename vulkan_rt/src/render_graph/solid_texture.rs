@@ -81,6 +81,7 @@ impl VulkanPass for SolidTexturePass {
                 .expect("already freed")
                 .descriptor_set
                 .clone(),
+            write_semaphore: None,
         }]
     }
 
