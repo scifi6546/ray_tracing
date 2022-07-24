@@ -21,6 +21,9 @@ pub trait RenderPass {
         base: &Self::Base,
         input: Vec<&Self::RenderPassOutput>,
     ) -> Vec<Self::RenderPassOutput>;
+    fn is_first(&self) -> bool {
+        self.get_dependencies().is_empty()
+    }
     fn free(self, base: &Self::Base);
 }
 struct RenderPassItem<T: RenderPass> {

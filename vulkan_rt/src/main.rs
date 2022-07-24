@@ -512,6 +512,9 @@ impl Base {
             window_height,
         }
     }
+    pub fn num_swapchain_images(&self) -> usize {
+        self.present_image_views.len()
+    }
     pub fn render_loop<F: Fn(usize)>(&self, f: F) {
         let mut frame_counter = 0;
         self.event_loop

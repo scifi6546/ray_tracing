@@ -29,6 +29,7 @@ pub struct OutputPass {
     pipeline_layout: vk::PipelineLayout,
     scissors: [vk::Rect2D; 1],
     viewports: [vk::Viewport; 1],
+    present_index: Option<u32>,
 }
 impl OutputPass {
     pub fn new(base: &mut PassBase) -> Self {
@@ -322,6 +323,7 @@ impl OutputPass {
             render_plane: Some(render_plane),
             viewports,
             scissors,
+            present_index: None,
         }
     }
 }
@@ -334,7 +336,21 @@ impl VulkanPass for OutputPass {
             event,
         )
     }
-    fn prepare_render(&mut self, base: &PassBase) {}
+    fn prepare_render(&mut self, base: &PassBase) {
+        println!("aquiring image");
+        let (present_index, _) = unsafe {
+            base.base
+                .swapchain_loader
+                .acquire_next_image(
+                    base.base.swapchain,
+                    u64::MAX,
+                    base.base.present_complete_semaphore,
+                    vk::Fence::null(),
+                )
+                .expect("failed to acquire image")
+        };
+        self.present_index = Some(present_index);
+    }
     fn get_dependencies(&self) -> Vec<VulkanOutputType> {
         vec![VulkanOutputType::FrameBuffer, VulkanOutputType::Empty]
     }
@@ -349,17 +365,7 @@ impl VulkanPass for OutputPass {
             &VulkanOutput::Framebuffer { descriptor_set, .. } => descriptor_set,
             _ => panic!("invalid dependency"),
         };
-        let (present_index, _) = unsafe {
-            base.base
-                .swapchain_loader
-                .acquire_next_image(
-                    base.base.swapchain,
-                    u64::MAX,
-                    base.base.present_complete_semaphore,
-                    vk::Fence::null(),
-                )
-                .expect("failed to acquire image")
-        };
+
         let mut scene_state = base.scene_state.as_ref().borrow_mut();
         self.imgui_platform
             .prepare_frame(scene_state.imgui_context.io_mut(), &base.base.window)
@@ -391,9 +397,12 @@ impl VulkanPass for OutputPass {
                 },
             },
         ];
+        println!("present index: {}", self.present_index.unwrap());
         let renderpass_begin_info = vk::RenderPassBeginInfo::builder()
             .render_pass(self.renderpass)
-            .framebuffer(self.framebuffers[present_index as usize])
+            .framebuffer(
+                self.framebuffers[self.present_index.expect("failed to do process stage") as usize],
+            )
             .render_area(base.base.surface_resolution.into())
             .clear_values(&clear_values);
         depedency_semaphores.push(base.base.present_complete_semaphore);
@@ -477,7 +486,7 @@ impl VulkanPass for OutputPass {
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
             );
-
+            let present_index = self.present_index.unwrap();
             let present_info = vk::PresentInfoKHR::builder()
                 .wait_semaphores(std::slice::from_ref(
                     &base.base.rendering_complete_semaphore,
@@ -488,6 +497,7 @@ impl VulkanPass for OutputPass {
                 .swapchain_loader
                 .queue_present(base.base.present_queue, &present_info)
                 .expect("failed to present render");
+            self.present_index = None;
         }
 
         Vec::new()
