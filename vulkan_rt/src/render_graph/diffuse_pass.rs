@@ -1,13 +1,13 @@
-mod semapore_buffer;
-use super::{get_semaphores, PassBase, VulkanOutput, VulkanOutputType, VulkanPass};
+use super::{PassBase, VulkanOutput, VulkanOutputType, VulkanPass};
 use crate::{prelude::*, record_submit_commandbuffer};
 use ash::{util::read_spv, vk};
 use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc},
     MemoryLocation,
 };
-use semapore_buffer::SemaphoreBuffer;
+
 use std::{ffi::CStr, io::Cursor, mem::size_of};
+
 struct FramebufferTexture {
     pub texture_image: vk::Image,
     pub texture_allocation: Allocation,
@@ -18,17 +18,19 @@ struct FramebufferTexture {
     framebuffer: vk::Framebuffer,
 }
 impl FramebufferTexture {
+    const FRAMEBUFFER_LAYOUT: vk::ImageLayout = vk::ImageLayout::GENERAL;
     pub fn new(base: PassBase, render_pass: vk::RenderPass) -> Self {
         let width = base.base.window_width;
         let height = base.base.window_height;
+        let extent = vk::Extent3D {
+            depth: 1,
+            height,
+            width,
+        };
         let image_create_info = vk::ImageCreateInfo::builder()
             .image_type(vk::ImageType::TYPE_2D)
             .format(COLOR_FORMAT)
-            .extent(vk::Extent3D {
-                depth: 1,
-                height,
-                width,
-            })
+            .extent(extent)
             .mip_levels(1)
             .array_layers(1)
             .samples(vk::SampleCountFlags::TYPE_1)
@@ -91,6 +93,45 @@ impl FramebufferTexture {
                 .create_image_view(&tex_image_view_info, None)
                 .expect("failed to get tex image view")
         };
+        unsafe {
+            record_submit_commandbuffer(
+                &base.base.device,
+                base.base.setup_command_buffer,
+                base.base.setup_commands_reuse_fence,
+                base.base.present_queue,
+                &[],
+                &[],
+                &[],
+                |device, texture_command_buffer| {
+                    let texture_barrier = vk::ImageMemoryBarrier::builder()
+                        .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+                        .new_layout(Self::FRAMEBUFFER_LAYOUT)
+                        .image(texture_image)
+                        .subresource_range(
+                            vk::ImageSubresourceRange::builder()
+                                .aspect_mask(vk::ImageAspectFlags::COLOR)
+                                .level_count(1)
+                                .layer_count(1)
+                                .build(),
+                        )
+                        .build();
+                    device.cmd_pipeline_barrier(
+                        texture_command_buffer,
+                        vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+                        vk::PipelineStageFlags::TRANSFER,
+                        vk::DependencyFlags::empty(),
+                        &[],
+                        &[],
+                        &[texture_barrier],
+                    );
+                },
+            );
+            base.base
+                .device
+                .wait_for_fences(&[base.base.setup_commands_reuse_fence], true, u64::MAX)
+                .expect("failed to wait for fence");
+        }
+
         let sampler_info = vk::SamplerCreateInfo::builder()
             .mag_filter(vk::Filter::LINEAR)
             .min_filter(vk::Filter::LINEAR)
@@ -118,7 +159,7 @@ impl FramebufferTexture {
                 .expect("failed to allocate desc layout")
         }[0];
         let tex_descriptor = vk::DescriptorImageInfo {
-            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+            image_layout: vk::ImageLayout::GENERAL,
             image_view: texture_image_view,
             sampler,
         };
@@ -190,6 +231,7 @@ pub struct DiffusePass {
     //semaphore_buffer: SemaphoreBuffer,
     draw_command_buffer: vk::CommandBuffer,
     draw_fence: vk::Fence,
+    frame_number: usize,
 }
 const COLOR_FORMAT: vk::Format = vk::Format::R8G8B8A8_UNORM;
 impl DiffusePass {
@@ -214,7 +256,7 @@ impl DiffusePass {
             .samples(vk::SampleCountFlags::TYPE_1)
             .load_op(vk::AttachmentLoadOp::CLEAR)
             .store_op(vk::AttachmentStoreOp::STORE)
-            .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
+            .final_layout(FramebufferTexture::FRAMEBUFFER_LAYOUT)
             .build()];
         let color_attachment_refs = [vk::AttachmentReference {
             attachment: 0,
@@ -426,6 +468,7 @@ impl DiffusePass {
             framebuffer_idx: 0,
             draw_command_buffer,
             draw_fence,
+            frame_number: 0,
         }
     }
 }
@@ -435,10 +478,10 @@ impl VulkanPass for DiffusePass {
     }
 
     fn get_output(&self) -> Vec<VulkanOutputType> {
-        vec![VulkanOutputType::Empty]
+        vec![VulkanOutputType::FrameBuffer]
     }
 
-    fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
+    fn process(&mut self, base: &PassBase, _input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -463,14 +506,13 @@ impl VulkanPass for DiffusePass {
             .render_area(base.base.surface_resolution.into())
             .clear_values(&clear_values);
 
-        let signal_semaphores = vec![];
-
         unsafe {
             base.base
                 .device
                 .device_wait_idle()
                 .expect("failed to wait idle");
         }
+        let engine_entities: std::cell::Ref<EngineEntities> = base.engine_entities.borrow();
         unsafe {
             record_submit_commandbuffer(
                 &base.base.device,
@@ -479,20 +521,65 @@ impl VulkanPass for DiffusePass {
                 base.base.present_queue,
                 &[],
                 &[],
-                &signal_semaphores,
+                &[self.rendering_complete_semaphore],
                 |device, draw_command_buffer| {
                     device.cmd_begin_render_pass(
                         draw_command_buffer,
                         &renderpass_begin_info,
                         vk::SubpassContents::INLINE,
                     );
+                    let (camera, mesh_list) = engine_entities.get_selected_meshes();
+                    let camera_mat = camera.make_transform_mat();
+                    for mesh in mesh_list.iter() {
+                        let transform_mat =
+                            camera_mat * mesh.animation.build_transform_mat(self.frame_number);
+                        device.cmd_bind_descriptor_sets(
+                            draw_command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.pipeline_layout,
+                            0,
+                            &[mesh.texture.descriptor_set],
+                            &[],
+                        );
+                        device.cmd_bind_pipeline(
+                            draw_command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.graphics_pipeline,
+                        );
+                        device.cmd_set_viewport(draw_command_buffer, 0, &self.viewports);
+                        device.cmd_set_scissor(draw_command_buffer, 0, &self.scissors);
+                        device.cmd_bind_vertex_buffers(
+                            draw_command_buffer,
+                            0,
+                            &[mesh.vertex_buffer],
+                            &[0],
+                        );
+                        device.cmd_push_constants(
+                            draw_command_buffer,
+                            self.pipeline_layout,
+                            vk::ShaderStageFlags::VERTEX,
+                            0,
+                            mat4_to_bytes(&transform_mat),
+                        );
+                        device.cmd_bind_index_buffer(
+                            draw_command_buffer,
+                            mesh.index_buffer,
+                            0,
+                            vk::IndexType::UINT32,
+                        );
+                        device.cmd_draw_indexed(draw_command_buffer, mesh.num_indices, 1, 0, 0, 1);
+                    }
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
             );
         }
         self.framebuffer_idx = (self.framebuffer_idx + 1) % base.base.num_swapchain_images() as u32;
-
-        vec![VulkanOutput::Empty]
+        self.frame_number += 1;
+        vec![VulkanOutput::Framebuffer {
+            descriptor_set: self.render_textures.as_ref().unwrap()[self.framebuffer_idx as usize]
+                .descriptor_set,
+            write_semaphore: Some(self.rendering_complete_semaphore),
+        }]
     }
 
     fn free(&mut self, base: &PassBase) {

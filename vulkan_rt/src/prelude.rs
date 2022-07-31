@@ -235,7 +235,7 @@ impl Mesh {
         Self { vertices, indices }
     }
 
-    pub fn XYRect() -> Self {
+    pub fn xy_rect() -> Self {
         let vertices = vec![
             Vertex {
                 pos: Vector4::new(-0.5, -0.5, 0.0, 1.0),
@@ -257,7 +257,7 @@ impl Mesh {
         let indices = vec![0, 3, 2, 0, 2, 1, 2, 3, 0, 1, 2, 0];
         Self { vertices, indices }
     }
-    pub fn YZRect() -> Self {
+    pub fn yz_rect() -> Self {
         let vertices = vec![
             Vertex {
                 pos: Vector4::new(0.0, -0.5, -0.5, 1.0),
@@ -279,7 +279,7 @@ impl Mesh {
         let indices = vec![0, 3, 2, 0, 2, 1, 2, 3, 0, 1, 2, 0];
         Self { vertices, indices }
     }
-    pub fn XZRect() -> Self {
+    pub fn xz_rect() -> Self {
         let vertices = vec![
             Vertex {
                 pos: Vector4::new(-0.5, 0.0, -0.5, 1.0),
@@ -462,7 +462,7 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
                     size_x,
                     size_y,
                 } => {
-                    let mesh = Mesh::XYRect();
+                    let mesh = Mesh::xy_rect();
                     let transform: Vec<Rc<dyn Animation>> = vec![
                         Rc::new(Scale {
                             scale: Vector3::new(2.0 * size_x, 2.0 * size_y, 1.0),
@@ -478,7 +478,7 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
                     size_y,
                     size_z,
                 } => {
-                    let mesh = Mesh::YZRect();
+                    let mesh = Mesh::yz_rect();
                     let transform: Vec<Rc<dyn Animation>> = vec![
                         Rc::new(Scale {
                             scale: Vector3::new(1.0, 2.0 * size_y, 2.0 * size_z),
@@ -494,7 +494,7 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
                     size_x,
                     size_z,
                 } => {
-                    let mesh = Mesh::XZRect();
+                    let mesh = Mesh::xz_rect();
                     let transform: Vec<Rc<dyn Animation>> = vec![
                         Rc::new(Scale {
                             scale: Vector3::new(2.0 * size_x, 1.0, 2.0 * size_z),

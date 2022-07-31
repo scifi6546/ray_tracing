@@ -64,6 +64,7 @@ impl<T: RenderPass> RenderGraph<T> {
             output_pass: None,
         }
     }
+    #[allow(dead_code)]
     pub fn iter(&self) -> GraphIter<T> {
         GraphIter {
             iter: self.graph_items.iter(),

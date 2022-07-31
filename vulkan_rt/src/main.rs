@@ -178,8 +178,14 @@ impl Base {
             .unwrap();
 
         let app_info = vk::ApplicationInfo::builder().api_version(vk::make_api_version(0, 1, 3, 0));
-        let layer_names =
-            [unsafe { CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") }];
+        let mut layer_names: Vec<&CStr> = vec![];
+        {
+            #[cfg(feature = "validation_layers")]
+            layer_names.push(unsafe {
+                CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0")
+            });
+            println!("todo again!!");
+        }
         let layer_names_raw: Vec<*const c_char> = layer_names
             .iter()
             .map(|raw_name| raw_name.as_ptr())
@@ -188,6 +194,16 @@ impl Base {
             .unwrap()
             .to_vec();
         extension_names.push(DebugUtils::name().as_ptr());
+        for name in layer_names_raw.iter() {
+            let name_cstr = unsafe { CStr::from_ptr(*name) };
+            let name_str = name_cstr.to_str().unwrap();
+            println!("enabled layer: {}", name_str);
+        }
+        for name in extension_names.iter() {
+            let name_cstr = unsafe { CStr::from_ptr(*name) };
+            let name_str = name_cstr.to_str().unwrap();
+            println!("enabled layer: {}", name_str);
+        }
 
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)

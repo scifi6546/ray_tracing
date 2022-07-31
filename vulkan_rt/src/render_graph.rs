@@ -32,12 +32,13 @@ pub fn get_semaphores(outputs: &[&VulkanOutput]) -> Vec<vk::Semaphore> {
 }
 /// Possible outputs of renderpass
 pub enum VulkanOutput {
-    /// view that a pass draws to, todo: add semaphore
+    /// view that a pass draws to
     Framebuffer {
         descriptor_set: vk::DescriptorSet,
-        /// signaled when safe to write to
+        /// signaled when safe to write to, if present must be consumed
         write_semaphore: Option<vk::Semaphore>,
     },
+    #[allow(dead_code)]
     Empty,
 }
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -48,6 +49,8 @@ pub enum VulkanOutputType {
 }
 pub trait VulkanPass {
     fn handle_event(&mut self, _base: &PassBase, _event: &winit::event::Event<()>) {}
+    fn update_delta_time(&mut self, _elapsed_time: Duration) {}
+    ///optional function, called before render graph on each frame. To be used if graph layer needs additional processing
     fn prepare_render(&mut self, _base: &PassBase) {}
     fn get_dependencies(&self) -> Vec<VulkanOutputType>;
     fn get_output(&self) -> Vec<VulkanOutputType>;
@@ -94,6 +97,8 @@ pub struct SceneState {
 impl SceneState {
     pub fn new(base: Rc<Base>, allocator: Arc<Mutex<Allocator>>) -> (Self, EngineEntities) {
         let mut imgui_context = imgui::Context::create();
+        imgui_context.set_ini_filename(None);
+        /*
         let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui_context);
         let hidipi_factor = imgui_platform.hidpi_factor();
         imgui_platform.attach_window(
@@ -101,7 +106,9 @@ impl SceneState {
             &base.window,
             imgui_winit_support::HiDpiMode::Rounded,
         );
+
         imgui_context.io_mut().font_global_scale = 1.0 / hidipi_factor as f32;
+         */
         let mesh_descriptors = MeshDescriptors::new(base.clone());
         let engine_entities = EngineEntities::new(
             base.as_ref(),
@@ -179,11 +186,7 @@ impl GraphicsApp for RenderPassApp {
                 pass.prepare_render(&pass_base);
             }
         }
-        {
-            let mut scene_state = self.scene_state.as_ref().borrow_mut();
-            let frame = scene_state.imgui_context.frame();
-            frame.button("Test!!!");
-        }
+
         let pass_base = PassBase {
             base,
             allocator: self.allocator.clone(),
@@ -194,6 +197,10 @@ impl GraphicsApp for RenderPassApp {
     }
 
     fn update_delta_time(&mut self, elapsed_time: Duration) {
+        for layer in self.graph.iter_mut() {
+            layer.update_delta_time(elapsed_time)
+        }
+
         let mut scene_state = self.scene_state.as_ref().borrow_mut();
         scene_state
             .imgui_context

@@ -325,7 +325,17 @@ impl VulkanPass for OutputPass {
             event,
         )
     }
-    fn prepare_render(&mut self, base: &PassBase) {
+
+    fn get_dependencies(&self) -> Vec<VulkanOutputType> {
+        vec![VulkanOutputType::FrameBuffer, VulkanOutputType::Empty]
+    }
+
+    fn get_output(&self) -> Vec<VulkanOutputType> {
+        Vec::new()
+    }
+
+    fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
+        let mut depedency_semaphores = get_semaphores(&input);
         let (present_index, _) = unsafe {
             base.base
                 .swapchain_loader
@@ -338,18 +348,7 @@ impl VulkanPass for OutputPass {
                 .expect("failed to acquire image")
         };
         self.present_index = Some(present_index);
-    }
-    fn get_dependencies(&self) -> Vec<VulkanOutputType> {
-        vec![VulkanOutputType::FrameBuffer, VulkanOutputType::Empty]
-    }
-
-    fn get_output(&self) -> Vec<VulkanOutputType> {
-        Vec::new()
-    }
-
-    fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
-        let mut depedency_semaphores = get_semaphores(&input);
-        let fb_descriptor_set = match input[0] {
+        let diffuse_descriptor_set = match input[1] {
             &VulkanOutput::Framebuffer { descriptor_set, .. } => descriptor_set,
             _ => panic!("invalid dependency"),
         };
@@ -360,17 +359,35 @@ impl VulkanPass for OutputPass {
             .expect("failed to prepare frame");
 
         let ui = scene_state.imgui_context.frame();
-        self.imgui_platform.prepare_render(&ui, &base.base.window);
+
         let mut engine_entities = base.engine_entities.as_ref().borrow_mut();
         let mut new_active_scene: Option<String> = None;
-        for scene_name in engine_entities.names().iter() {
-            if ui.button(scene_name.to_string()) {
+
+        for (i, scene_name) in engine_entities.names().iter().enumerate() {
+            ui.text(format!("{}", i));
+
+            let button_clicked = ui.button(scene_name.to_string());
+            if button_clicked {
+                println!("set new active scene, {}", scene_name);
                 new_active_scene = Some(scene_name.to_string());
             }
         }
         if let Some(name) = new_active_scene {
             engine_entities.set_name(name);
         }
+        if ui.is_any_item_hovered() {
+            // println!("hovered!!!");
+        }
+        /*
+        if ui.is_any_item_active() {
+            println!("item active")
+        }
+
+         */
+        if ui.button("foo!!!!") {
+            println!("clicked foo????");
+        }
+        self.imgui_platform.prepare_render(&ui, &base.base.window);
         let draw_data = ui.render();
         let clear_values = [
             vk::ClearValue {
@@ -394,13 +411,17 @@ impl VulkanPass for OutputPass {
             .render_area(base.base.surface_resolution.into())
             .clear_values(&clear_values);
         depedency_semaphores.push(base.base.present_complete_semaphore);
+        let wait_mask = depedency_semaphores
+            .iter()
+            .map(|_| vk::PipelineStageFlags::BOTTOM_OF_PIPE)
+            .collect::<Vec<_>>();
         unsafe {
             record_submit_commandbuffer(
                 &base.base.device,
                 base.base.draw_command_buffer,
                 base.base.draw_commands_reuse_fence,
                 base.base.present_queue,
-                &[vk::PipelineStageFlags::BOTTOM_OF_PIPE],
+                &wait_mask,
                 &depedency_semaphores,
                 &[base.base.rendering_complete_semaphore],
                 |device, draw_command_buffer| {
@@ -430,7 +451,7 @@ impl VulkanPass for OutputPass {
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline_layout,
                         0,
-                        &[fb_descriptor_set],
+                        &[diffuse_descriptor_set],
                         &[],
                     );
                     device.cmd_bind_pipeline(
