@@ -326,7 +326,6 @@ impl VulkanPass for OutputPass {
         )
     }
     fn prepare_render(&mut self, base: &PassBase) {
-        println!("aquiring image");
         let (present_index, _) = unsafe {
             base.base
                 .swapchain_loader
@@ -386,7 +385,7 @@ impl VulkanPass for OutputPass {
                 },
             },
         ];
-        println!("present index: {}", self.present_index.unwrap());
+
         let renderpass_begin_info = vk::RenderPassBeginInfo::builder()
             .render_pass(self.renderpass)
             .framebuffer(

@@ -187,7 +187,7 @@ pub struct DiffusePass {
     scissors: [vk::Rect2D; 1],
     viewports: [vk::Viewport; 1],
     framebuffer_idx: u32,
-    semaphore_buffer: SemaphoreBuffer,
+    //semaphore_buffer: SemaphoreBuffer,
     draw_command_buffer: vk::CommandBuffer,
     draw_fence: vk::Fence,
 }
@@ -395,7 +395,7 @@ impl DiffusePass {
                 .create_semaphore(&create_info, None)
                 .expect("failed to create rendering complete semaphore")
         };
-        let semaphore_buffer = SemaphoreBuffer::new(base.clone());
+        //     let semaphore_buffer = SemaphoreBuffer::new(base.clone());
         let command_buffer_alloc_info = vk::CommandBufferAllocateInfo::builder()
             .command_buffer_count(1)
             .command_pool(base.base.pool)
@@ -422,7 +422,7 @@ impl DiffusePass {
             scissors,
             viewports,
             rendering_complete_semaphore,
-            semaphore_buffer,
+
             framebuffer_idx: 0,
             draw_command_buffer,
             draw_fence,
@@ -439,9 +439,6 @@ impl VulkanPass for DiffusePass {
     }
 
     fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
-        println!("running diffuse pass");
-        //  return vec![VulkanOutput::Empty];
-
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -466,14 +463,8 @@ impl VulkanPass for DiffusePass {
             .render_area(base.base.surface_resolution.into())
             .clear_values(&clear_values);
 
-        //   let mut depedency_semaphores = get_semaphores(&input);
-        // depedency_semaphores.push(base.base.present_complete_semaphore);
-        // println!("semaphore len: {}", depedency_semaphores.len());
-        //   let depedency_semaphores = vec![base.base.present_complete_semaphore];
-        let depedency_semaphores = vec![];
-        //   let signal_semaphores = vec![self.rendering_complete_semaphore];
         let signal_semaphores = vec![];
-        //return vec![VulkanOutput::Empty];
+
         unsafe {
             base.base
                 .device
@@ -486,13 +477,10 @@ impl VulkanPass for DiffusePass {
                 self.draw_command_buffer,
                 self.draw_fence,
                 base.base.present_queue,
-                //&[vk::PipelineStageFlags::BOTTOM_OF_PIPE],
                 &[],
-                &depedency_semaphores,
+                &[],
                 &signal_semaphores,
                 |device, draw_command_buffer| {
-                    println!("runnoing frame");
-
                     device.cmd_begin_render_pass(
                         draw_command_buffer,
                         &renderpass_begin_info,
@@ -525,6 +513,10 @@ impl VulkanPass for DiffusePass {
             base.base
                 .device
                 .destroy_shader_module(self.fragment_shader_module, None);
+            base.base
+                .device
+                .destroy_semaphore(self.rendering_complete_semaphore, None);
+            base.base.device.destroy_fence(self.draw_fence, None);
             let mut render_textures = self
                 .render_textures
                 .take()

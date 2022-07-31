@@ -79,6 +79,7 @@ fn find_memory_type_index(
         })
         .map(|(index, _memory_type)| index as _)
 }
+/// Submits command buffer, wait mash len must be the same as wait semaphores len
 pub unsafe fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>(
     device: &Device,
     command_buffer: vk::CommandBuffer,
@@ -112,7 +113,6 @@ pub unsafe fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>
         .end_command_buffer(command_buffer)
         .expect("failed to end command buffer");
     let command_buffers = vec![command_buffer];
-    println!("wait_semaphores len before: {}", wait_semaphores.len());
 
     let submit_info = vk::SubmitInfo::builder()
         .wait_semaphores(wait_semaphores)
@@ -120,15 +120,6 @@ pub unsafe fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>
         .command_buffers(&command_buffers)
         .signal_semaphores(signal_semaphore)
         .build();
-    println!(
-        "wait semaphore len: {}, wait semaphore count: {}",
-        submit_info.wait_semaphore_count,
-        wait_semaphores.len()
-    );
-    if wait_semaphores.len() != submit_info.wait_semaphore_count as usize {
-        println!("error: structure size does not match");
-        panic!("structure size does not match");
-    }
     device
         .queue_submit(submit_queue, &[submit_info], command_buffer_reuse_fence)
         .expect("failed to submit queue")
