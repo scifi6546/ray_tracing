@@ -1,14 +1,12 @@
 use super::{
     find_memory_type_index,
-    prelude::{Mat4, Mat4ToBytes, Mesh, Vector2, Vector4, Vertex},
-    Base,
+    prelude::{mat4_to_bytes, Mat4, Mesh, Vector4, Vertex},
+    record_submit_commandbuffer, Base,
 };
-use crate::record_submit_commandbuffer;
 use ash::{
     util::{read_spv, Align},
     vk,
 };
-use cgmath::SquareMatrix;
 use std::{
     default::Default,
     ffi::CStr,
@@ -92,14 +90,12 @@ pub fn run(base: &Base) {
     };
     let index_buffer_memory_req =
         unsafe { base.device.get_buffer_memory_requirements(index_buffer) };
-    let index_buffer_memory_index = unsafe {
-        find_memory_type_index(
-            &index_buffer_memory_req,
-            &base.device_memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )
-        .expect("failed to get memory reqs")
-    };
+    let index_buffer_memory_index = find_memory_type_index(
+        &index_buffer_memory_req,
+        &base.device_memory_properties,
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+    )
+    .expect("failed to get memory reqs");
     let index_allocate_info = vk::MemoryAllocateInfo::builder()
         .allocation_size(index_buffer_memory_req.size)
         .memory_type_index(index_buffer_memory_index);
@@ -146,14 +142,12 @@ pub fn run(base: &Base) {
         base.device
             .get_buffer_memory_requirements(vertex_input_buffer)
     };
-    let vertex_input_buffer_memory_index = unsafe {
-        find_memory_type_index(
-            &vertex_input_buffer_memory_req,
-            &base.device_memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )
-        .expect("failed to find suitable memory type")
-    };
+    let vertex_input_buffer_memory_index = find_memory_type_index(
+        &vertex_input_buffer_memory_req,
+        &base.device_memory_properties,
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+    )
+    .expect("failed to find suitable memory type");
     let vertex_buffer_allocate_info = vk::MemoryAllocateInfo::builder()
         .allocation_size(vertex_input_buffer_memory_req.size)
         .memory_type_index(vertex_input_buffer_memory_index);
@@ -198,14 +192,12 @@ pub fn run(base: &Base) {
         base.device
             .get_buffer_memory_requirements(uniform_color_buffer)
     };
-    let uniform_color_buffer_memory_index = unsafe {
-        find_memory_type_index(
-            &uniform_color_buffer_memory_req,
-            &base.device_memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )
-        .expect("failed to find suitible memory type index")
-    };
+    let uniform_color_buffer_memory_index = find_memory_type_index(
+        &uniform_color_buffer_memory_req,
+        &base.device_memory_properties,
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+    )
+    .expect("failed to find suitible memory type index");
     let uniform_color_buffer_allocate_info = vk::MemoryAllocateInfo::builder()
         .allocation_size(uniform_color_buffer_memory_req.size)
         .memory_type_index(uniform_color_buffer_memory_index);
@@ -252,14 +244,12 @@ pub fn run(base: &Base) {
     };
     let image_buffer_memory_req =
         unsafe { base.device.get_buffer_memory_requirements(image_buffer) };
-    let image_buffer_memory_index = unsafe {
-        find_memory_type_index(
-            &image_buffer_memory_req,
-            &base.device_memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )
-        .expect("failed to find memory index")
-    };
+    let image_buffer_memory_index = find_memory_type_index(
+        &image_buffer_memory_req,
+        &base.device_memory_properties,
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+    )
+    .expect("failed to find memory index");
     let image_buffer_alloc_info = vk::MemoryAllocateInfo::builder()
         .allocation_size(image_buffer_memory_req.size)
         .memory_type_index(image_buffer_memory_index);
@@ -305,14 +295,12 @@ pub fn run(base: &Base) {
             .expect("failed to create image")
     };
     let texture_memory_req = unsafe { base.device.get_image_memory_requirements(texture_image) };
-    let texture_memory_index = unsafe {
-        find_memory_type_index(
-            &texture_memory_req,
-            &base.device_memory_properties,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        )
-        .expect("failed to get memory index")
-    };
+    let texture_memory_index = find_memory_type_index(
+        &texture_memory_req,
+        &base.device_memory_properties,
+        vk::MemoryPropertyFlags::DEVICE_LOCAL,
+    )
+    .expect("failed to get memory index");
     let texture_alloc_info = vk::MemoryAllocateInfo::builder()
         .allocation_size(texture_memory_req.size)
         .memory_type_index(texture_memory_index);
@@ -454,14 +442,12 @@ pub fn run(base: &Base) {
             .create_descriptor_pool(&descriptor_pool_info, None)
             .expect("failed to get descriptor pool")
     };
-    let desc_layout_bindings = unsafe {
-        [vk::DescriptorSetLayoutBinding::builder()
-            .binding(0)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .descriptor_count(1)
-            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-            .build()]
-    };
+    let desc_layout_bindings = [vk::DescriptorSetLayoutBinding::builder()
+        .binding(0)
+        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .descriptor_count(1)
+        .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+        .build()];
     let descriptor_info =
         vk::DescriptorSetLayoutCreateInfo::builder().bindings(&desc_layout_bindings);
     let desc_set_layouts = unsafe {
@@ -478,11 +464,7 @@ pub fn run(base: &Base) {
             .allocate_descriptor_sets(&desc_alloc_info)
             .expect("failed to allocate desc layout")
     };
-    let uniform_color_buffer_descriptor = vk::DescriptorBufferInfo {
-        buffer: uniform_color_buffer,
-        offset: 0,
-        range: size_of_val(&uniform_color_buffer_data) as u64,
-    };
+
     let tex_descriptor = vk::DescriptorImageInfo {
         image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         image_view: tex_image_view,
@@ -707,7 +689,7 @@ pub fn run(base: &Base) {
                         pipeline_layout,
                         vk::ShaderStageFlags::VERTEX,
                         0,
-                        Mat4ToBytes(&mat2),
+                        mat4_to_bytes(&mat2),
                     );
                     device.cmd_bind_index_buffer(
                         draw_command_buffer,
@@ -726,8 +708,6 @@ pub fn run(base: &Base) {
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
             );
-            let present_index_arr = [present_index];
-            let render_complete_sem_arr = [base.rendering_complete_semaphore];
 
             let present_info = vk::PresentInfoKHR::builder()
                 .wait_semaphores(std::slice::from_ref(&base.rendering_complete_semaphore))

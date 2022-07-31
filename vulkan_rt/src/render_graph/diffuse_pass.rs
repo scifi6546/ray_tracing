@@ -157,7 +157,7 @@ impl FramebufferTexture {
             framebuffer,
         }
     }
-    pub unsafe fn free_resources(mut self, base: &PassBase) {
+    pub unsafe fn free_resources(self, base: &PassBase) {
         base.base
             .device
             .device_wait_idle()
@@ -194,14 +194,12 @@ pub struct DiffusePass {
 const COLOR_FORMAT: vk::Format = vk::Format::R8G8B8A8_UNORM;
 impl DiffusePass {
     pub fn new(base: PassBase) -> Self {
-        let desc_layout_bindings = unsafe {
-            [vk::DescriptorSetLayoutBinding::builder()
-                .binding(0)
-                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                .descriptor_count(1)
-                .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-                .build()]
-        };
+        let desc_layout_bindings = [vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(1)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+            .build()];
         let descriptor_info =
             vk::DescriptorSetLayoutCreateInfo::builder().bindings(&desc_layout_bindings);
         let descriptor_set_layouts = unsafe {
@@ -441,7 +439,9 @@ impl VulkanPass for DiffusePass {
     }
 
     fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
-        //return vec![VulkanOutput::Empty];
+        println!("running diffuse pass");
+        //  return vec![VulkanOutput::Empty];
+
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -466,23 +466,33 @@ impl VulkanPass for DiffusePass {
             .render_area(base.base.surface_resolution.into())
             .clear_values(&clear_values);
 
-        let mut depedency_semaphores = get_semaphores(&input);
-        depedency_semaphores.push(base.base.present_complete_semaphore);
-        println!("semaphore len: {}", depedency_semaphores.len());
-        let depedency_semaphores = vec![base.base.present_complete_semaphore];
+        //   let mut depedency_semaphores = get_semaphores(&input);
+        // depedency_semaphores.push(base.base.present_complete_semaphore);
+        // println!("semaphore len: {}", depedency_semaphores.len());
+        //   let depedency_semaphores = vec![base.base.present_complete_semaphore];
         let depedency_semaphores = vec![];
+        //   let signal_semaphores = vec![self.rendering_complete_semaphore];
+        let signal_semaphores = vec![];
         //return vec![VulkanOutput::Empty];
+        unsafe {
+            base.base
+                .device
+                .device_wait_idle()
+                .expect("failed to wait idle");
+        }
         unsafe {
             record_submit_commandbuffer(
                 &base.base.device,
                 self.draw_command_buffer,
                 self.draw_fence,
                 base.base.present_queue,
-                &[vk::PipelineStageFlags::BOTTOM_OF_PIPE],
+                //&[vk::PipelineStageFlags::BOTTOM_OF_PIPE],
+                &[],
                 &depedency_semaphores,
-                &[self.rendering_complete_semaphore],
+                &signal_semaphores,
                 |device, draw_command_buffer| {
                     println!("runnoing frame");
+
                     device.cmd_begin_render_pass(
                         draw_command_buffer,
                         &renderpass_begin_info,

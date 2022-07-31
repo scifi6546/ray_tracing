@@ -1,7 +1,7 @@
 use std::{
     fs::{create_dir, read_dir},
     path::Path,
-    process::{Command, ExitStatus},
+    process::Command,
 };
 const SHADER_SRC_PATH: &str = "shaders/src";
 const SHADER_BIN_PATH: &str = "shaders/bin";

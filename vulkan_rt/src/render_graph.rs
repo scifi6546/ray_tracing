@@ -3,18 +3,15 @@ mod graph;
 mod mesh_descriptors;
 mod output_pass;
 mod solid_texture;
-use super::{prelude::*, record_submit_commandbuffer, Base, GraphicsApp};
+use super::{prelude::*, Base, GraphicsApp};
 use crate::render_graph::mesh_descriptors::MeshDescriptors;
-use ash::{util::read_spv, vk};
+use ash::vk;
 use diffuse_pass::DiffusePass;
 use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
 use graph::{RenderGraph, RenderPass};
 use output_pass::OutputPass;
 use std::{
     cell::RefCell,
-    ffi::CStr,
-    io::Cursor,
-    mem::size_of,
     rc::Rc,
     sync::{Arc, Mutex},
     time::Duration,
@@ -104,7 +101,7 @@ impl SceneState {
             &base.window,
             imgui_winit_support::HiDpiMode::Rounded,
         );
-        imgui_context.io_mut().font_global_scale = (1.0 / hidipi_factor as f32);
+        imgui_context.io_mut().font_global_scale = 1.0 / hidipi_factor as f32;
         let mesh_descriptors = MeshDescriptors::new(base.clone());
         let engine_entities = EngineEntities::new(
             base.as_ref(),
@@ -152,7 +149,7 @@ impl RenderPassApp {
         };
         let solid_texture: Box<dyn VulkanPass> =
             Box::new(solid_texture::SolidTexturePass::new(&pass_base));
-        let (solid_pass_id, solid_pass_output) = graph.insert_pass(solid_texture, Vec::new());
+        let (_solid_pass_id, solid_pass_output) = graph.insert_pass(solid_texture, Vec::new());
         let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base));
         let diffuse_pass: Box<dyn VulkanPass> = Box::new(DiffusePass::new(pass_base.clone()));
         let (_diffuse_pass_id, diffuse_pass_deps) = graph.insert_pass(diffuse_pass, vec![]);
@@ -170,7 +167,7 @@ impl RenderPassApp {
     }
 }
 impl GraphicsApp for RenderPassApp {
-    fn run_frame(&mut self, base: Rc<Base>, frame_number: u32) {
+    fn run_frame(&mut self, base: Rc<Base>, _frame_number: u32) {
         {
             let pass_base = PassBase {
                 base: base.clone(),
@@ -234,7 +231,7 @@ impl GraphicsApp for RenderPassApp {
                     .free_resources(base.as_ref(), self.allocator.clone());
             }
 
-            let mut scene_state = self.scene_state.as_ref().borrow_mut();
+            let scene_state = self.scene_state.as_ref().borrow_mut();
 
             scene_state.mesh_descriptors.free(base.clone())
         }

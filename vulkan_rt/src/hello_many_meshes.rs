@@ -1,29 +1,19 @@
-use super::{find_memory_type_index, prelude::*, Base};
-use crate::prelude::Animation;
-use crate::record_submit_commandbuffer;
-use ash::vk::SemaphoreWaitInfo;
-use ash::{
-    util::{read_spv, Align},
-    vk,
-};
-use cgmath::{SquareMatrix, Vector3};
+use super::{prelude::*, record_submit_commandbuffer, Base};
+use ash::{util::read_spv, vk};
+use cgmath::Vector3;
 use gpu_allocator::vulkan::*;
-use gpu_allocator::{AllocatorDebugSettings, MemoryLocation};
-use image::RgbaImage;
-use std::borrow::BorrowMut;
-use std::ffi::c_void;
+use gpu_allocator::AllocatorDebugSettings;
 use std::{
-    cell::RefCell,
     default::Default,
     ffi::CStr,
     io::Cursor,
-    mem::{align_of, size_of, size_of_val},
+    mem::size_of,
     rc::Rc,
     sync::{Arc, Mutex},
 };
 
 pub fn run(base: &Base) {
-    let mut allocator = Arc::new(Mutex::new(
+    let allocator = Arc::new(Mutex::new(
         Allocator::new(&AllocatorCreateDesc {
             instance: base.instance.clone(),
             device: base.device.clone(),
@@ -108,14 +98,12 @@ pub fn run(base: &Base) {
             .create_descriptor_pool(&descriptor_pool_info, None)
             .expect("failed to get descriptor pool")
     };
-    let desc_layout_bindings = unsafe {
-        [vk::DescriptorSetLayoutBinding::builder()
-            .binding(0)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .descriptor_count(1)
-            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-            .build()]
-    };
+    let desc_layout_bindings = [vk::DescriptorSetLayoutBinding::builder()
+        .binding(0)
+        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .descriptor_count(1)
+        .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+        .build()];
     let descriptor_info =
         vk::DescriptorSetLayoutCreateInfo::builder().bindings(&desc_layout_bindings);
     let desc_set_layouts = unsafe {
@@ -379,7 +367,7 @@ pub fn run(base: &Base) {
                             pipeline_layout,
                             vk::ShaderStageFlags::VERTEX,
                             0,
-                            Mat4ToBytes(&transform_mat),
+                            mat4_to_bytes(&transform_mat),
                         );
                         device.cmd_bind_index_buffer(
                             draw_command_buffer,
@@ -411,7 +399,7 @@ pub fn run(base: &Base) {
             .destroy_shader_module(vertex_shader_module, None);
         base.device.destroy_shader_module(frag_shader_module, None);
 
-        for mut mesh in mesh_list.drain(..) {
+        for mesh in mesh_list.drain(..) {
             mesh.free_resources(
                 base,
                 &mut allocator.lock().expect("failed to get allocator"),

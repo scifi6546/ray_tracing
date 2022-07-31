@@ -1,7 +1,5 @@
 use super::PassBase;
-use crate::prelude::*;
 use ash::vk;
-use std::thread::current;
 pub struct SemaphoreBuffer {
     semaphores: [vk::Semaphore; 2],
     current_idx: usize,

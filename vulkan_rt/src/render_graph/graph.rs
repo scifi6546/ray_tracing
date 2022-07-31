@@ -1,9 +1,5 @@
-use crate::Base;
 use generational_arena::{Arena, Index as ArenaIndex};
-use std::{
-    cmp::PartialEq,
-    collections::{HashMap, HashSet},
-};
+use std::{cmp::PartialEq, collections::HashMap};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RenderPassID {
@@ -167,11 +163,11 @@ impl<T: RenderPass> RenderGraph<T> {
                 .iter()
                 .map(|dep| {
                     let dep_pass = dep.parent_pass;
-                    let (pass_items, output) = resources
+                    let (_pass_items, output) = resources
                         .get(&dep_pass)
                         .unwrap()
                         .iter()
-                        .filter(|(marker, output)| marker.clone() == dep.ty)
+                        .filter(|(marker, _output)| marker.clone() == dep.ty)
                         .next()
                         .unwrap();
                     output

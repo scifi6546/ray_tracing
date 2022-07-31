@@ -1,17 +1,8 @@
-use super::{get_semaphores, PassBase, SceneState, VulkanOutput, VulkanOutputType, VulkanPass};
+use super::{get_semaphores, PassBase, VulkanOutput, VulkanOutputType, VulkanPass};
 use crate::{prelude::*, record_submit_commandbuffer};
 use ash::{util::read_spv, vk};
-use image::Rgba;
-use std::borrow::BorrowMut;
-use std::cell::RefMut;
-use std::{
-    ffi::CStr,
-    io::Cursor,
-    mem::size_of,
-    rc::Rc,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+
+use std::{ffi::CStr, io::Cursor, mem::size_of};
 
 /// Describes renderpass that render a framebuffer to screen
 pub struct OutputPass {
@@ -45,7 +36,7 @@ impl OutputPass {
             &base.base.window,
             imgui_winit_support::HiDpiMode::Rounded,
         );
-        scene_state.imgui_context.io_mut().font_global_scale = (1.0 / hidipi_factor as f32);
+        scene_state.imgui_context.io_mut().font_global_scale = 1.0 / hidipi_factor as f32;
 
         let renderpass_attachments = [
             vk::AttachmentDescription::builder()
@@ -125,14 +116,12 @@ impl OutputPass {
                 .create_descriptor_pool(&descriptor_pool_info, None)
                 .expect("failed to get descriptor pool")
         };
-        let desc_layout_bindings = unsafe {
-            [vk::DescriptorSetLayoutBinding::builder()
-                .binding(0)
-                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                .descriptor_count(1)
-                .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-                .build()]
-        };
+        let desc_layout_bindings = [vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(1)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+            .build()];
         let descriptor_info =
             vk::DescriptorSetLayoutCreateInfo::builder().bindings(&desc_layout_bindings);
         let descriptor_set_layouts = unsafe {
@@ -463,7 +452,7 @@ impl VulkanPass for OutputPass {
                         self.pipeline_layout,
                         vk::ShaderStageFlags::VERTEX,
                         0,
-                        Mat4ToBytes(&transform_mat),
+                        mat4_to_bytes(&transform_mat),
                     );
                     device.cmd_bind_index_buffer(
                         draw_command_buffer,

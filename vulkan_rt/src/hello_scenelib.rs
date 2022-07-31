@@ -1,26 +1,15 @@
-use super::{find_memory_type_index, prelude::*, Base, GraphicsApp};
-use crate::prelude::Animation;
+use super::{prelude::*, Base, GraphicsApp};
 use crate::record_submit_commandbuffer;
-use ash::vk::SemaphoreWaitInfo;
-use ash::{
-    util::{read_spv, Align},
-    vk,
-};
-use base_lib::Object;
-use cgmath::{Point3, SquareMatrix, Vector3};
-use gpu_allocator::vulkan::*;
-use gpu_allocator::{AllocatorDebugSettings, MemoryLocation};
-use image::RgbaImage;
-use imgui_rs_vulkan_renderer::Options;
-use std::borrow::Borrow;
-use std::ffi::c_void;
+use ash::{util::read_spv, vk};
+
+use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
+
 use std::{
-    collections::HashMap,
+    borrow::Borrow,
     default::Default,
     ffi::CStr,
     io::Cursor,
-    mem::ManuallyDrop,
-    mem::{align_of, size_of, size_of_val},
+    mem::size_of,
     rc::Rc,
     sync::{Arc, Mutex},
     time::Duration,
@@ -40,7 +29,6 @@ pub struct App {
     vertex_shader_module: vk::ShaderModule,
     graphics_pipeline: vk::Pipeline,
     mesh_list: Vec<RenderModel>,
-    camera: Camera,
     pipeline_layout: vk::PipelineLayout,
     scissors: [vk::Rect2D; 1],
 
@@ -56,8 +44,8 @@ impl App {
             &base.window,
             imgui_winit_support::HiDpiMode::Rounded,
         );
-        imgui_context.io_mut().font_global_scale = (1.0 / hidipi_factor as f32);
-        let mut allocator = Arc::new(Mutex::new(
+        imgui_context.io_mut().font_global_scale = 1.0 / hidipi_factor as f32;
+        let allocator = Arc::new(Mutex::new(
             Allocator::new(&AllocatorCreateDesc {
                 instance: base.instance.clone(),
                 device: base.device.clone(),
@@ -142,14 +130,12 @@ impl App {
                 .create_descriptor_pool(&descriptor_pool_info, None)
                 .expect("failed to get descriptor pool")
         };
-        let desc_layout_bindings = unsafe {
-            [vk::DescriptorSetLayoutBinding::builder()
-                .binding(0)
-                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                .descriptor_count(1)
-                .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-                .build()]
-        };
+        let desc_layout_bindings = [vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(1)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+            .build()];
         let descriptor_info =
             vk::DescriptorSetLayoutCreateInfo::builder().bindings(&desc_layout_bindings);
         let descriptor_set_layouts = unsafe {
@@ -162,7 +148,7 @@ impl App {
 
         println!("camera: {:#?}", camera);
 
-        let mut mesh_list = meshes
+        let mesh_list = meshes
             .iter()
             .map(|m| {
                 m.build_render_model(
@@ -332,7 +318,6 @@ impl App {
             imgui_renderer,
             imgui_platform,
             engine_entities,
-            camera,
             allocator,
             framebuffers,
             renderpass,
@@ -445,7 +430,7 @@ impl GraphicsApp for App {
                             self.pipeline_layout,
                             vk::ShaderStageFlags::VERTEX,
                             0,
-                            Mat4ToBytes(&transform_mat),
+                            mat4_to_bytes(&transform_mat),
                         );
                         device.cmd_bind_index_buffer(
                             draw_command_buffer,
@@ -483,7 +468,7 @@ impl GraphicsApp for App {
                 .destroy_shader_module(self.fragment_shader_module, None);
             self.engine_entities
                 .free_resources(base.borrow(), self.allocator.clone());
-            for mut mesh in self.mesh_list.drain(..) {
+            for mesh in self.mesh_list.drain(..) {
                 mesh.free_resources(
                     base.borrow(),
                     &mut self.allocator.lock().expect("failed to get lock"),

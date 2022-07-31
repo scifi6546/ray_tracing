@@ -1,4 +1,3 @@
-use crate::Shape::XZRect;
 use cgmath::{InnerSpace, Point3, Vector3};
 use std::{
     fmt::{Display, Formatter},

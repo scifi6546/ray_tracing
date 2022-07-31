@@ -1,5 +1,5 @@
 use super::{AnimationList, Mesh, Vertex};
-use crate::{find_memory_type_index, record_submit_commandbuffer, Base};
+use crate::{record_submit_commandbuffer, Base};
 use ash::{util::Align, vk};
 use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc, Allocator},
@@ -242,7 +242,8 @@ impl RenderTexture {
         unsafe {
             base.device.update_descriptor_sets(&write_desc_sets, &[]);
             base.device
-                .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX);
+                .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
+                .expect("failed to wait for fence");
 
             base.device.destroy_buffer(image_buffer, None);
         }
@@ -254,8 +255,8 @@ impl RenderTexture {
             texture_image_view,
         }
     }
-    pub unsafe fn free_resources(mut self, base: &Base, allocator: &mut Allocator) {
-        base.device.device_wait_idle();
+    pub unsafe fn free_resources(self, base: &Base, allocator: &mut Allocator) {
+        base.device.device_wait_idle().expect("failed to wait idle");
         base.device
             .destroy_image_view(self.texture_image_view, None);
         base.device.destroy_sampler(self.sampler, None);
@@ -276,7 +277,7 @@ pub struct RenderModel {
     pub animation: AnimationList,
 }
 impl RenderModel {
-    pub unsafe fn free_resources(mut self, base: &Base, allocator: &mut Allocator) {
+    pub unsafe fn free_resources(self, base: &Base, allocator: &mut Allocator) {
         base.device.device_wait_idle().expect("failed to wait idle");
         self.texture.free_resources(base, allocator);
 

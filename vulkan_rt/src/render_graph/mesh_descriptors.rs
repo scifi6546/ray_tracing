@@ -1,7 +1,6 @@
 use super::Base;
 use ash::vk;
 use std::rc::Rc;
-use winit::event::VirtualKeyCode::N;
 
 pub struct MeshDescriptors {
     pub descriptor_pool: vk::DescriptorPool,
@@ -21,14 +20,12 @@ impl MeshDescriptors {
                 .create_descriptor_pool(&descriptor_pool_info, None)
                 .expect("failed to get descriptor pool")
         };
-        let desc_layout_bindings = unsafe {
-            [vk::DescriptorSetLayoutBinding::builder()
-                .binding(0)
-                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                .descriptor_count(1)
-                .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-                .build()]
-        };
+        let desc_layout_bindings = [vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(1)
+            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+            .build()];
         let descriptor_info =
             vk::DescriptorSetLayoutCreateInfo::builder().bindings(&desc_layout_bindings);
         let descriptor_set_layouts = unsafe {

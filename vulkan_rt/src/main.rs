@@ -9,7 +9,6 @@ mod render_graph;
 use ash::{
     extensions::{
         ext::DebugUtils,
-        khr,
         khr::{Surface, Swapchain},
     },
     vk, Device, Entry, Instance,
@@ -90,6 +89,7 @@ pub unsafe fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>
     signal_semaphore: &[vk::Semaphore],
     f: F,
 ) {
+    assert_eq!(wait_mask.len(), wait_semaphores.len());
     device
         .wait_for_fences(&[command_buffer_reuse_fence], true, u64::MAX)
         .expect("failed to wait for fence");
@@ -112,12 +112,23 @@ pub unsafe fn record_submit_commandbuffer<F: FnOnce(&Device, vk::CommandBuffer)>
         .end_command_buffer(command_buffer)
         .expect("failed to end command buffer");
     let command_buffers = vec![command_buffer];
+    println!("wait_semaphores len before: {}", wait_semaphores.len());
+
     let submit_info = vk::SubmitInfo::builder()
         .wait_semaphores(wait_semaphores)
         .wait_dst_stage_mask(wait_mask)
         .command_buffers(&command_buffers)
         .signal_semaphores(signal_semaphore)
         .build();
+    println!(
+        "wait semaphore len: {}, wait semaphore count: {}",
+        submit_info.wait_semaphore_count,
+        wait_semaphores.len()
+    );
+    if wait_semaphores.len() != submit_info.wait_semaphore_count as usize {
+        println!("error: structure size does not match");
+        panic!("structure size does not match");
+    }
     device
         .queue_submit(submit_queue, &[submit_info], command_buffer_reuse_fence)
         .expect("failed to submit queue")
@@ -165,7 +176,7 @@ pub struct Base {
 }
 impl Base {
     pub fn new(window_width: u32, window_height: u32) -> Self {
-        let mut event_loop = EventLoop::new();
+        let event_loop = EventLoop::new();
         let window = WindowBuilder::new()
             .with_title("Ray Tracing Example")
             .with_inner_size(winit::dpi::LogicalSize::new(
@@ -218,7 +229,7 @@ impl Base {
             ash_window::create_surface(&entry, &instance, &window, None)
                 .expect("failed to create render surface")
         };
-        let surface_loader = unsafe { Surface::new(&entry, &instance) };
+        let surface_loader = Surface::new(&entry, &instance);
         let p_devices = unsafe {
             instance
                 .enumerate_physical_devices()
@@ -436,17 +447,16 @@ impl Base {
                                 .build(),
                         )
                         .build();
-                    unsafe {
-                        device.cmd_pipeline_barrier(
-                            setup_command_buffer,
-                            vk::PipelineStageFlags::BOTTOM_OF_PIPE,
-                            vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
-                            vk::DependencyFlags::empty(),
-                            &[],
-                            &[],
-                            &[layout_transition_barriers],
-                        )
-                    }
+
+                    device.cmd_pipeline_barrier(
+                        setup_command_buffer,
+                        vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+                        vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
+                        vk::DependencyFlags::empty(),
+                        &[],
+                        &[],
+                        &[layout_transition_barriers],
+                    )
                 },
             );
         }
@@ -519,7 +529,7 @@ impl Base {
         let mut frame_counter = 0;
         self.event_loop
             .borrow_mut()
-            .run_return(|event, t, controll_flow| {
+            .run_return(|event, _target, controll_flow| {
                 *controll_flow = ControlFlow::Poll;
                 match event {
                     Event::WindowEvent {
@@ -602,7 +612,7 @@ impl<App: GraphicsApp> GraphicsAppRunner<App> {
         self.base
             .event_loop
             .borrow_mut()
-            .run_return(|event, t, controll_flow| {
+            .run_return(|event, _target, controll_flow| {
                 *controll_flow = ControlFlow::Poll;
                 self.app.handle_event(self.base.clone(), &event);
                 match event {

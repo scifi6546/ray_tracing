@@ -3,7 +3,7 @@ use crate::Base;
 use ash::vk;
 use cgmath::{
     num_traits::FloatConst, Deg, Euler, Matrix, Matrix4, Point3, Quaternion, Rad, SquareMatrix,
-    Vector3, Zero,
+    Vector3,
 };
 use gpu_allocator::vulkan::*;
 pub use mesh::*;
@@ -26,7 +26,7 @@ impl Mat4 {
         }
     }
 }
-pub fn Mat4ToBytes<'a>(mat: &'a cgmath::Matrix4<f32>) -> &'a [u8] {
+pub fn mat4_to_bytes<'a>(mat: &'a cgmath::Matrix4<f32>) -> &'a [u8] {
     let ptr = mat.as_ptr() as *const u8;
     let arr = std::ptr::slice_from_raw_parts(ptr, std::mem::size_of::<f32>() * 4 * 4);
     unsafe { &*arr }
@@ -90,12 +90,12 @@ impl Mesh {
     }
     pub fn cylinder() -> Self {
         let num_segments = 16;
-        let mut vertices = (0..num_segments)
+        let vertices = (0..num_segments)
             .flat_map(|i| {
                 let theta = 2.0 * f32::PI() * ((i) as f32 / num_segments as f32);
                 let x = theta.sin();
                 let z = theta.cos();
-                let v = ((i) as f32 / num_segments as f32);
+                let v = (i) as f32 / num_segments as f32;
                 [
                     Vertex {
                         pos: Vector4::new(x, 1.0, z, 1.0),
@@ -621,7 +621,7 @@ pub struct Scale {
     pub scale: Vector3<f32>,
 }
 impl Animation for Scale {
-    fn get_transform(&self, frame_number: usize) -> Transform {
+    fn get_transform(&self, _frame_number: usize) -> Transform {
         Transform {
             position: Point3::new(0.0, 0.0, 0.0),
             rotation: Quaternion::from(Euler {
