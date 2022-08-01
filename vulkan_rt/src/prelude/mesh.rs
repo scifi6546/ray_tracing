@@ -1,138 +1,27 @@
 use super::{AnimationList, Mesh, Vertex};
-use crate::{find_memory_type_index, record_submit_commandbuffer, Base};
+use crate::{record_submit_commandbuffer, Base};
 use ash::{util::Align, vk};
 use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc, Allocator},
     MemoryLocation,
 };
 use std::mem::{align_of, size_of};
-
-pub struct RenderModel {
-    pub index_buffer: vk::Buffer,
-    pub index_allocation: Allocation,
-    pub vertex_buffer: vk::Buffer,
-    pub descriptor_set: vk::DescriptorSet,
-    pub vertex_allocation: Allocation,
+/// Texture used by render meshes
+pub struct RenderTexture {
     pub texture_image: vk::Image,
     pub texture_allocation: Allocation,
     pub texture_image_view: vk::ImageView,
     pub sampler: vk::Sampler,
-    pub num_indices: u32,
-    pub animation: AnimationList,
+    pub descriptor_set: vk::DescriptorSet,
 }
-impl RenderModel {
-    pub unsafe fn free_resources(self, base: &Base, allocator: &mut Allocator) {
-        base.device.device_wait_idle().expect("failed to wait idle");
-        base.device
-            .destroy_image_view(self.texture_image_view, None);
-        base.device.destroy_sampler(self.sampler, None);
-        base.device.destroy_image(self.texture_image, None);
-        allocator
-            .free(self.texture_allocation)
-            .expect("failed to free texture allocation");
-
-        base.device.destroy_buffer(self.vertex_buffer, None);
-        allocator
-            .free(self.vertex_allocation)
-            .expect("failed to free allocation");
-        base.device.destroy_buffer(self.index_buffer, None);
-        allocator
-            .free(self.index_allocation)
-            .expect("failed to destroy index allocation");
-    }
-}
-pub struct Model {
-    pub animation: AnimationList,
-    pub mesh: Mesh,
-    pub texture: image::RgbaImage,
-}
-impl Model {
-    pub fn build_render_model(
-        &self,
+impl RenderTexture {
+    pub fn new(
+        texture: &image::RgbaImage,
         base: &Base,
         allocator: &mut Allocator,
         descriptor_pool: &vk::DescriptorPool,
         descriptor_layouts: &[vk::DescriptorSetLayout],
-    ) -> RenderModel {
-        let index_buffer_info = vk::BufferCreateInfo::builder()
-            .size(size_of::<u32>() as u64 * self.mesh.indices.len() as u64)
-            .usage(vk::BufferUsageFlags::INDEX_BUFFER)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
-        let index_buffer = unsafe {
-            base.device
-                .create_buffer(&index_buffer_info, None)
-                .expect("failed to create index buffer")
-        };
-        let index_buffer_memory_req =
-            unsafe { base.device.get_buffer_memory_requirements(index_buffer) };
-        let index_allocation = allocator
-            .allocate(&AllocationCreateDesc {
-                name: "index buffer memory",
-                requirements: index_buffer_memory_req,
-                location: MemoryLocation::CpuToGpu,
-                linear: true,
-            })
-            .expect("failed to allocate");
-        let index_ptr = index_allocation.mapped_ptr().expect("failed to map ptr");
-
-        let mut index_slice = unsafe {
-            Align::new(
-                index_ptr.as_ptr(),
-                align_of::<u32>() as u64,
-                index_buffer_memory_req.size,
-            )
-        };
-        unsafe {
-            index_slice.copy_from_slice(&self.mesh.indices);
-
-            base.device
-                .bind_buffer_memory(
-                    index_buffer,
-                    index_allocation.memory(),
-                    index_allocation.offset(),
-                )
-                .unwrap();
-        }
-
-        let vertex_input_buffer_info = vk::BufferCreateInfo::builder()
-            .size(size_of::<Vertex>() as u64 * self.mesh.vertices.len() as u64)
-            .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
-        let vertex_buffer = unsafe {
-            base.device
-                .create_buffer(&vertex_input_buffer_info, None)
-                .expect("failed to create vertex input buffer")
-        };
-        let vertex_input_buffer_memory_req =
-            unsafe { base.device.get_buffer_memory_requirements(vertex_buffer) };
-        let vertex_allocation = allocator
-            .allocate(&AllocationCreateDesc {
-                requirements: vertex_input_buffer_memory_req,
-                location: MemoryLocation::CpuToGpu,
-                linear: true,
-                name: "Vertex Buffer",
-            })
-            .expect("failed to allocate");
-        let vert_ptr = vertex_allocation
-            .mapped_ptr()
-            .expect("failed to map vertex ptr");
-
-        unsafe {
-            let mut slice = Align::new(
-                vert_ptr.as_ptr(),
-                align_of::<Vertex>() as u64,
-                vertex_input_buffer_memory_req.size,
-            );
-            slice.copy_from_slice(&self.mesh.vertices);
-
-            base.device
-                .bind_buffer_memory(
-                    vertex_buffer,
-                    vertex_allocation.memory(),
-                    vertex_allocation.offset(),
-                )
-                .expect("failed to bind vertex buffer memory");
-        }
+    ) -> Self {
         let desc_alloc_info = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(descriptor_pool.clone())
             .set_layouts(descriptor_layouts);
@@ -141,9 +30,9 @@ impl Model {
                 .allocate_descriptor_sets(&desc_alloc_info)
                 .expect("failed to allocate desc layout")
         }[0];
-        let (width, height) = self.texture.dimensions();
+        let (width, height) = texture.dimensions();
         let image_extent = vk::Extent2D { width, height };
-        let image_data = self.texture.clone().into_raw();
+        let image_data = texture.clone().into_raw();
         let image_buffer_info = vk::BufferCreateInfo::builder()
             .size(size_of::<u8>() as u64 * image_data.len() as u64)
             .usage(vk::BufferUsageFlags::TRANSFER_SRC)
@@ -353,20 +242,163 @@ impl Model {
         unsafe {
             base.device.update_descriptor_sets(&write_desc_sets, &[]);
             base.device
-                .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX);
+                .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
+                .expect("failed to wait for fence");
 
             base.device.destroy_buffer(image_buffer, None);
         }
+        Self {
+            descriptor_set,
+            sampler,
+            texture_allocation,
+            texture_image,
+            texture_image_view,
+        }
+    }
+    pub unsafe fn free_resources(self, base: &Base, allocator: &mut Allocator) {
+        base.device.device_wait_idle().expect("failed to wait idle");
+        base.device
+            .destroy_image_view(self.texture_image_view, None);
+        base.device.destroy_sampler(self.sampler, None);
+        base.device.destroy_image(self.texture_image, None);
+        allocator
+            .free(self.texture_allocation)
+            .expect("failed to free texture allocation");
+    }
+}
+pub struct RenderModel {
+    pub index_buffer: vk::Buffer,
+    pub index_allocation: Allocation,
+    pub vertex_buffer: vk::Buffer,
+
+    pub vertex_allocation: Allocation,
+    pub texture: RenderTexture,
+    pub num_indices: u32,
+    pub animation: AnimationList,
+}
+impl RenderModel {
+    pub unsafe fn free_resources(self, base: &Base, allocator: &mut Allocator) {
+        base.device.device_wait_idle().expect("failed to wait idle");
+        self.texture.free_resources(base, allocator);
+
+        base.device.destroy_buffer(self.vertex_buffer, None);
+        allocator
+            .free(self.vertex_allocation)
+            .expect("failed to free allocation");
+        base.device.destroy_buffer(self.index_buffer, None);
+        allocator
+            .free(self.index_allocation)
+            .expect("failed to destroy index allocation");
+    }
+}
+pub struct Model {
+    pub animation: AnimationList,
+    pub mesh: Mesh,
+    pub texture: image::RgbaImage,
+}
+impl Model {
+    pub fn build_render_model(
+        &self,
+        base: &Base,
+        allocator: &mut Allocator,
+        descriptor_pool: &vk::DescriptorPool,
+        descriptor_layouts: &[vk::DescriptorSetLayout],
+    ) -> RenderModel {
+        let index_buffer_info = vk::BufferCreateInfo::builder()
+            .size(size_of::<u32>() as u64 * self.mesh.indices.len() as u64)
+            .usage(vk::BufferUsageFlags::INDEX_BUFFER)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+        let index_buffer = unsafe {
+            base.device
+                .create_buffer(&index_buffer_info, None)
+                .expect("failed to create index buffer")
+        };
+        let index_buffer_memory_req =
+            unsafe { base.device.get_buffer_memory_requirements(index_buffer) };
+        let index_allocation = allocator
+            .allocate(&AllocationCreateDesc {
+                name: "index buffer memory",
+                requirements: index_buffer_memory_req,
+                location: MemoryLocation::CpuToGpu,
+                linear: true,
+            })
+            .expect("failed to allocate");
+        let index_ptr = index_allocation.mapped_ptr().expect("failed to map ptr");
+
+        let mut index_slice = unsafe {
+            Align::new(
+                index_ptr.as_ptr(),
+                align_of::<u32>() as u64,
+                index_buffer_memory_req.size,
+            )
+        };
+        unsafe {
+            index_slice.copy_from_slice(&self.mesh.indices);
+
+            base.device
+                .bind_buffer_memory(
+                    index_buffer,
+                    index_allocation.memory(),
+                    index_allocation.offset(),
+                )
+                .unwrap();
+        }
+
+        let vertex_input_buffer_info = vk::BufferCreateInfo::builder()
+            .size(size_of::<Vertex>() as u64 * self.mesh.vertices.len() as u64)
+            .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+        let vertex_buffer = unsafe {
+            base.device
+                .create_buffer(&vertex_input_buffer_info, None)
+                .expect("failed to create vertex input buffer")
+        };
+        let vertex_input_buffer_memory_req =
+            unsafe { base.device.get_buffer_memory_requirements(vertex_buffer) };
+        let vertex_allocation = allocator
+            .allocate(&AllocationCreateDesc {
+                requirements: vertex_input_buffer_memory_req,
+                location: MemoryLocation::CpuToGpu,
+                linear: true,
+                name: "Vertex Buffer",
+            })
+            .expect("failed to allocate");
+        let vert_ptr = vertex_allocation
+            .mapped_ptr()
+            .expect("failed to map vertex ptr");
+
+        unsafe {
+            let mut slice = Align::new(
+                vert_ptr.as_ptr(),
+                align_of::<Vertex>() as u64,
+                vertex_input_buffer_memory_req.size,
+            );
+            slice.copy_from_slice(&self.mesh.vertices);
+
+            base.device
+                .bind_buffer_memory(
+                    vertex_buffer,
+                    vertex_allocation.memory(),
+                    vertex_allocation.offset(),
+                )
+                .expect("failed to bind vertex buffer memory");
+        }
+
+        let texture = RenderTexture::new(
+            &self.texture,
+            base,
+            allocator,
+            descriptor_pool,
+            descriptor_layouts,
+        );
         RenderModel {
             index_buffer,
             index_allocation,
             vertex_buffer,
             vertex_allocation,
-            descriptor_set,
-            texture_image,
-            texture_allocation,
-            texture_image_view,
-            sampler,
+
+            texture,
+
             num_indices: self.mesh.indices.len() as u32,
             animation: self.animation.clone(),
         }

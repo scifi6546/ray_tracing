@@ -1,29 +1,19 @@
-use super::{find_memory_type_index, prelude::*, Base};
-use crate::prelude::Animation;
-use crate::record_submit_commandbuffer;
-use ash::vk::SemaphoreWaitInfo;
-use ash::{
-    util::{read_spv, Align},
-    vk,
-};
-use cgmath::{SquareMatrix, Vector3};
+use super::{prelude::*, record_submit_commandbuffer, Base};
+use ash::{util::read_spv, vk};
+use cgmath::Vector3;
 use gpu_allocator::vulkan::*;
-use gpu_allocator::{AllocatorDebugSettings, MemoryLocation};
-use image::RgbaImage;
-use std::borrow::BorrowMut;
-use std::ffi::c_void;
+use gpu_allocator::AllocatorDebugSettings;
 use std::{
-    cell::RefCell,
     default::Default,
     ffi::CStr,
     io::Cursor,
-    mem::{align_of, size_of, size_of_val},
+    mem::size_of,
     rc::Rc,
     sync::{Arc, Mutex},
 };
 
 pub fn run(base: &Base) {
-    let mut allocator = Arc::new(Mutex::new(
+    let allocator = Arc::new(Mutex::new(
         Allocator::new(&AllocatorCreateDesc {
             instance: base.instance.clone(),
             device: base.device.clone(),
@@ -78,26 +68,7 @@ pub fn run(base: &Base) {
         base.device
             .create_render_pass(&renderpass_create_info, None)
             .unwrap()
-    }; /*
-       let mut imgui_ctx = imgui::Context::create();
-
-       let mut imgui_renderer = Rc::new(RefCell::new(
-           imgui_rs_vulkan_renderer::Renderer::with_gpu_allocator(
-               allocator.clone(),
-               base.device.clone(),
-               base.present_queue.clone(),
-               base.pool,
-               renderpass,
-               &mut imgui_ctx,
-               Some(imgui_rs_vulkan_renderer::Options {
-                   in_flight_frames: base.present_image_views.len(),
-                   ..Default::default()
-               }),
-           )
-           .expect("failed to make imgui renderer"),
-       ));
-
-        */
+    };
     let framebuffers = unsafe {
         base.present_image_views
             .iter()
@@ -127,14 +98,12 @@ pub fn run(base: &Base) {
             .create_descriptor_pool(&descriptor_pool_info, None)
             .expect("failed to get descriptor pool")
     };
-    let desc_layout_bindings = unsafe {
-        [vk::DescriptorSetLayoutBinding::builder()
-            .binding(0)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .descriptor_count(1)
-            .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-            .build()]
-    };
+    let desc_layout_bindings = [vk::DescriptorSetLayoutBinding::builder()
+        .binding(0)
+        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .descriptor_count(1)
+        .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+        .build()];
     let descriptor_info =
         vk::DescriptorSetLayoutCreateInfo::builder().bindings(&desc_layout_bindings);
     let desc_set_layouts = unsafe {
@@ -313,7 +282,7 @@ pub fn run(base: &Base) {
             .create_graphics_pipelines(vk::PipelineCache::null(), &[graphics_pipeline_info], None)
             .expect("failed to create graphics_pipeline")[0]
     };
-    //  let draw_data = imgui_ctx.frame().render();
+
     base.render_loop(|frame_counter| {
         let (present_index, _) = unsafe {
             base.swapchain_loader
@@ -377,7 +346,7 @@ pub fn run(base: &Base) {
                             vk::PipelineBindPoint::GRAPHICS,
                             pipeline_layout,
                             0,
-                            &[mesh.descriptor_set],
+                            &[mesh.texture.descriptor_set],
                             &[],
                         );
                         device.cmd_bind_pipeline(
@@ -398,7 +367,7 @@ pub fn run(base: &Base) {
                             pipeline_layout,
                             vk::ShaderStageFlags::VERTEX,
                             0,
-                            Mat4ToBytes(&transform_mat),
+                            mat4_to_bytes(&transform_mat),
                         );
                         device.cmd_bind_index_buffer(
                             draw_command_buffer,
@@ -413,9 +382,6 @@ pub fn run(base: &Base) {
                 },
             );
 
-            let present_index_arr = [present_index];
-            let render_complete_sem_arr = [base.rendering_complete_semaphore];
-
             let present_info = vk::PresentInfoKHR::builder()
                 .wait_semaphores(std::slice::from_ref(&base.rendering_complete_semaphore))
                 .swapchains(std::slice::from_ref(&base.swapchain))
@@ -426,7 +392,6 @@ pub fn run(base: &Base) {
         }
     });
     unsafe {
-        // drop(imgui_renderer.borrow_mut());
         base.device.device_wait_idle().expect("failed to wait idle");
         base.device.destroy_pipeline(graphics_pipelines, None);
         base.device.destroy_pipeline_layout(pipeline_layout, None);

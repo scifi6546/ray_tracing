@@ -1,26 +1,14 @@
-use super::{prelude::*, Base, GraphicsApp};
-use crate::record_submit_commandbuffer;
+use super::{get_semaphores, PassBase, VulkanOutput, VulkanOutputType, VulkanPass};
+use crate::{prelude::*, record_submit_commandbuffer};
 use ash::{util::read_spv, vk};
 
-use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
+use std::{ffi::CStr, io::Cursor, mem::size_of};
 
-use std::{
-    borrow::Borrow,
-    default::Default,
-    ffi::CStr,
-    io::Cursor,
-    mem::size_of,
-    rc::Rc,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
-
-pub struct App {
-    imgui_context: imgui::Context,
+/// Describes renderpass that render a framebuffer to screen
+pub struct OutputPass {
     imgui_renderer: imgui_rs_vulkan_renderer::Renderer,
     imgui_platform: imgui_winit_support::WinitPlatform,
-    allocator: Arc<Mutex<Allocator>>,
-    engine_entities: EngineEntities,
+    render_plane: Option<RenderModel>,
     framebuffers: Vec<vk::Framebuffer>,
     renderpass: vk::RenderPass,
     descriptor_pool: vk::DescriptorPool,
@@ -28,37 +16,31 @@ pub struct App {
     fragment_shader_module: vk::ShaderModule,
     vertex_shader_module: vk::ShaderModule,
     graphics_pipeline: vk::Pipeline,
-    mesh_list: Vec<RenderModel>,
+
     pipeline_layout: vk::PipelineLayout,
     scissors: [vk::Rect2D; 1],
-
     viewports: [vk::Viewport; 1],
+    present_index: Option<u32>,
 }
-impl App {
-    pub fn new(base: &Base) -> Self {
-        let mut imgui_context = imgui::Context::create();
-        let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui_context);
+impl OutputPass {
+    pub fn new(base: &mut PassBase) -> Self {
+        let mut scene_state = base.scene_state.as_ref().borrow_mut();
+
+        let imgui_context = &mut scene_state.imgui_context;
+        let mut imgui_platform = imgui_winit_support::WinitPlatform::init(imgui_context);
+
         let hidipi_factor = imgui_platform.hidpi_factor();
+
         imgui_platform.attach_window(
             imgui_context.io_mut(),
-            &base.window,
+            &base.base.window,
             imgui_winit_support::HiDpiMode::Rounded,
         );
-        imgui_context.io_mut().font_global_scale = 1.0 / hidipi_factor as f32;
-        let allocator = Arc::new(Mutex::new(
-            Allocator::new(&AllocatorCreateDesc {
-                instance: base.instance.clone(),
-                device: base.device.clone(),
-                physical_device: base.p_device.clone(),
-                debug_settings: AllocatorDebugSettings::default(),
-                buffer_device_address: false,
-            })
-            .expect("created allocator"),
-        ));
+        scene_state.imgui_context.io_mut().font_global_scale = 1.0 / hidipi_factor as f32;
 
         let renderpass_attachments = [
             vk::AttachmentDescription::builder()
-                .format(base.surface_format.format)
+                .format(base.base.surface_format.format)
                 .samples(vk::SampleCountFlags::TYPE_1)
                 .load_op(vk::AttachmentLoadOp::CLEAR)
                 .store_op(vk::AttachmentStoreOp::STORE)
@@ -97,22 +79,25 @@ impl App {
             .subpasses(std::slice::from_ref(&subpass))
             .dependencies(&dependencies);
         let renderpass = unsafe {
-            base.device
+            base.base
+                .device
                 .create_render_pass(&renderpass_create_info, None)
                 .unwrap()
         };
         let framebuffers = unsafe {
-            base.present_image_views
+            base.base
+                .present_image_views
                 .iter()
                 .map(|&present_image_view| {
-                    let framebuffer_attachments = [present_image_view, base.depth_image_view];
+                    let framebuffer_attachments = [present_image_view, base.base.depth_image_view];
                     let framebuffer_create_info = vk::FramebufferCreateInfo::builder()
                         .render_pass(renderpass)
                         .attachments(&framebuffer_attachments)
-                        .width(base.surface_resolution.width)
-                        .height(base.surface_resolution.height)
+                        .width(base.base.surface_resolution.width)
+                        .height(base.base.surface_resolution.height)
                         .layers(1);
-                    base.device
+                    base.base
+                        .device
                         .create_framebuffer(&framebuffer_create_info, None)
                         .expect("failed to create framebuffer")
                 })
@@ -126,7 +111,8 @@ impl App {
             .pool_sizes(&descriptor_sizes)
             .max_sets(100);
         let descriptor_pool = unsafe {
-            base.device
+            base.base
+                .device
                 .create_descriptor_pool(&descriptor_pool_info, None)
                 .expect("failed to get descriptor pool")
         };
@@ -140,45 +126,42 @@ impl App {
             vk::DescriptorSetLayoutCreateInfo::builder().bindings(&desc_layout_bindings);
         let descriptor_set_layouts = unsafe {
             [base
+                .base
                 .device
                 .create_descriptor_set_layout(&descriptor_info, None)
                 .expect("failed to create descriptor set layout")]
         };
-        let (meshes, camera) = make_meshes();
 
-        println!("camera: {:#?}", camera);
-
-        let mesh_list = meshes
-            .iter()
-            .map(|m| {
-                m.build_render_model(
-                    base,
-                    &mut allocator.lock().expect("failed to lock"),
-                    &descriptor_pool,
-                    &descriptor_set_layouts,
-                )
-            })
-            .collect::<Vec<_>>();
-        let engine_entities = EngineEntities::new(
-            base,
-            allocator.clone(),
-            &descriptor_pool,
-            &descriptor_set_layouts,
-        );
-        let mut vertex_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.vert.glsl"));
-        let mut frag_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.frag.glsl"));
+        let render_plane = {
+            let render_plane_mesh = Mesh::plane();
+            let render_plane_model = Model {
+                animation: AnimationList::new(vec![]),
+                mesh: render_plane_mesh,
+                texture: image::RgbaImage::from_pixel(100, 100, image::Rgba([100, 100, 100, 0xff])),
+            };
+            render_plane_model.build_render_model(
+                base.base.as_ref(),
+                &mut base.allocator.lock().expect("failed to lock"),
+                &descriptor_pool,
+                &descriptor_set_layouts,
+            )
+        };
+        let mut vertex_spv_file = Cursor::new(include_bytes!("../../shaders/bin/push.vert.glsl"));
+        let mut frag_spv_file = Cursor::new(include_bytes!("../../shaders/bin/push.frag.glsl"));
         let vertex_code =
             read_spv(&mut vertex_spv_file).expect("failed tp read vertex shader code");
         let vert_shader_info = vk::ShaderModuleCreateInfo::builder().code(&vertex_code);
         let frag_code = read_spv(&mut frag_spv_file).expect("failed to read fragment spv file");
         let frag_shader_info = vk::ShaderModuleCreateInfo::builder().code(&frag_code);
         let vertex_shader_module = unsafe {
-            base.device
+            base.base
+                .device
                 .create_shader_module(&vert_shader_info, None)
                 .expect("vertex shader compile info")
         };
         let fragment_shader_module = unsafe {
-            base.device
+            base.base
+                .device
                 .create_shader_module(&frag_shader_info, None)
                 .expect("failed tp compile fragment shader")
         };
@@ -190,7 +173,8 @@ impl App {
             .push_constant_ranges(std::slice::from_ref(&push_constant_range))
             .set_layouts(&descriptor_set_layouts);
         let pipeline_layout = unsafe {
-            base.device
+            base.base
+                .device
                 .create_pipeline_layout(&layout_create_info, None)
                 .expect("failed to get pipeline layout")
         };
@@ -234,12 +218,12 @@ impl App {
         let viewports = [vk::Viewport {
             x: 0.0,
             y: 0.0,
-            width: base.surface_resolution.width as f32,
-            height: base.surface_resolution.height as f32,
+            width: base.base.surface_resolution.width as f32,
+            height: base.base.surface_resolution.height as f32,
             min_depth: 0.0,
             max_depth: 1.0,
         }];
-        let scissors = [base.surface_resolution.into()];
+        let scissors = [base.base.surface_resolution.into()];
         let viewport_state_info = vk::PipelineViewportStateCreateInfo::builder()
             .scissors(&scissors)
             .viewports(&viewports);
@@ -292,7 +276,8 @@ impl App {
             .render_pass(renderpass)
             .build();
         let graphics_pipeline = unsafe {
-            base.device
+            base.base
+                .device
                 .create_graphics_pipelines(
                     vk::PipelineCache::null(),
                     &[graphics_pipeline_info],
@@ -301,12 +286,12 @@ impl App {
                 .expect("failed to create graphics_pipeline")[0]
         };
         let imgui_renderer = imgui_rs_vulkan_renderer::Renderer::with_gpu_allocator(
-            allocator.clone(),
-            base.device.clone(),
-            base.present_queue,
-            base.pool,
+            base.allocator.clone(),
+            base.base.device.clone(),
+            base.base.present_queue,
+            base.base.pool,
             renderpass,
-            &mut imgui_context,
+            &mut scene_state.imgui_context,
             Some(imgui_rs_vulkan_renderer::Options {
                 in_flight_frames: framebuffers.len(),
                 ..Default::default()
@@ -314,11 +299,8 @@ impl App {
         )
         .expect("failed to make renderer");
         Self {
-            imgui_context,
             imgui_renderer,
             imgui_platform,
-            engine_entities,
-            allocator,
             framebuffers,
             renderpass,
             descriptor_pool,
@@ -327,43 +309,85 @@ impl App {
             vertex_shader_module,
             graphics_pipeline,
             pipeline_layout,
-            mesh_list,
+            render_plane: Some(render_plane),
             viewports,
             scissors,
+            present_index: None,
         }
     }
 }
-impl GraphicsApp for App {
-    fn run_frame(&mut self, base: Rc<Base>, frame_number: u32) {
+impl VulkanPass for OutputPass {
+    fn handle_event(&mut self, base: &PassBase, event: &winit::event::Event<()>) {
+        let mut scene_state = base.scene_state.as_ref().borrow_mut();
+        self.imgui_platform.handle_event(
+            scene_state.imgui_context.io_mut(),
+            &base.base.window,
+            event,
+        )
+    }
+
+    fn get_dependencies(&self) -> Vec<VulkanOutputType> {
+        vec![VulkanOutputType::FrameBuffer, VulkanOutputType::Empty]
+    }
+
+    fn get_output(&self) -> Vec<VulkanOutputType> {
+        Vec::new()
+    }
+
+    fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
+        let mut depedency_semaphores = get_semaphores(&input);
         let (present_index, _) = unsafe {
-            base.swapchain_loader
+            base.base
+                .swapchain_loader
                 .acquire_next_image(
-                    base.swapchain,
+                    base.base.swapchain,
                     u64::MAX,
-                    base.present_complete_semaphore,
+                    base.base.present_complete_semaphore,
                     vk::Fence::null(),
                 )
                 .expect("failed to acquire image")
         };
+        self.present_index = Some(present_index);
+        let diffuse_descriptor_set = match input[1] {
+            &VulkanOutput::Framebuffer { descriptor_set, .. } => descriptor_set,
+            _ => panic!("invalid dependency"),
+        };
+
+        let mut scene_state = base.scene_state.as_ref().borrow_mut();
         self.imgui_platform
-            .prepare_frame(self.imgui_context.io_mut(), &base.window)
+            .prepare_frame(scene_state.imgui_context.io_mut(), &base.base.window)
             .expect("failed to prepare frame");
 
-        let ui = self.imgui_context.frame();
-        let mut set_name: Option<String> = None;
-        for scene_name in self.engine_entities.names().iter() {
-            let button_res = ui.button(scene_name);
-            if button_res {
-                set_name = Some(scene_name.to_string());
+        let ui = scene_state.imgui_context.frame();
 
-                println!("pressed button {} for scene: {}", button_res, scene_name)
+        let mut engine_entities = base.engine_entities.as_ref().borrow_mut();
+        let mut new_active_scene: Option<String> = None;
+
+        for (i, scene_name) in engine_entities.names().iter().enumerate() {
+            ui.text(format!("{}", i));
+
+            let button_clicked = ui.button(scene_name.to_string());
+            if button_clicked {
+                println!("set new active scene, {}", scene_name);
+                new_active_scene = Some(scene_name.to_string());
             }
         }
-        if let Some(n) = set_name {
-            self.engine_entities.set_name(n);
+        if let Some(name) = new_active_scene {
+            engine_entities.set_name(name);
         }
-        self.imgui_platform.prepare_render(&ui, &base.window);
+        if ui.is_any_item_hovered() {
+            // println!("hovered!!!");
+        }
+        /*
+        if ui.is_any_item_active() {
+            println!("item active")
+        }
 
+         */
+        if ui.button("foo!!!!") {
+            println!("clicked foo????");
+        }
+        self.imgui_platform.prepare_render(&ui, &base.base.window);
         let draw_data = ui.render();
         let clear_values = [
             vk::ClearValue {
@@ -378,121 +402,153 @@ impl GraphicsApp for App {
                 },
             },
         ];
+
         let renderpass_begin_info = vk::RenderPassBeginInfo::builder()
             .render_pass(self.renderpass)
-            .framebuffer(self.framebuffers[present_index as usize])
-            .render_area(base.surface_resolution.into())
+            .framebuffer(
+                self.framebuffers[self.present_index.expect("failed to do process stage") as usize],
+            )
+            .render_area(base.base.surface_resolution.into())
             .clear_values(&clear_values);
-
+        depedency_semaphores.push(base.base.present_complete_semaphore);
+        let wait_mask = depedency_semaphores
+            .iter()
+            .map(|_| vk::PipelineStageFlags::BOTTOM_OF_PIPE)
+            .collect::<Vec<_>>();
         unsafe {
             record_submit_commandbuffer(
-                &base.device,
-                base.draw_command_buffer,
-                base.draw_commands_reuse_fence,
-                base.present_queue,
-                &[vk::PipelineStageFlags::BOTTOM_OF_PIPE],
-                &[base.present_complete_semaphore],
-                &[base.rendering_complete_semaphore],
+                &base.base.device,
+                base.base.draw_command_buffer,
+                base.base.draw_commands_reuse_fence,
+                base.base.present_queue,
+                &wait_mask,
+                &depedency_semaphores,
+                &[base.base.rendering_complete_semaphore],
                 |device, draw_command_buffer| {
                     device.cmd_begin_render_pass(
                         draw_command_buffer,
                         &renderpass_begin_info,
                         vk::SubpassContents::INLINE,
                     );
+                    let transform_mat = self
+                        .render_plane
+                        .as_ref()
+                        .unwrap()
+                        .animation
+                        .build_transform_mat(0);
+                    /*
+                    device.cmd_bind_descriptor_sets(
+                        draw_command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.pipeline_layout,
+                        0,
+                        &[self.render_plane.as_ref().unwrap().texture.descriptor_set],
+                        &[],
+                    );
+                    */
+                    device.cmd_bind_descriptor_sets(
+                        draw_command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.pipeline_layout,
+                        0,
+                        &[diffuse_descriptor_set],
+                        &[],
+                    );
+                    device.cmd_bind_pipeline(
+                        draw_command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.graphics_pipeline,
+                    );
+                    device.cmd_set_viewport(draw_command_buffer, 0, &self.viewports);
+                    device.cmd_set_scissor(draw_command_buffer, 0, &self.scissors);
+                    device.cmd_bind_vertex_buffers(
+                        draw_command_buffer,
+                        0,
+                        &[self.render_plane.as_ref().unwrap().vertex_buffer],
+                        &[0],
+                    );
+                    device.cmd_push_constants(
+                        draw_command_buffer,
+                        self.pipeline_layout,
+                        vk::ShaderStageFlags::VERTEX,
+                        0,
+                        mat4_to_bytes(&transform_mat),
+                    );
+                    device.cmd_bind_index_buffer(
+                        draw_command_buffer,
+                        self.render_plane.as_ref().unwrap().index_buffer,
+                        0,
+                        vk::IndexType::UINT32,
+                    );
+                    device.cmd_draw_indexed(
+                        draw_command_buffer,
+                        self.render_plane.as_ref().unwrap().num_indices,
+                        1,
+                        0,
+                        0,
+                        1,
+                    );
 
-                    let (camera, mesh_list) = self.engine_entities.get_selected_meshes();
-                    for mesh in mesh_list.iter() {
-                        let transform_mat = camera.make_transform_mat()
-                            * mesh.animation.build_transform_mat(frame_number as usize);
-                        device.cmd_bind_descriptor_sets(
-                            draw_command_buffer,
-                            vk::PipelineBindPoint::GRAPHICS,
-                            self.pipeline_layout,
-                            0,
-                            &[mesh.texture.descriptor_set],
-                            &[],
-                        );
-                        device.cmd_bind_pipeline(
-                            draw_command_buffer,
-                            vk::PipelineBindPoint::GRAPHICS,
-                            self.graphics_pipeline,
-                        );
-                        device.cmd_set_viewport(draw_command_buffer, 0, &self.viewports);
-                        device.cmd_set_scissor(draw_command_buffer, 0, &self.scissors);
-                        device.cmd_bind_vertex_buffers(
-                            draw_command_buffer,
-                            0,
-                            &[mesh.vertex_buffer],
-                            &[0],
-                        );
-                        device.cmd_push_constants(
-                            draw_command_buffer,
-                            self.pipeline_layout,
-                            vk::ShaderStageFlags::VERTEX,
-                            0,
-                            mat4_to_bytes(&transform_mat),
-                        );
-                        device.cmd_bind_index_buffer(
-                            draw_command_buffer,
-                            mesh.index_buffer,
-                            0,
-                            vk::IndexType::UINT32,
-                        );
-                        device.cmd_draw_indexed(draw_command_buffer, mesh.num_indices, 1, 0, 0, 1);
-                    }
                     self.imgui_renderer
                         .cmd_draw(draw_command_buffer, draw_data)
                         .expect("failed to draw");
                     device.cmd_end_render_pass(draw_command_buffer);
                 },
             );
-
+            let present_index = self.present_index.unwrap();
             let present_info = vk::PresentInfoKHR::builder()
-                .wait_semaphores(std::slice::from_ref(&base.rendering_complete_semaphore))
-                .swapchains(std::slice::from_ref(&base.swapchain))
+                .wait_semaphores(std::slice::from_ref(
+                    &base.base.rendering_complete_semaphore,
+                ))
+                .swapchains(std::slice::from_ref(&base.base.swapchain))
                 .image_indices(std::slice::from_ref(&present_index));
-            base.swapchain_loader
-                .queue_present(base.present_queue, &present_info)
+            base.base
+                .swapchain_loader
+                .queue_present(base.base.present_queue, &present_info)
                 .expect("failed to present render");
+            self.present_index = None;
         }
+
+        Vec::new()
     }
-    fn free_resources(mut self, base: Rc<Base>) {
+
+    fn free(&mut self, base: &PassBase) {
         unsafe {
-            base.device.device_wait_idle().expect("failed to wait idle");
-            base.device.destroy_pipeline(self.graphics_pipeline, None);
-            base.device
+            base.base
+                .device
+                .device_wait_idle()
+                .expect("failed to wait idle");
+            base.base
+                .device
+                .destroy_pipeline(self.graphics_pipeline, None);
+            base.base
+                .device
                 .destroy_pipeline_layout(self.pipeline_layout, None);
-            base.device
+            base.base
+                .device
                 .destroy_shader_module(self.vertex_shader_module, None);
-            base.device
+            base.base
+                .device
                 .destroy_shader_module(self.fragment_shader_module, None);
-            self.engine_entities
-                .free_resources(base.borrow(), self.allocator.clone());
-            for mesh in self.mesh_list.drain(..) {
-                mesh.free_resources(
-                    base.borrow(),
-                    &mut self.allocator.lock().expect("failed to get lock"),
-                )
-            }
+            let plane = self.render_plane.take().expect("resource already freed");
+            plane.free_resources(
+                base.base.as_ref(),
+                &mut base.allocator.lock().expect("failed to get lock"),
+            );
+
             for &descriptor_set_layout in self.descriptor_set_layouts.iter() {
-                base.device
+                base.base
+                    .device
                     .destroy_descriptor_set_layout(descriptor_set_layout, None);
             }
-            base.device
+            base.base
+                .device
                 .destroy_descriptor_pool(self.descriptor_pool, None);
 
             for framebuffer in self.framebuffers.drain(..) {
-                base.device.destroy_framebuffer(framebuffer, None);
+                base.base.device.destroy_framebuffer(framebuffer, None);
             }
-            base.device.destroy_render_pass(self.renderpass, None);
-            drop(self.allocator);
+            base.base.device.destroy_render_pass(self.renderpass, None);
         }
-    }
-    fn update_delta_time(&mut self, elapsed_time: Duration) {
-        self.imgui_context.io_mut().update_delta_time(elapsed_time)
-    }
-    fn handle_event(&mut self, base: Rc<Base>, event: &winit::event::Event<()>) {
-        self.imgui_platform
-            .handle_event(self.imgui_context.io_mut(), &base.window, event)
     }
 }

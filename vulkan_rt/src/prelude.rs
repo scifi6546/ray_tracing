@@ -1,10 +1,17 @@
 mod mesh;
+use crate::Base;
+use ash::vk;
 use cgmath::{
     num_traits::FloatConst, Deg, Euler, Matrix, Matrix4, Point3, Quaternion, Rad, SquareMatrix,
-    Vector3, Zero,
+    Vector3,
 };
+use gpu_allocator::vulkan::*;
 pub use mesh::*;
-use std::rc::Rc;
+use std::{
+    collections::HashMap,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 #[repr(C)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy)]
 pub struct Mat4 {
@@ -19,7 +26,7 @@ impl Mat4 {
         }
     }
 }
-pub fn Mat4ToBytes<'a>(mat: &'a cgmath::Matrix4<f32>) -> &'a [u8] {
+pub fn mat4_to_bytes<'a>(mat: &'a cgmath::Matrix4<f32>) -> &'a [u8] {
     let ptr = mat.as_ptr() as *const u8;
     let arr = std::ptr::slice_from_raw_parts(ptr, std::mem::size_of::<f32>() * 4 * 4);
     unsafe { &*arr }
@@ -83,12 +90,12 @@ impl Mesh {
     }
     pub fn cylinder() -> Self {
         let num_segments = 16;
-        let mut vertices = (0..num_segments)
+        let vertices = (0..num_segments)
             .flat_map(|i| {
                 let theta = 2.0 * f32::PI() * ((i) as f32 / num_segments as f32);
                 let x = theta.sin();
                 let z = theta.cos();
-                let v = ((i) as f32 / num_segments as f32);
+                let v = (i) as f32 / num_segments as f32;
                 [
                     Vertex {
                         pos: Vector4::new(x, 1.0, z, 1.0),
@@ -227,7 +234,8 @@ impl Mesh {
         }
         Self { vertices, indices }
     }
-    pub fn YZRect() -> Self {
+
+    pub fn xy_rect() -> Self {
         let vertices = vec![
             Vertex {
                 pos: Vector4::new(-0.5, -0.5, 0.0, 1.0),
@@ -246,9 +254,299 @@ impl Mesh {
                 uv: Vector2::new(0.0, 1.0),
             },
         ];
-        let indices = vec![0, 3, 2, 0, 2, 1];
+        let indices = vec![0, 3, 2, 0, 2, 1, 2, 3, 0, 1, 2, 0];
         Self { vertices, indices }
     }
+    pub fn yz_rect() -> Self {
+        let vertices = vec![
+            Vertex {
+                pos: Vector4::new(0.0, -0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.0, -0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.0, 0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.0, 0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+        ];
+        let indices = vec![0, 3, 2, 0, 2, 1, 2, 3, 0, 1, 2, 0];
+        Self { vertices, indices }
+    }
+    pub fn xz_rect() -> Self {
+        let vertices = vec![
+            Vertex {
+                pos: Vector4::new(-0.5, 0.0, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.0, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.0, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.0, -0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+        ];
+        let indices = vec![0, 3, 2, 0, 2, 1, 2, 3, 0, 1, 2, 0];
+        Self { vertices, indices }
+    }
+    pub fn cube() -> Self {
+        let vertices = vec![
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(1.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.5, -0.5, 1.0),
+                uv: Vector2::new(1.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, 0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(0.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, -0.5, 1.0),
+                uv: Vector2::new(1.0, 0.0),
+            },
+            Vertex {
+                pos: Vector4::new(0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(1.0, 1.0),
+            },
+            Vertex {
+                pos: Vector4::new(-0.5, -0.5, 0.5, 1.0),
+                uv: Vector2::new(0.0, 1.0),
+            },
+        ];
+        #[rustfmt::skip]
+        let indices = vec![
+            0, 2, 3,
+            0, 1, 2,
+
+            4, 5, 6,
+            4, 6, 7,
+
+            10, 9, 8,
+            11, 10, 8,
+
+            12, 13, 14,
+            12, 14, 15,
+
+            16,17,20,
+            17,18,20,
+
+            21,24,22,
+            22,24,23
+        ];
+        Self { vertices, indices }
+    }
+}
+fn base_lib_to_texture(texture: &base_lib::Texture) -> image::RgbaImage {
+    match texture {
+        base_lib::Texture::ConstantColor(c) => image::RgbaImage::from_pixel(
+            100,
+            100,
+            image::Rgba([
+                (c.red * 255.0) as u8,
+                (c.green * 255.0) as u8,
+                (c.blue * 255.0) as u8,
+                255,
+            ]),
+        ),
+    }
+}
+pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
+    let models = scene
+        .objects
+        .iter()
+        .map(|object| {
+            let texture = match object.material.clone() {
+                base_lib::Material::Light(texture) => base_lib_to_texture(&texture),
+                base_lib::Material::Lambertian(texture) => base_lib_to_texture(&texture),
+            };
+            let (mesh, animation) = match object.shape {
+                base_lib::Shape::Sphere { radius, origin } => {
+                    let mesh = Mesh::sphere(64, 64);
+                    let transform = AnimationList::new(vec![
+                        Rc::new(StaticPosition { position: origin }),
+                        Rc::new(Scale {
+                            scale: Vector3::new(radius, radius, radius),
+                        }),
+                    ]);
+                    (mesh, transform)
+                }
+                base_lib::Shape::XYRect {
+                    center,
+                    size_x,
+                    size_y,
+                } => {
+                    let mesh = Mesh::xy_rect();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(2.0 * size_x, 2.0 * size_y, 1.0),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+                base_lib::Shape::YZRect {
+                    center,
+                    size_y,
+                    size_z,
+                } => {
+                    let mesh = Mesh::yz_rect();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(1.0, 2.0 * size_y, 2.0 * size_z),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+                base_lib::Shape::XZRect {
+                    center,
+                    size_x,
+                    size_z,
+                } => {
+                    let mesh = Mesh::xz_rect();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(2.0 * size_x, 1.0, 2.0 * size_z),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+                base_lib::Shape::RenderBox {
+                    center,
+                    size_x,
+                    size_y,
+                    size_z,
+                } => {
+                    let mesh = Mesh::cube();
+                    let transform: Vec<Rc<dyn Animation>> = vec![
+                        Rc::new(Scale {
+                            scale: Vector3::new(2.0 * size_x, 2.0 * size_y, 2.0 * size_z),
+                        }),
+                        Rc::new(StaticPosition {
+                            position: Point3::new(center.x, center.y, center.z),
+                        }),
+                    ];
+                    (mesh, AnimationList::new(transform))
+                }
+            };
+            Model {
+                animation,
+                mesh,
+                texture,
+            }
+        })
+        .collect::<Vec<_>>();
+    (
+        models,
+        Camera {
+            fov: scene.camera.fov,
+            aspect_ratio: scene.camera.aspect_ratio,
+            near_clip: scene.camera.near_clip,
+            far_clip: scene.camera.far_clip,
+            position: scene.camera.origin,
+            look_at: scene.camera.look_at,
+            up: scene.camera.up_vector,
+        },
+    )
+}
+pub fn make_meshes() -> (Vec<Model>, Camera) {
+    let scene = (base_lib::get_scenarios()[0].1)();
+
+    meshes_from_scene(&scene)
 }
 #[derive(Clone)]
 pub struct AnimationList {
@@ -261,6 +559,7 @@ impl AnimationList {
     pub fn build_transform_mat(&self, frame_number: usize) -> Matrix4<f32> {
         self.animations
             .iter()
+            .rev()
             .map(|anm| anm.get_transform(frame_number).build_matrix())
             .fold(Matrix4::identity(), |acc, x| acc * x)
     }
@@ -322,7 +621,7 @@ pub struct Scale {
     pub scale: Vector3<f32>,
 }
 impl Animation for Scale {
-    fn get_transform(&self, frame_number: usize) -> Transform {
+    fn get_transform(&self, _frame_number: usize) -> Transform {
         Transform {
             position: Point3::new(0.0, 0.0, 0.0),
             rotation: Quaternion::from(Euler {
@@ -359,12 +658,91 @@ pub struct Camera {
 }
 impl Camera {
     pub fn make_transform_mat(&self) -> Matrix4<f32> {
-        cgmath::perspective(
-            Deg(self.fov),
-            self.aspect_ratio,
-            self.near_clip,
-            self.far_clip,
-        ) * Matrix4::from_diagonal(cgmath::Vector4::new(1.0, 1.0, -1.0, 1.0))
-            * Matrix4::look_at_lh(self.position, self.look_at, self.up)
+        Matrix4::from_diagonal(cgmath::Vector4::new(1.0, -1.0, 1.0, 1.0))
+            * cgmath::perspective(
+                Deg(self.fov),
+                self.aspect_ratio,
+                self.near_clip,
+                self.far_clip,
+            )
+            * cgmath::Matrix4::look_at_rh(self.position, self.look_at, self.up)
+    }
+}
+struct RuntimeScenerio {
+    mesh_ids: Vec<usize>,
+    camera_id: usize,
+}
+pub struct EngineEntities {
+    meshes: Vec<RenderModel>,
+    cameras: Vec<Camera>,
+    selected_name: String,
+    scenes: HashMap<String, RuntimeScenerio>,
+}
+impl EngineEntities {
+    pub fn new(
+        base: &Base,
+        allocator: Arc<Mutex<Allocator>>,
+        descriptor_pool: &vk::DescriptorPool,
+        descriptor_layouts: &[vk::DescriptorSetLayout],
+    ) -> Self {
+        let raw_scenes = base_lib::get_scenarios();
+        let mut meshes = vec![];
+        let mut cameras = vec![];
+        let mut scenes = HashMap::new();
+        let mut selected_name = String::new();
+        for (name, raw_scene_fn) in raw_scenes.iter() {
+            selected_name = name.clone();
+            let raw_scene = (*raw_scene_fn)();
+            let (scene_mesh, camera) = meshes_from_scene(&raw_scene);
+            let mut mesh_ids = vec![];
+            for mesh in scene_mesh.iter() {
+                let runtime_model = mesh.build_render_model(
+                    base,
+                    &mut allocator.lock().expect("failed to get allocator"),
+                    descriptor_pool,
+                    descriptor_layouts,
+                );
+                mesh_ids.push(meshes.len());
+                meshes.push(runtime_model);
+            }
+            let camera_id = cameras.len();
+            cameras.push(camera);
+            scenes.insert(
+                name.to_string(),
+                RuntimeScenerio {
+                    mesh_ids,
+                    camera_id,
+                },
+            );
+        }
+        Self {
+            meshes,
+            cameras,
+            scenes,
+            selected_name,
+        }
+    }
+    pub fn get_selected_meshes(&self) -> (&Camera, Vec<&RenderModel>) {
+        let scene = self.scenes.get(&self.selected_name).unwrap();
+        let camera = &self.cameras[scene.camera_id];
+
+        (
+            camera,
+            scene.mesh_ids.iter().map(|id| &self.meshes[*id]).collect(),
+        )
+    }
+    pub fn names(&self) -> Vec<&str> {
+        self.scenes.keys().map(|s| s.as_str()).collect()
+    }
+    pub fn set_name(&mut self, name: String) {
+        self.selected_name = name
+    }
+    pub unsafe fn free_resources(&mut self, base: &Base, allocator: Arc<Mutex<Allocator>>) {
+        for model in self.meshes.drain(..) {
+            model.free_resources(
+                base,
+                &mut allocator.lock().expect("failed to get allocator"),
+            )
+        }
     }
 }

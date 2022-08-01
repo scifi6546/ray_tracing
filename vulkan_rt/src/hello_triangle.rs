@@ -92,14 +92,12 @@ pub fn run(base: &Base) {
             .expect("failed to create buffer")
     };
     let index_buffer_req = unsafe { base.device.get_buffer_memory_requirements(index_buffer) };
-    let index_buffer_memory_index = unsafe {
-        find_memory_type_index(
-            &index_buffer_req,
-            &base.device_memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )
-        .expect("failed to find sutible memory type")
-    };
+    let index_buffer_memory_index = find_memory_type_index(
+        &index_buffer_req,
+        &base.device_memory_properties,
+        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+    )
+    .expect("failed to find sutible memory type");
     let index_alloc_info = vk::MemoryAllocateInfo::builder()
         .allocation_size(index_buffer_req.size)
         .memory_type_index(index_buffer_memory_index);
@@ -191,7 +189,8 @@ pub fn run(base: &Base) {
     unsafe {
         base.device.unmap_memory(vertex_input_buffer_memory);
         base.device
-            .bind_buffer_memory(vertex_input_buffer, vertex_input_buffer_memory, 0);
+            .bind_buffer_memory(vertex_input_buffer, vertex_input_buffer_memory, 0)
+            .expect("failed to bind memory");
     }
     let mut vertex_spv_file = Cursor::new(&include_bytes!("../shaders/bin/triangle.vert.glsl"));
     let mut frag_spv_file = Cursor::new(&include_bytes!("../shaders/bin/triangle.frag.glsl"));

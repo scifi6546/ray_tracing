@@ -1,4 +1,3 @@
-mod cornell_box;
 mod cornell_smoke;
 mod easy_cornell_box;
 mod easy_scene;
@@ -7,12 +6,11 @@ mod random_scene;
 mod two_spheres;
 use super::{
     bvh::BvhNode, hittable::*, material::*, texture::*, Background, Camera, ConstantColor,
-    HitRecord, Hittable, Sky, IMAGE_HEIGHT, IMAGE_WIDTH,
+    FlipNormals, HitRecord, Hittable, Sky, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
-
 use cgmath::{Point3, Vector3};
-pub use cornell_box::cornell_box;
+
 pub use cornell_smoke::cornell_smoke;
 pub use easy_cornell_box::easy_cornell_box;
 pub use easy_scene::easy_scene;
@@ -69,7 +67,49 @@ impl World {
                         y1: center.y + size_y,
                         k: center.z,
                     }),
+                    base_lib::Shape::YZRect {
+                        center,
+                        size_y,
+                        size_z,
+                    } => Rc::new(YZRect {
+                        material,
+                        y0: center.y - size_y,
+                        y1: center.y + size_y,
+                        z0: center.z - size_z,
+                        z1: center.z + size_z,
+                        k: center.x,
+                    }),
+                    base_lib::Shape::XZRect {
+                        center,
+                        size_x,
+                        size_z,
+                    } => Rc::new(XZRect {
+                        material,
+                        x0: center.x - size_x,
+                        x1: center.x + size_x,
+                        z0: center.z - size_z,
+                        z1: center.z + size_z,
+                        k: center.y,
+                    }),
+                    base_lib::Shape::RenderBox {
+                        center,
+                        size_x,
+                        size_y,
+                        size_z,
+                    } => Rc::new(RenderBox::new(
+                        Point3::new(center.x - size_x, center.y - size_y, center.z - size_z),
+                        Point3::new(center.x + size_x, center.y + size_y, center.z + size_z),
+                        material,
+                    )),
                 };
+                let mut obj_out = obj_out;
+                for modifier in obj.modifiers.iter() {
+                    match modifier {
+                        base_lib::Modifiers::FlipNormals => {
+                            obj_out = Rc::new(FlipNormals { item: obj_out });
+                        }
+                    }
+                }
                 (
                     match obj.material {
                         base_lib::Material::Light(..) => true,
@@ -177,10 +217,6 @@ impl ScenarioCtor for ScenarioFn {
 }
 pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
     let mut scenes: Vec<Box<dyn ScenarioCtor>> = vec![
-        Box::new(ScenarioFn {
-            name: "Cornell Box".to_string(),
-            f: cornell_box,
-        }),
         Box::new(ScenarioFn {
             name: "Cornell Smoke".to_string(),
             f: cornell_smoke,

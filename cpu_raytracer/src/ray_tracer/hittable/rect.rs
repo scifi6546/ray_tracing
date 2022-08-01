@@ -61,7 +61,6 @@ impl Hittable for XYRect {
         if cos_alpha < 0.00001 {
             return 0.0;
         }
-        let area = (self.x1 - self.x0) * (self.y1 - self.y0);
 
         let distance_squared = to_light.dot(to_light);
 
