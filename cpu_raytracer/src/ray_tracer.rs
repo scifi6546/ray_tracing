@@ -138,6 +138,7 @@ pub struct RayTracerInfo {
 
 pub enum Message {
     LoadScenario(String),
+    SaveFile(std::path::PathBuf),
 }
 impl RayTracer {
     const SAMPLES_PER_PIXEL: usize = 1000;
@@ -238,6 +239,7 @@ impl RayTracer {
                             todo!("error handling, invalid scenario");
                         }
                     }
+                    Message::SaveFile(path) => rgb_img.save_image(path),
                 }
             }
             self.tracing_loop(&world, &mut rgb_img, num_samples);

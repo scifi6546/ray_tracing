@@ -1,5 +1,6 @@
 use super::{LogMessage, Message, RayTracerInfo};
 use egui_miniquad as egui_mq;
+use log::info;
 use miniquad::Context;
 use std::sync::mpsc::{Receiver, Sender};
 pub struct GuiCtx {
@@ -38,6 +39,18 @@ impl GuiCtx {
                         self.message_chanel
                             .send(Message::LoadScenario(scenario.clone()));
                         println!("clicked: {}", scenario);
+                    }
+                }
+            });
+            egui::Window::new("Save File").show(egui_ctx, |ui| {
+                if ui.button("Save Render").clicked() {
+                    info!("saving file");
+                    if let Some(save_path) = rfd::FileDialog::new().save_file() {
+                        self.message_chanel
+                            .send(Message::SaveFile(save_path.clone()));
+                        info!("saving file to path: {:?}", save_path);
+                    } else {
+                        info!("file save canceled");
                     }
                 }
             });

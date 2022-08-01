@@ -3,17 +3,19 @@ A CPU raytracer based off of the Raytracing in a Weekend book series by Peter Sh
 
 ## Cpu Renderer
 
+![example render](examples/pretty_render.png)
+
 The cpu raytracer is based off of the Raytracing in a Weekend series by Peter Shirley. It features multiple materials, a GUI written with egui and support for loading arbitrary scenes. It is currently single threaded. The supported materials are described below.
 
 ###  Lambertian
 
-A diffuse material that scatters light in random directions and absorbs a specifc color based on the color of the object.
+A diffuse material that scatters light in random directions and absorbs a specific color based on the color of the object.
 
 INSERT PRETTY SCREENSHOT!!!!!
 
 ### Metal
 
-Models a metalic surface. It reflects rays about the normal vector with a random blur based on a predifined "fuzz" variable inorder to model metalic surfaces that are not completly polished.
+Models a metallic surface. It reflects rays about the normal vector with a random blur based on a predifined "fuzz" variable inorder to model metalic surfaces that are not completly polished.
 
 INSERT SCREENSHOT OF NO FUZZ
 
