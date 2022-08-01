@@ -1,3 +1,4 @@
+mod extension_manager;
 use super::{find_memory_type_index, record_submit_commandbuffer};
 use ash::{
     extensions::{
@@ -6,6 +7,7 @@ use ash::{
     },
     vk, Device, Entry, Instance,
 };
+use extension_manager::ExtensionManager;
 use std::{borrow::Cow, cell::RefCell, ffi::CStr, os::raw::c_char};
 use winit::{
     event::{Event, WindowEvent},
@@ -53,6 +55,7 @@ pub struct Base {
 
     pub window_width: u32,
     pub window_height: u32,
+    pub extension_manager: ExtensionManager,
 }
 impl Base {
     pub fn new(window_width: u32, window_height: u32) -> Self {
@@ -73,22 +76,30 @@ impl Base {
             layer_names.push(unsafe {
                 CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0")
             });
-            println!("todo again!!");
         }
         let layer_names_raw: Vec<*const c_char> = layer_names
             .iter()
             .map(|raw_name| raw_name.as_ptr())
             .collect();
-        let mut extension_names = ash_window::enumerate_required_extensions(&window)
-            .unwrap()
-            .to_vec();
-        extension_names.push(DebugUtils::name().as_ptr());
-        for name in layer_names_raw.iter() {
-            let name_cstr = unsafe { CStr::from_ptr(*name) };
-            let name_str = name_cstr.to_str().unwrap();
-            println!("enabled layer: {}", name_str);
+        let mut extension_manager = ExtensionManager::new();
+
+        for name in ash_window::enumerate_required_extensions(&window).unwrap() {
+            unsafe {
+                extension_manager.add_extension(*name);
+            }
         }
-        for name in extension_names.iter() {
+        unsafe {
+            extension_manager.add_extension(DebugUtils::name().as_ptr());
+        }
+        let base_extensions = unsafe {
+            [CStr::from_bytes_with_nul_unchecked(
+                b"VK_EXT_descriptor_indexing\0",
+            )]
+        };
+        for name in base_extensions {
+            unsafe { extension_manager.add_extension(name.as_ptr()) }
+        }
+        for name in layer_names_raw.iter() {
             let name_cstr = unsafe { CStr::from_ptr(*name) };
             let name_str = name_cstr.to_str().unwrap();
             println!("enabled layer: {}", name_str);
@@ -97,7 +108,7 @@ impl Base {
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
             .enabled_layer_names(&layer_names_raw)
-            .enabled_extension_names(&extension_names);
+            .enabled_extension_names(extension_manager.extensions());
 
         let entry = Entry::linked();
         let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
@@ -416,6 +427,7 @@ impl Base {
 
             window_width,
             window_height,
+            extension_manager,
         }
     }
     pub fn num_swapchain_images(&self) -> usize {

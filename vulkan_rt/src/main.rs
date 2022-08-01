@@ -1,5 +1,5 @@
 mod base;
-mod extension_manager;
+
 mod hello_many_meshes;
 mod hello_push;
 mod hello_scenelib;

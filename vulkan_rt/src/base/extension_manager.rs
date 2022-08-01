@@ -17,11 +17,14 @@ impl ExtensionManager {
             self.extensions.push(extension);
         }
     }
+    pub fn extensions(&self) -> &[*const c_char] {
+        &self.extensions
+    }
 }
 unsafe fn strcmp(a: *const c_char, b: *const c_char) -> bool {
     // should be enough bytes for everyone - probably bill gates
     const MAX_STR_LEN: isize = 255;
-    for i in (0..MAX_STR_LEN) {
+    for i in 0..MAX_STR_LEN {
         let a_char = *a.offset(i);
         let b_char = *b.offset(i);
         if a_char == 0 && b_char == 0 {
