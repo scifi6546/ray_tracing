@@ -15,6 +15,32 @@ use winit::{
     platform::run_return::EventLoopExtRunReturn,
     window::WindowBuilder,
 };
+#[derive(Debug)]
+struct ExtensionInfo {
+    pub name: String,
+    pub version: u32,
+}
+fn get_extension_names(entry: &Entry) -> Vec<ExtensionInfo> {
+    entry
+        .enumerate_instance_extension_properties(None)
+        .expect("failed to get extension")
+        .iter()
+        .map(|e| {
+            assert!(e.extension_name.contains(&0));
+            let c_str = unsafe { CStr::from_ptr(e.extension_name.as_ptr()) };
+
+            ExtensionInfo {
+                name: unsafe {
+                    CStr::from_ptr(e.extension_name.as_ptr())
+                        .to_str()
+                        .expect("failed to convert to string")
+                        .to_string()
+                },
+                version: e.spec_version,
+            }
+        })
+        .collect()
+}
 pub struct Base {
     pub entry: Entry,
     pub instance: Instance,
@@ -92,12 +118,17 @@ impl Base {
             extension_manager.add_extension(DebugUtils::name().as_ptr());
         }
         let base_extensions = unsafe {
-            [CStr::from_bytes_with_nul_unchecked(
-                b"VK_EXT_descriptor_indexing\0",
-            )]
+            [
+                CStr::from_bytes_with_nul_unchecked(b"VK_KHR_maintenance1\0"),
+                CStr::from_bytes_with_nul_unchecked(b"VK_KHR_get_physical_device_properties2\0"),
+                //  CStr::from_bytes_with_nul_unchecked(b"VK_EXT_descriptor_indexing\0"),
+            ]
         };
         for name in base_extensions {
             unsafe { extension_manager.add_extension(name.as_ptr()) }
+        }
+        unsafe {
+            extension_manager.print();
         }
         for name in layer_names_raw.iter() {
             let name_cstr = unsafe { CStr::from_ptr(*name) };
@@ -109,8 +140,12 @@ impl Base {
             .application_info(&app_info)
             .enabled_layer_names(&layer_names_raw)
             .enabled_extension_names(extension_manager.extensions());
+        println!("create info: {:#?}", *create_info);
+        let entry = unsafe { Entry::load() }.expect("failed to load");
+        for ext in get_extension_names(&entry) {
+            println!("{:#?}", ext);
+        }
 
-        let entry = Entry::linked();
         let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
             .message_severity(
                 vk::DebugUtilsMessageSeverityFlagsEXT::ERROR

@@ -1,3 +1,4 @@
+use std::ffi::CStr;
 use std::os::raw::c_char;
 pub struct ExtensionManager {
     extensions: Vec<*const c_char>,
@@ -19,6 +20,16 @@ impl ExtensionManager {
     }
     pub fn extensions(&self) -> &[*const c_char] {
         &self.extensions
+    }
+    pub unsafe fn print(&self) {
+        println!("extension count: {}", self.extensions.len());
+        for name in self.extensions.iter() {
+            let name_cstr = CStr::from_ptr(*name);
+            let name_str = name_cstr
+                .to_str()
+                .expect("failed to convert extension name to string");
+            println!("name: {}", name_str);
+        }
     }
 }
 unsafe fn strcmp(a: *const c_char, b: *const c_char) -> bool {
