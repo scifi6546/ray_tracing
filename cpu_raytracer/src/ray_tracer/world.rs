@@ -1,9 +1,13 @@
 mod cornell_smoke;
+mod dielectric_demo;
 mod easy_cornell_box;
 mod easy_scene;
+mod lambertian_test;
+mod metalic_demo;
 mod one_sphere;
 mod random_scene;
 mod two_spheres;
+
 use super::{
     bvh::BvhNode, hittable::*, material::*, texture::*, Background, Camera, ConstantColor,
     FlipNormals, HitRecord, Hittable, Sky, IMAGE_HEIGHT, IMAGE_WIDTH,
@@ -21,8 +25,31 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub use two_spheres::two_spheres;
 
+pub struct WorldInfo {
+    pub objects: Vec<Rc<dyn Hittable>>,
+    pub lights: Vec<Rc<dyn Hittable>>,
+    pub background: Box<dyn Background>,
+    pub camera: Camera,
+}
+impl WorldInfo {
+    pub fn build_world(self) -> World {
+        let objects_len = self.objects.len();
+        World {
+            bvh: BvhNode::new(
+                self.objects,
+                0,
+                objects_len,
+                self.camera.start_time(),
+                self.camera.end_time(),
+            ),
+            lights: self.lights.clone(),
+            background: self.background,
+            camera: self.camera,
+        }
+    }
+}
 pub struct World {
-    pub spheres: Vec<Rc<dyn Hittable>>,
+    pub bvh: BvhNode,
     pub lights: Vec<Rc<dyn Hittable>>,
     pub background: Box<dyn Background>,
     pub camera: Camera,
@@ -129,11 +156,18 @@ impl World {
             .map(|(_is_light, obj)| obj.clone())
             .collect::<Vec<Rc<dyn Hittable>>>();
         let background: Box<dyn Background> = match scene.background {
-            base_lib::Background::Sky => Box::new(Sky {}),
+            base_lib::Background::Sky => Box::new(Sky::default()),
             base_lib::Background::ConstantColor(color) => Box::new(ConstantColor { color }),
         };
-        World {
-            spheres,
+        let objects_len = spheres.len();
+        Self {
+            bvh: BvhNode::new(
+                spheres,
+                0,
+                objects_len,
+                scene.camera.start_time,
+                scene.camera.end_time,
+            ),
             lights,
             background,
             camera: Camera::new(
@@ -164,25 +198,7 @@ impl World {
     }
 
     pub fn nearest_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        self.spheres
-            .iter()
-            .filter_map(|s| s.hit(ray, t_min, t_max))
-            .reduce(|acc, x| if acc.t < x.t { acc } else { x })
-    }
-    pub fn into_bvh(self) -> Self {
-        let sphere_len = self.spheres.len();
-        Self {
-            spheres: vec![Rc::new(BvhNode::new(
-                self.spheres,
-                0,
-                sphere_len,
-                self.camera.start_time(),
-                self.camera.end_time(),
-            ))],
-            lights: self.lights.clone(),
-            background: self.background,
-            camera: self.camera,
-        }
+        self.bvh.hit(ray, t_min, t_max)
     }
 }
 pub trait ScenarioCtor {
@@ -190,8 +206,17 @@ pub trait ScenarioCtor {
     fn name(&self) -> String;
 }
 pub struct ScenarioFn {
-    f: fn() -> World,
+    f: fn() -> WorldInfo,
     name: String,
+}
+impl ScenarioCtor for ScenarioFn {
+    fn build(&self) -> World {
+        (self.f)().build_world()
+    }
+
+    fn name(&self) -> String {
+        self.name.clone()
+    }
 }
 struct BaselibScenario {
     ctor: fn() -> base_lib::Scene,
@@ -206,15 +231,7 @@ impl ScenarioCtor for BaselibScenario {
         self.name.clone()
     }
 }
-impl ScenarioCtor for ScenarioFn {
-    fn build(&self) -> World {
-        (self.f)()
-    }
 
-    fn name(&self) -> String {
-        self.name.clone()
-    }
-}
 pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
     let mut scenes: Vec<Box<dyn ScenarioCtor>> = vec![
         Box::new(ScenarioFn {
@@ -240,6 +257,26 @@ pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
         Box::new(ScenarioFn {
             name: "Two Sphere".to_string(),
             f: two_spheres,
+        }),
+        Box::new(ScenarioFn {
+            name: "Lambertian Demonstration".to_string(),
+            f: lambertian_test::lambertian_test,
+        }),
+        Box::new(ScenarioFn {
+            name: "Metallic Demonstration Smooth".to_string(),
+            f: metalic_demo::metallic_smooth,
+        }),
+        Box::new(ScenarioFn {
+            name: "Metallic Demonstration Rough".to_string(),
+            f: metalic_demo::metallic_rough,
+        }),
+        Box::new(ScenarioFn {
+            name: "Dielectric Demonstration, Low Refraction".to_string(),
+            f: dielectric_demo::dielectric_no_refraction,
+        }),
+        Box::new(ScenarioFn {
+            name: "Dielectric Demonstration, High Refraction".to_string(),
+            f: dielectric_demo::dielectric_refraction,
         }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes

@@ -1,12 +1,13 @@
 use super::{
     super::{IMAGE_HEIGHT, IMAGE_WIDTH},
     Camera, Dielectric, Hittable, Lambertian, Metal, MovingSphere, Sky, SolidColor, Sphere, World,
+    WorldInfo,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
 #[allow(dead_code)]
-pub fn random_scene() -> World {
+pub fn random_scene() -> WorldInfo {
     let big: [Rc<dyn Hittable>; 4] = [
         Rc::new(Sphere {
             radius: 1000.0,
@@ -49,7 +50,7 @@ pub fn random_scene() -> World {
             })),
         }),
     ];
-    let spheres = (-11..11)
+    let objects = (-11..11)
         .flat_map(|a| {
             (-11..11).filter_map::<Rc<dyn Hittable>, _>(move |b| {
                 let choose_mat = rand::random::<f32>();
@@ -102,10 +103,10 @@ pub fn random_scene() -> World {
         .chain(big)
         .collect();
 
-    World {
-        spheres,
+    WorldInfo {
+        objects,
         lights: vec![],
-        background: Box::new(Sky {}),
+        background: Box::new(Sky::default()),
         camera: Camera::new(
             IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
             20.0,

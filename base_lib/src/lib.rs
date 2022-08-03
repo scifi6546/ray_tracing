@@ -364,11 +364,19 @@ impl RgbColor {
             blue: self.blue.exp(),
         }
     }
-    pub fn as_rgba_u8(&self) -> [u8; 4] {
+    pub fn as_rgb_u8(&self) -> [u8; 3] {
         let r = (clamp(self.red.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
         let g = (clamp(self.green.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
         let b = (clamp(self.blue.sqrt(), 0.0, 1.0) * 255.0).round() as u8;
+        [r, g, b]
+    }
+    pub fn as_rgba_u8(&self) -> [u8; 4] {
+        let [r, g, b] = self.as_rgb_u8();
         [r, g, b, 0xff]
+    }
+    pub fn normalize(self) -> Self {
+        let mag = (self.red.powi(2) + self.green.powi(2) + self.blue.powi(2)).sqrt();
+        mag * self
     }
     pub fn is_nan(&self) -> bool {
         self.red.is_nan() || self.green.is_nan() || self.blue.is_nan()

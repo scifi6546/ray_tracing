@@ -1,13 +1,14 @@
 use super::{
     Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, ImageTexture,
-    Lambertian, Metal, Perlin, RenderBox, SolidColor, Sphere, Translate, World, XYRect, YZRect,
-    IMAGE_HEIGHT, IMAGE_WIDTH,
+    Lambertian, Metal, Perlin, RenderBox, SolidColor, Sphere, Translate, World, WorldInfo, XYRect,
+    YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
+
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
 
-pub fn easy_scene() -> World {
+pub fn easy_scene() -> WorldInfo {
     let look_at = Point3::new(0.0f32, 0.0, -1.0);
     let origin = Point3::new(10.0f32, 3.0, 2.0);
     let focus_distance = {
@@ -63,8 +64,8 @@ pub fn easy_scene() -> World {
         })),
     });
 
-    World {
-        spheres: vec![
+    WorldInfo {
+        objects: vec![
             Rc::new(Sphere {
                 radius: 100.0,
                 origin: Point3 {

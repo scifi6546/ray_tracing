@@ -214,11 +214,11 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        let mut world = world::cornell_smoke();
-        let mut world = world.into_bvh();
+        let mut world = world::cornell_smoke().build_world();
+
         println!(
             "world bounding box: {:#?}",
-            world.spheres[0].bounding_box(0.0, 0.0)
+            world.bvh.bounding_box(0.0, 0.0)
         );
 
         let mut rgb_img = RgbImage::new_black(1000, 1000);
@@ -230,16 +230,16 @@ impl RayTracer {
                     Message::LoadScenario(scenario) => {
                         if let Some(scenario) = self.scenarios.get(&scenario) {
                             world = scenario.build();
-                            world = world.into_bvh();
+
                             rgb_img = RgbImage::new_black(1000, 1000);
-                            //camera = t_camera;
+
                             num_samples = 1;
                             total_time = Instant::now();
                         } else {
                             todo!("error handling, invalid scenario");
                         }
                     }
-                    Message::SaveFile(path) => rgb_img.save_image(path),
+                    Message::SaveFile(path) => rgb_img.save_image(path, num_samples),
                 }
             }
             self.tracing_loop(&world, &mut rgb_img, num_samples);

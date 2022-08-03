@@ -53,36 +53,37 @@ impl NumpyArray3D for RgbImage {
     }
 }
 impl RgbImage {
-    pub fn to_image(&self) -> image::RgbImage {
-        let mi = self
+    pub fn to_image(&self, num_samples: usize) -> image::RgbImage {
+        let normalized_buffer: Vec<RgbColor> = self
             .buffer
+            .iter()
+            .map(|c| *c / num_samples as f32)
+            .collect();
+        let mi = normalized_buffer
             .iter()
             .flat_map(|p| [p.red, p.green, p.blue])
             .fold(f32::MAX, |acc, x| acc.min(x));
-        let ma = self
-            .buffer
+        let ma = normalized_buffer
             .iter()
             .flat_map(|p| [p.red, p.green, p.blue])
             .fold(f32::MAX, |acc, x| acc.max(x));
         info!("image min: {}, image max: {}", mi, ma);
-        let buff_copy = self
-            .buffer
-            .iter()
-            .flat_map(|p| [p.red, p.green, p.blue])
-            .map(|i| i.max(1.0).min(0.0))
-            .map(|i| (i * 255.0) as u8)
-            .collect::<Vec<_>>();
-        info!(
-            "u8 buff min: {} max: {}",
-            buff_copy.iter().min().unwrap(),
-            buff_copy.iter().max().unwrap()
-        );
-        let buff: ImageBuffer<image::Rgb<u8>, Vec<u8>> =
-            image::ImageBuffer::from_raw(self.width, self.height, buff_copy).unwrap();
-        return buff;
+        let mut image = image::RgbImage::from_pixel(self.width, self.height, image::Rgb([0, 0, 0]));
+        for x in 0..self.width() {
+            for y in 0..self.height() {
+                let color = self.get_xy(x, y) / num_samples as f32;
+                fn convert(color: f32) -> u8 {
+                    (color.min(1.0).max(0.0) * 255.0) as u8
+                }
+                let rgb = color.as_rgb_u8();
+                let u8_color = image::Rgb(rgb);
+                image.put_pixel(x, self.height() - y - 1, u8_color);
+            }
+        }
+        return image;
     }
-    pub fn save_image(&self, p: path::PathBuf) {
-        let img = self.to_image();
+    pub fn save_image(&self, p: path::PathBuf, num_samples: usize) {
+        let img = self.to_image(num_samples);
         img.save(p).expect("failed to save image");
     }
     pub fn new_black(width: u32, height: u32) -> Self {
