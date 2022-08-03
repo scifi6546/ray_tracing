@@ -3,6 +3,7 @@ mod dielectric_demo;
 mod easy_cornell_box;
 mod easy_scene;
 mod lambertian_test;
+mod light_demo;
 mod metalic_demo;
 mod one_sphere;
 mod random_scene;
@@ -277,6 +278,10 @@ pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
         Box::new(ScenarioFn {
             name: "Dielectric Demonstration, High Refraction".to_string(),
             f: dielectric_demo::dielectric_refraction,
+        }),
+        Box::new(ScenarioFn {
+            name: "Light Demonstration".to_string(),
+            f: light_demo::light_demo,
         }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes

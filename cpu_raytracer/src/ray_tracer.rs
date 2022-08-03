@@ -29,7 +29,7 @@ use hittable::{
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
 use pdf::{CosinePdf, LightPdf, PdfList, ScatterRecord};
 #[allow(unused_imports)]
-use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
+use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, SolidColor, Texture};
 use world::World;
 
 use std::collections::HashMap;

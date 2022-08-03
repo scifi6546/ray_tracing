@@ -38,13 +38,24 @@ An example with high refraction is shown below. Notice how the orange sphere is 
 
 ### DiffuseLight
 
-The renderer also supports several shapes. The shapes are
+A diffuse light source simply emits light. The light can emmit according to a texture. The texture can be proceedurally generated noise, an image texture or a constant background.
+
+An example of a diffuse light emmitting light according to a texture. 
+![diffuse light](examples/light_texture.png)
+
+## Supported Shapes
 
 ### Sphere
 
 ### Axis Aligned Box
 
 ### Axis Aligned Rectangles
+
+## Supported Transformations
+
+### Translation
+
+### Rotation
 
 ## Egui Gui
 
