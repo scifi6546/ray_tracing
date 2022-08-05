@@ -120,7 +120,7 @@ impl Base {
         let base_extensions = unsafe {
             [
                 CStr::from_bytes_with_nul_unchecked(b"VK_KHR_maintenance1\0"),
-                CStr::from_bytes_with_nul_unchecked(b"VK_KHR_get_physical_device_properties2\0"),
+                //   CStr::from_bytes_with_nul_unchecked(b"VK_KHR_get_physical_device_properties2\0"),
                 //  CStr::from_bytes_with_nul_unchecked(b"VK_EXT_descriptor_indexing\0"),
             ]
         };

@@ -442,12 +442,14 @@ impl DiffusePass {
             .command_buffer_count(1)
             .command_pool(base.base.pool)
             .level(vk::CommandBufferLevel::PRIMARY);
+
         let draw_command_buffer = unsafe {
             base.base
                 .device
                 .allocate_command_buffers(&command_buffer_alloc_info)
                 .unwrap()
         }[0];
+
         let fence_create_info =
             vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
         let draw_fence = unsafe { base.base.device.create_fence(&fence_create_info, None) }
