@@ -7,6 +7,7 @@ mod light_demo;
 mod metalic_demo;
 mod one_sphere;
 mod random_scene;
+mod shape_demo;
 mod two_spheres;
 
 use super::{
@@ -262,6 +263,10 @@ pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
         Box::new(ScenarioFn {
             name: "Lambertian Demonstration".to_string(),
             f: lambertian_test::lambertian_test,
+        }),
+        Box::new(ScenarioFn {
+            name: "Object Demo".to_string(),
+            f: shape_demo::object_demo,
         }),
         Box::new(ScenarioFn {
             name: "Metallic Demonstration Smooth".to_string(),

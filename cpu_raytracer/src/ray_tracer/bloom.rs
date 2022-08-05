@@ -8,7 +8,7 @@ struct GaussianBlur {
     amount: usize,
 }
 impl GaussianBlur {
-    fn blur(texture: &RgbImage) -> RgbImage {
+    fn blur(texture: RgbImage) -> RgbImage {
         let weights = [0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216];
 
         let mut x_mod = texture.clone();
@@ -24,9 +24,9 @@ impl GaussianBlur {
                 x_mod.set_xy(x, y, result);
             }
         }
-        let mut y_mod = x_mod.clone();
-        for x in 0..texture.width() {
-            for y in 0..texture.height() {
+        let mut y_mod = texture;
+        for x in 0..y_mod.width() {
+            for y in 0..y_mod.height() {
                 let mut result = x_mod.get_xy(x, y) * weights[0];
 
                 for i in 1..5 {
@@ -43,7 +43,7 @@ impl PostProcessingStage for GaussianBlur {
     fn process(&self, texture_in: &RgbImage) -> RgbImage {
         let mut mod_texture = texture_in.clone();
         for _ in 0..self.amount {
-            mod_texture = Self::blur(&(mod_texture.clone()));
+            mod_texture = Self::blur(mod_texture);
         }
         return mod_texture;
     }

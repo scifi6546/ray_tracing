@@ -168,3 +168,16 @@ impl Hittable for BvhNode {
         todo!()
     }
 }
+pub struct BvhTree {
+    items: Vec<Rc<dyn Hittable>>,
+}
+pub struct BvhTreeNode {
+    bounding_box: Aabb,
+    left_idx: usize,
+    right_idx: usize,
+}
+impl BvhTreeNode {
+    pub fn new(items: &BvhTreeNode) -> Self {
+        todo!()
+    }
+}
