@@ -1,9 +1,11 @@
-use super::{Camera, Lambertian, Metal, Sky, SolidColor, Sphere, World, IMAGE_HEIGHT, IMAGE_WIDTH};
+use super::{
+    Camera, Lambertian, Metal, Sky, SolidColor, Sphere, World, WorldInfo, IMAGE_HEIGHT, IMAGE_WIDTH,
+};
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
 #[allow(dead_code)]
-pub fn two_spheres() -> World {
+pub fn two_spheres() -> WorldInfo {
     let look_at = Point3::new(0.0f32, 0.0, -1.0);
     let origin = Point3::new(3.0f32, 3.0, 2.0);
     let focus_distance = {
@@ -11,8 +13,8 @@ pub fn two_spheres() -> World {
         (t.dot(t)).sqrt()
     };
 
-    World {
-        spheres: vec![
+    WorldInfo {
+        objects: vec![
             Rc::new(Sphere {
                 radius: 0.5,
                 origin: Point3 {
@@ -46,7 +48,7 @@ pub fn two_spheres() -> World {
             }),
         ],
         lights: vec![],
-        background: Box::new(Sky {}),
+        background: Box::new(Sky::default()),
         camera: Camera::new(
             IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
             20.0,

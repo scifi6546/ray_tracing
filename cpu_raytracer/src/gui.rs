@@ -1,6 +1,7 @@
 use super::{LogMessage, Message, RayTracerInfo};
 use egui_miniquad as egui_mq;
-use miniquad::Context;
+use log::{error, info};
+
 use std::sync::mpsc::{Receiver, Sender};
 pub struct GuiCtx {
     egui_mq: egui_mq::EguiMq,
@@ -29,15 +30,30 @@ impl GuiCtx {
             self.log_messages.push(msg);
         }
         self.egui_mq.run(ctx, |egui_ctx| {
-            egui::Window::new("Hello world").show(egui_ctx, |ui| {
-                egui::widgets::global_dark_light_mode_buttons(ui);
-
-                ui.heading("Scenario: ");
+            egui::Window::new("Scenarios").show(egui_ctx, |ui| {
+                ui.heading("Choose Scenario: ");
                 for scenario in self.scenarios.iter() {
                     if ui.button(scenario).clicked() {
-                        self.message_chanel
-                            .send(Message::LoadScenario(scenario.clone()));
+                        if let Some(err) = self
+                            .message_chanel
+                            .send(Message::LoadScenario(scenario.clone()))
+                            .err()
+                        {
+                            error!("failed to load scenario: {:?}", err);
+                        }
                         println!("clicked: {}", scenario);
+                    }
+                }
+            });
+            egui::Window::new("Save File").show(egui_ctx, |ui| {
+                if ui.button("Save Render").clicked() {
+                    info!("saving file");
+                    if let Some(save_path) = rfd::FileDialog::new().save_file() {
+                        self.message_chanel
+                            .send(Message::SaveFile(save_path.clone()));
+                        info!("saving file to path: {:?}", save_path);
+                    } else {
+                        info!("file save canceled");
                     }
                 }
             });

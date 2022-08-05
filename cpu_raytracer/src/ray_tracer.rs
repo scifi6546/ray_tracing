@@ -29,7 +29,7 @@ use hittable::{
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
 use pdf::{CosinePdf, LightPdf, PdfList, ScatterRecord};
 #[allow(unused_imports)]
-use texture::{CheckerTexture, DebugV, ImageTexture, Perlin, SolidColor, Texture};
+use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, SolidColor, Texture};
 use world::World;
 
 use std::collections::HashMap;
@@ -138,6 +138,7 @@ pub struct RayTracerInfo {
 
 pub enum Message {
     LoadScenario(String),
+    SaveFile(std::path::PathBuf),
 }
 impl RayTracer {
     const SAMPLES_PER_PIXEL: usize = 1000;
@@ -213,11 +214,11 @@ impl RayTracer {
             ))
             .expect("failed to send");
 
-        let mut world = world::cornell_smoke();
-        let mut world = world.into_bvh();
+        let mut world = world::cornell_smoke().build_world();
+
         println!(
             "world bounding box: {:#?}",
-            world.spheres[0].bounding_box(0.0, 0.0)
+            world.bvh.bounding_box(0.0, 0.0)
         );
 
         let mut rgb_img = RgbImage::new_black(1000, 1000);
@@ -229,15 +230,16 @@ impl RayTracer {
                     Message::LoadScenario(scenario) => {
                         if let Some(scenario) = self.scenarios.get(&scenario) {
                             world = scenario.build();
-                            world = world.into_bvh();
+
                             rgb_img = RgbImage::new_black(1000, 1000);
-                            //camera = t_camera;
+
                             num_samples = 1;
                             total_time = Instant::now();
                         } else {
                             todo!("error handling, invalid scenario");
                         }
                     }
+                    Message::SaveFile(path) => rgb_img.save_image(path, num_samples),
                 }
             }
             self.tracing_loop(&world, &mut rgb_img, num_samples);

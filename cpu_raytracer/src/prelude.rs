@@ -1,9 +1,12 @@
 pub use base_lib::{clamp, RgbColor};
 use cgmath::{num_traits::*, prelude::*, Point2, Point3, Vector3};
+use image::ImageBuffer;
+use log::info;
 use std::{
     cmp::PartialOrd,
     fmt::*,
     ops::{Add, AddAssign, Div, Mul, Sub},
+    path,
 };
 use to_numpy::NumpyArray3D;
 
@@ -50,6 +53,39 @@ impl NumpyArray3D for RgbImage {
     }
 }
 impl RgbImage {
+    pub fn to_image(&self, num_samples: usize) -> image::RgbImage {
+        let normalized_buffer: Vec<RgbColor> = self
+            .buffer
+            .iter()
+            .map(|c| *c / num_samples as f32)
+            .collect();
+        let mi = normalized_buffer
+            .iter()
+            .flat_map(|p| [p.red, p.green, p.blue])
+            .fold(f32::MAX, |acc, x| acc.min(x));
+        let ma = normalized_buffer
+            .iter()
+            .flat_map(|p| [p.red, p.green, p.blue])
+            .fold(f32::MAX, |acc, x| acc.max(x));
+        info!("image min: {}, image max: {}", mi, ma);
+        let mut image = image::RgbImage::from_pixel(self.width, self.height, image::Rgb([0, 0, 0]));
+        for x in 0..self.width() {
+            for y in 0..self.height() {
+                let color = self.get_xy(x, y) / num_samples as f32;
+                fn convert(color: f32) -> u8 {
+                    (color.min(1.0).max(0.0) * 255.0) as u8
+                }
+                let rgb = color.as_rgb_u8();
+                let u8_color = image::Rgb(rgb);
+                image.put_pixel(x, self.height() - y - 1, u8_color);
+            }
+        }
+        return image;
+    }
+    pub fn save_image(&self, p: path::PathBuf, num_samples: usize) {
+        let img = self.to_image(num_samples);
+        img.save(p).expect("failed to save image");
+    }
     pub fn new_black(width: u32, height: u32) -> Self {
         let buffer = (0..(width as usize * height as usize))
             .map(|_| RgbColor {

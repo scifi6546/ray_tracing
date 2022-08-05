@@ -6,6 +6,19 @@ pub trait Texture {
     fn name(&self) -> &'static str;
     fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor;
 }
+pub struct MultiplyTexture {
+    pub a: Box<dyn Texture>,
+    pub b: Box<dyn Texture>,
+}
+impl Texture for MultiplyTexture {
+    fn name(&self) -> &'static str {
+        "Multiply"
+    }
+
+    fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
+        self.a.color(uv, pos) * self.b.color(uv, pos)
+    }
+}
 pub struct SolidColor {
     pub(crate) color: RgbColor,
 }

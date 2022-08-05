@@ -1,13 +1,14 @@
 use super::{
     Camera, ConstantColor, ConstantMedium, DiffuseLight, FlipNormals, Isotropic, Lambertian,
-    RenderBox, RotateY, SolidColor, Sphere, Translate, World, XYRect, XZRect, YZRect, IMAGE_HEIGHT,
-    IMAGE_WIDTH,
+    RenderBox, RotateY, SolidColor, Sphere, Translate, World, WorldInfo, XYRect, XZRect, YZRect,
+    IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
+
 #[allow(dead_code)]
-pub fn cornell_smoke() -> World {
+pub fn cornell_smoke() -> WorldInfo {
     let look_at = Point3::new(278.0f32, 278.0, 0.0);
     let origin = Point3::new(278.0, 278.0, -800.0);
     let focus_distance = {
@@ -45,8 +46,8 @@ pub fn cornell_smoke() -> World {
             material: light,
         }),
     });
-    World {
-        spheres: vec![
+    WorldInfo {
+        objects: vec![
             Rc::new(YZRect {
                 y0: 0.0,
                 y1: 555.0,

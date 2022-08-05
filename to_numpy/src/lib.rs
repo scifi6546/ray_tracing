@@ -78,8 +78,6 @@ pub trait NumpyArray3D {
         file.write_all(&self.get_numpy_data())
     }
 }
-
-fn iter_dim() {}
 #[cfg(test)]
 mod tests {
     use super::*;
