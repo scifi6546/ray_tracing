@@ -170,10 +170,49 @@ impl Hittable for BvhNode {
 }
 pub struct BvhTree {
     items: Vec<Rc<dyn Hittable>>,
+    nodes: BvhTreeNode,
 }
 impl BvhTree {
-    pub fn new(items: Vec<Rc<dyn Hittable>>) -> Self {
+    pub fn new(items: Vec<Rc<dyn Hittable>>, start: usize, end: usize) -> Self {
+        let axis = rand_u32(0, 2);
+        let span = end - start;
+        let comparator = if axis == 0 {
+            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
+                Self::box_x_compare((*a).clone(), (*b).clone())
+            }
+        } else if axis == 1 {
+            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
+                Self::box_y_compare((*a).clone(), (*b).clone())
+            }
+        } else {
+            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
+                Self::box_z_compare((*a).clone(), (*b).clone())
+            }
+        };
         todo!()
+    }
+    fn box_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>, axis: usize) -> Ordering {
+        let a_box = a
+            .bounding_box(0.0, 0.0)
+            .expect("bvh node does not have bounding box");
+        let b_box = b
+            .bounding_box(0.0, 0.0)
+            .expect("bvh node does not have bounding box");
+
+        if a_box.minimum[axis] < b_box.minimum[axis] {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        }
+    }
+    fn box_x_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
+        Self::box_compare(a, b, 0)
+    }
+    fn box_y_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
+        Self::box_compare(a, b, 1)
+    }
+    fn box_z_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
+        Self::box_compare(a, b, 2)
     }
 }
 enum BvhTreeNode {
