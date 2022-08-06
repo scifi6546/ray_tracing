@@ -171,13 +171,18 @@ impl Hittable for BvhNode {
 pub struct BvhTree {
     items: Vec<Rc<dyn Hittable>>,
 }
-pub struct BvhTreeNode {
-    bounding_box: Aabb,
-    left_idx: usize,
-    right_idx: usize,
-}
-impl BvhTreeNode {
-    pub fn new(items: &BvhTreeNode) -> Self {
+impl BvhTree {
+    pub fn new(items: Vec<Rc<dyn Hittable>>) -> Self {
         todo!()
     }
+}
+enum BvhTreeNode {
+    Child {
+        bounding_box: Aabb,
+        left: Box<BvhTreeNode>,
+        right_idx: Box<BvhTreeNode>,
+    },
+    Leaf {
+        leaf: Box<dyn Hittable>,
+    },
 }
