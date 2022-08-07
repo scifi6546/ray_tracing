@@ -1,7 +1,7 @@
 use super::{
     super::{IMAGE_HEIGHT, IMAGE_WIDTH},
-    Camera, Dielectric, Hittable, Lambertian, Metal, MovingSphere, Object, Sky, SolidColor, Sphere,
-    Transform, World, WorldInfo,
+    Camera, Dielectric, Lambertian, Metal, MovingSphere, Object, Sky, SolidColor, Sphere,
+    Transform, WorldInfo,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};

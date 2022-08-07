@@ -1,6 +1,6 @@
 use super::{
-    Camera, Lambertian, Metal, Object, Sky, SolidColor, Sphere, Transform, World, WorldInfo,
-    IMAGE_HEIGHT, IMAGE_WIDTH,
+    Camera, Lambertian, Metal, Object, Sky, SolidColor, Sphere, Transform, WorldInfo, IMAGE_HEIGHT,
+    IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};

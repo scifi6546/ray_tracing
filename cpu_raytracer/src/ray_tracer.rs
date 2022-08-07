@@ -14,7 +14,6 @@ use bloom::bloom;
 use log::{debug, error, info, trace, warn};
 pub use logger::LogMessage;
 use logger::Logger;
-use to_numpy::NumpyArray3D;
 
 use background::{Background, ConstantColor, Sky};
 use bvh::Aabb;
@@ -128,8 +127,6 @@ static mut LOGGER: Option<Logger> = None;
 pub struct RayTracer {
     sender: Sender<Image>,
     msg_reciever: Receiver<Message>,
-    num_samples: usize,
-
     scenarios: HashMap<String, Box<dyn ScenarioCtor>>,
 }
 pub struct RayTracerInfo {
@@ -141,7 +138,6 @@ pub enum Message {
     SaveFile(std::path::PathBuf),
 }
 impl RayTracer {
-    const SAMPLES_PER_PIXEL: usize = 1000;
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> (
         Receiver<Image>,
@@ -164,10 +160,11 @@ impl RayTracer {
             let s = Self {
                 sender,
                 msg_reciever,
-                num_samples: 0,
                 scenarios,
             };
-            info_send.send(scenario_names.clone());
+            info_send
+                .send(scenario_names.clone())
+                .expect("failed to send scenario names to main thread");
 
             s.start_tracing()
         });
@@ -193,10 +190,10 @@ impl RayTracer {
                 rgb_img.add_xy(x, y, c);
             }
         }
-        let mut send_img = (rgb_img.clone() / num_samples as f32);
-        //send_img.save(format!("raw_frame_{}.npy", num_samples));
+        let mut send_img = rgb_img.clone() / num_samples as f32;
+
         bloom(&mut send_img);
-        //send_img.save(format!("final_frame_{}.npy", num_samples));
+
         self.sender
             .send(Image::from_rgb_image(&send_img))
             .expect("channel failed");

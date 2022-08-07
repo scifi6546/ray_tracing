@@ -1,6 +1,6 @@
 use super::{
     Camera, ConstantColor, ConstantMedium, DiffuseLight, FlipNormals, Isotropic, Lambertian,
-    Object, RenderBox, RotateY, SolidColor, Sphere, Transform, Translate, World, WorldInfo, XYRect,
+    Object, RenderBox, RotateY, SolidColor, Sphere, Transform, Translate, WorldInfo, XYRect,
     XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;

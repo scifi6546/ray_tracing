@@ -1,9 +1,8 @@
 use super::{
-    Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, ImageTexture,
-    Lambertian, Metal, Object, Perlin, RenderBox, Sky, SolidColor, Sphere, Transform, Translate,
-    World, WorldInfo, XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    Camera, Dielectric, DiffuseLight, Lambertian, Object, Sky, SolidColor, Sphere, Transform,
+    WorldInfo, XZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
-use crate::ray_tracer::hittable::Hittable;
+
 use base_lib::RgbColor;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};

@@ -1,11 +1,7 @@
-use super::{
-    new_demo, Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight,
-    ImageTexture, Lambertian, Metal, Object, Perlin, RenderBox, Sky, SolidColor, Sphere, Transform,
-    Translate, World, WorldInfo, XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
-};
-use crate::ray_tracer::hittable::Hittable;
+use super::{new_demo, Lambertian, Object, SolidColor, Sphere, Transform, WorldInfo};
+
 use base_lib::RgbColor;
-use cgmath::{prelude::*, Point3, Vector3};
+use cgmath::Point3;
 use std::{cell::RefCell, rc::Rc};
 pub fn demo() -> WorldInfo {
     new_demo(Object::new(

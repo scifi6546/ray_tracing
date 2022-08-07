@@ -92,10 +92,10 @@ impl<T: Hittable> Hittable for RotateY<T> {
     fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
         self.item_box
     }
-    fn prob(&self, ray: Ray) -> f32 {
+    fn prob(&self, _ray: Ray) -> f32 {
         todo!()
     }
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, _origin: Point3<f32>, _time: f32) -> RayAreaInfo {
         todo!()
     }
 }

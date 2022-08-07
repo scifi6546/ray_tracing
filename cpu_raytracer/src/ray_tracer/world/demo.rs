@@ -2,9 +2,8 @@ pub mod lambertian;
 pub mod metalic_demo;
 
 use super::{
-    Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, Hittable,
-    ImageTexture, Lambertian, Metal, Object, Perlin, RenderBox, Sky, SolidColor, Sphere, Transform,
-    Translate, World, WorldInfo, XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    Camera, DiffuseLight, Lambertian, Metal, Object, Sky, SolidColor, Sphere, Transform, WorldInfo,
+    XZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};

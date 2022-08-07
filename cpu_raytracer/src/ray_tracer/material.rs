@@ -3,7 +3,7 @@ use super::{
     Texture,
 };
 use cgmath::{num_traits::*, InnerSpace, Vector3};
-use log::error;
+
 use std::rc::Rc;
 //pub type PDF = f32;
 pub trait Material {

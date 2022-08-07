@@ -8,7 +8,7 @@ mod translate;
 
 use super::{Aabb, Material, Ray};
 
-use cgmath::{InnerSpace, Matrix3, Matrix4, Point2, Point3, SquareMatrix, Vector3, Vector4};
+use cgmath::{InnerSpace, Matrix4, Point2, Point3, SquareMatrix, Vector3, Vector4};
 
 pub use constant_medium::ConstantMedium;
 pub use flip_normals::FlipNormals;

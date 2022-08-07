@@ -14,14 +14,14 @@ use super::{
     FlipNormals, HitRecord, Hittable, Sky, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
-use cgmath::{Point3, Vector3};
+use cgmath::Point3;
 
 pub use cornell_smoke::cornell_smoke;
 pub use easy_cornell_box::easy_cornell_box;
 pub use easy_scene::easy_scene;
 pub use one_sphere::one_sphere;
 pub use random_scene::random_scene;
-use std::ffi::OsString;
+
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub use two_spheres::two_spheres;

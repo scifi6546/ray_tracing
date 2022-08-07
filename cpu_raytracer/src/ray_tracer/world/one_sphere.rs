@@ -1,5 +1,5 @@
 use super::{
-    Camera, Lambertian, Object, Sky, SolidColor, Sphere, Transform, World, WorldInfo, IMAGE_HEIGHT,
+    Camera, Lambertian, Object, Sky, SolidColor, Sphere, Transform, WorldInfo, IMAGE_HEIGHT,
     IMAGE_WIDTH,
 };
 use crate::prelude::*;

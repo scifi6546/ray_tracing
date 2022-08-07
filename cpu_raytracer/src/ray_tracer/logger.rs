@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use crate::Message::LoadScenario;
 use log::{Level as LogLevel, Level, Metadata, Record};
 use std::sync::{
     mpsc::{channel, Receiver, Sender},
@@ -55,7 +54,8 @@ impl log::Log for Logger {
             self.sender
                 .lock()
                 .expect("failed to acquire lock")
-                .send(message);
+                .send(message)
+                .expect("failed to send log message to main thread");
         }
     }
 

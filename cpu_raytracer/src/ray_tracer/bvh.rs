@@ -1,14 +1,12 @@
 use super::{
-    hittable::{Hittable, Object, RayAreaInfo},
+    hittable::{Hittable, Object},
     HitRecord, Ray,
 };
 use crate::prelude::*;
 
 use cgmath::Point3;
 
-use log::info;
-
-use std::{cmp::Ordering, rc::Rc};
+use std::cmp::Ordering;
 #[derive(Clone, Copy, Debug)]
 pub struct Aabb {
     pub minimum: Point3<f32>,
@@ -55,22 +53,11 @@ impl BvhTree {
         let root_node = BvhTreeNode::new(&objects, &objects, 0, objects.len(), 0, time_0, time_1);
         Self { objects, root_node }
     }
-}
-impl Hittable for BvhTree {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         self.root_node.hit(&self.objects, ray, t_min, t_max)
     }
-
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
+    pub fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
         self.root_node.bounding_box(&self.objects, time_0, time_1)
-    }
-
-    fn prob(&self, ray: Ray) -> f32 {
-        todo!()
-    }
-
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
-        todo!()
     }
 }
 enum BvhTreeNode {

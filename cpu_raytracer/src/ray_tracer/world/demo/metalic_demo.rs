@@ -1,11 +1,7 @@
-use super::{
-    new_demo, Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, Hittable,
-    ImageTexture, Lambertian, Metal, Object, Perlin, RenderBox, Sky, SolidColor, Sphere, Transform,
-    Translate, World, WorldInfo, XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
-};
+use super::{new_demo, Metal, Object, SolidColor, Sphere, Transform, WorldInfo};
 
 use base_lib::RgbColor;
-use cgmath::{prelude::*, Point3, Vector3};
+use cgmath::Point3;
 use std::{cell::RefCell, rc::Rc};
 pub fn metallic_smooth() -> WorldInfo {
     metalic_demo_fuzz(0.0)

@@ -1,7 +1,7 @@
 use super::{
     Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, ImageTexture,
-    Lambertian, Metal, Object, Perlin, RenderBox, SolidColor, Sphere, Transform, Translate, World,
-    WorldInfo, XYRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    Lambertian, Metal, Object, Perlin, RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect,
+    YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
 
@@ -49,13 +49,11 @@ pub fn easy_scene() -> WorldInfo {
         Rc::new(RenderBox::new(
             Point3::new(-0.2, -0.2 - 0.3, -0.2),
             Point3::new(0.2, 0.2 - 0.3, 0.2),
-            Rc::new(RefCell::new(
-                (DiffuseLight {
-                    emit: Box::new(SolidColor {
-                        color: 40000.0 * RgbColor::new(1.0, 0.0, 0.0),
-                    }),
+            Rc::new(RefCell::new(DiffuseLight {
+                emit: Box::new(SolidColor {
+                    color: 40000.0 * RgbColor::new(1.0, 0.0, 0.0),
                 }),
-            )),
+            })),
         )),
         Transform::identity(),
     );
