@@ -1,6 +1,6 @@
 use super::{
     Camera, ConstantColor, ConstantMedium, DiffuseLight, FlipNormals, Isotropic, Lambertian,
-    Object, RenderBox, RotateY, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
+    Object, RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
     IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
@@ -44,11 +44,12 @@ pub fn cornell_smoke() -> WorldInfo {
                 z0: 127.0,
                 z1: 423.0,
                 k: 554.0,
-                material: light,
+                material: light.clone(),
             }),
         }),
         Transform::identity(),
     );
+
     WorldInfo {
         objects: vec![
             Object::new(
@@ -121,7 +122,7 @@ pub fn cornell_smoke() -> WorldInfo {
                     })),
                     0.01,
                 )),
-                Transform::translation(Vector3::new(265.0, 0.0, 295.0)),
+                Transform::identity().translate(Vector3::new(265.0, 0.0, 295.0)),
             ),
             Object::new(
                 Rc::new(ConstantMedium::new(
@@ -137,18 +138,17 @@ pub fn cornell_smoke() -> WorldInfo {
                     })),
                     0.01,
                 )),
-                Transform::translation(Vector3::new(265.0, 500.0, 295.0)),
+                Transform::identity().translate(Vector3::new(265.0, 500.0, 295.0)),
             ),
             Object::new(
-                Rc::new(RotateY::new(
-                    RenderBox::new(
-                        Point3::new(0.0, 0.0, 0.0),
-                        Point3::new(165.0, 165.0, 165.0),
-                        white,
-                    ),
-                    -18.0,
+                Rc::new(RenderBox::new(
+                    Point3::new(0.0, 0.0, 0.0),
+                    Point3::new(165.0, 165.0, 165.0),
+                    white,
                 )),
-                Transform::translation(Vector3::new(130.0, 0.0, 65.0)),
+                Transform::identity()
+                    .rotate_y(-18.0)
+                    .translate(Vector3::new(130.0, 0.0, 65.0)),
             ),
         ],
         lights: vec![top_light],

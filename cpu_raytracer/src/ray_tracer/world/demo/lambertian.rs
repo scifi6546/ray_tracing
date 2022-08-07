@@ -4,7 +4,7 @@ use base_lib::RgbColor;
 use cgmath::Point3;
 use std::{cell::RefCell, rc::Rc};
 pub fn demo() -> WorldInfo {
-    new_demo(Object::new(
+    new_demo(vec![Object::new(
         Rc::new(Sphere {
             radius: 1.0,
             origin: Point3::new(0.0, 1.0, 0.0),
@@ -15,5 +15,5 @@ pub fn demo() -> WorldInfo {
             })),
         }),
         Transform::identity(),
-    ))
+    )])
 }

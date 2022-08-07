@@ -274,6 +274,10 @@ pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
             name: "Light Demonstration".to_string(),
             f: light_demo::light_demo,
         }),
+        Box::new(ScenarioFn {
+            name: "Cube Field".to_string(),
+            f: demo::cube_field::build_field,
+        }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
         .drain(..)

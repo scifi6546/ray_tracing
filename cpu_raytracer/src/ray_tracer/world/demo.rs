@@ -1,15 +1,16 @@
+pub mod cube_field;
 pub mod lambertian;
 pub mod metalic_demo;
 
 use super::{
-    Camera, DiffuseLight, Lambertian, Metal, Object, Sky, SolidColor, Sphere, Transform, WorldInfo,
-    XZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    Camera, DiffuseLight, Lambertian, Metal, Object, RenderBox, Sky, SolidColor, Sphere, Transform,
+    WorldInfo, XZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
 
-pub fn new_demo(special_item: Object) -> WorldInfo {
+pub fn new_demo(mut special_item: Vec<Object>) -> WorldInfo {
     let look_at = Point3::new(0.0f32, 1.0, 0.0);
     let origin = Point3::new(10.0f32, 10.0, 2.0);
     let focus_distance = {
@@ -44,8 +45,10 @@ pub fn new_demo(special_item: Object) -> WorldInfo {
         }),
         Transform::identity(),
     );
+    let mut objects = vec![floor, light.clone()];
+    objects.append(&mut special_item);
     WorldInfo {
-        objects: vec![floor, light.clone(), special_item],
+        objects,
         lights: vec![light],
         background: Box::new(Sky::default()),
         camera: Camera::new(

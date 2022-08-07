@@ -2,7 +2,6 @@ mod constant_medium;
 mod flip_normals;
 mod rect;
 mod render_box;
-mod rotation;
 mod sphere;
 
 use super::{Aabb, Material, Ray};
@@ -13,7 +12,6 @@ pub use constant_medium::ConstantMedium;
 pub use flip_normals::FlipNormals;
 pub use rect::{XYRect, XZRect, YZRect};
 pub use render_box::RenderBox;
-pub use rotation::RotateY;
 pub use sphere::{MovingSphere, Sphere};
 use std::{cell::RefCell, rc::Rc};
 
@@ -43,8 +41,14 @@ impl Transform {
     pub fn identity() -> Self {
         Self::from_matrix(Matrix4::identity())
     }
-    pub fn translation(translation: Vector3<f32>) -> Self {
-        Self::from_matrix(Matrix4::from_translation(-1.0 * translation))
+    pub fn translate(self, translation: Vector3<f32>) -> Self {
+        self * Self::from_matrix(Matrix4::from_translation(-1.0 * translation))
+    }
+    pub fn rotate_x(self, rotation_deg: f32) -> Self {
+        self * Self::from_matrix(cgmath::Matrix4::from_angle_x(cgmath::Deg(rotation_deg)))
+    }
+    pub fn rotate_y(self, rotation_deg: f32) -> Self {
+        self * Self::from_matrix(cgmath::Matrix4::from_angle_y(cgmath::Deg(rotation_deg)))
     }
     fn mul_ray(&self, ray: Ray) -> Ray {
         let direction_world = ray.origin + ray.direction;
@@ -61,6 +65,26 @@ impl Transform {
     }
     fn mul_point3(&self, point: Point3<f32>) -> Point3<f32> {
         Point3::from_homogeneous(self.world_transform * point.to_homogeneous())
+    }
+
+    fn mul_vec3(&self, vec: Vector3<f32>) -> Vector3<f32> {
+        let world_vec = Vector4::new(vec.x, vec.y, vec.z, 1.0);
+        let output = self.mul_vec4(world_vec);
+        Vector3::new(output.x, output.y, output.z)
+    }
+    fn mul_vec4(&self, vec: Vector4<f32>) -> Vector4<f32> {
+        self.world_transform * vec
+    }
+    fn mul_self(&self, rhs: Self) -> Self {
+        Self {
+            world_transform: self.world_transform * rhs.world_transform,
+        }
+    }
+}
+impl std::ops::Mul<Transform> for Transform {
+    type Output = Self;
+    fn mul(self, rhs: Transform) -> Self::Output {
+        (&self).mul_self(rhs)
     }
 }
 impl std::ops::Mul<&Point3<f32>> for &Transform {
@@ -105,6 +129,18 @@ impl std::ops::Mul<Ray> for Transform {
         (&self).mul_ray(rhs)
     }
 }
+impl std::ops::Mul<Vector3<f32>> for Transform {
+    type Output = Vector3<f32>;
+    fn mul(self, rhs: Vector3<f32>) -> Self::Output {
+        (&self).mul_vec3(rhs)
+    }
+}
+impl std::ops::Mul<Vector4<f32>> for Transform {
+    type Output = Vector4<f32>;
+    fn mul(self, rhs: Vector4<f32>) -> Self::Output {
+        (&self).mul_vec4(rhs)
+    }
+}
 #[derive(Clone)]
 pub struct Object {
     pub shape: Rc<dyn Hittable>,
@@ -117,21 +153,33 @@ impl Object {
 }
 impl Hittable for Object {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let ray = &self.transform * ray;
-        if let Some(hit) = self.shape.hit(&ray, t_min, t_max) {
+        let shape_ray = &self.transform * ray;
+        if let Some(hit) = self.shape.hit(&shape_ray, t_min, t_max) {
             let inv = self.transform.get_inverse();
-            let world_position = &inv * &hit.position;
+            let world_position = inv * hit.position;
 
             let hit_normal_end_world = inv * (hit.position + hit.normal);
-            let normal_world = hit_normal_end_world - world_position;
-            Some(HitRecord {
+            let normal_world = (world_position - hit_normal_end_world).normalize();
+            let normal_world = inv * Vector4::new(hit.normal.x, hit.normal.y, hit.normal.z, 0.0);
+            let normal_world = Vector3::new(normal_world.x, normal_world.y, normal_world.z);
+            let normal_world = hit.normal;
+            let h = Some(HitRecord {
                 position: world_position,
                 normal: normal_world,
                 t: hit.t,
                 front_face: hit.front_face,
                 uv: hit.uv,
-                material: hit.material,
-            })
+                material: hit.material.clone(),
+            });
+            let h2 = Some(HitRecord::new(
+                &ray,
+                world_position,
+                normal_world,
+                hit.t,
+                hit.uv,
+                hit.material,
+            ));
+            h
         } else {
             None
         }
