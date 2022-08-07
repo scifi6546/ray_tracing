@@ -11,7 +11,7 @@ mod shape_demo;
 mod two_spheres;
 
 use super::{
-    bvh::BvhNode, hittable::*, material::*, texture::*, Background, Camera, ConstantColor,
+    bvh::BvhTree, hittable::*, material::*, texture::*, Background, Camera, ConstantColor,
     FlipNormals, HitRecord, Hittable, Sky, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
@@ -35,12 +35,9 @@ pub struct WorldInfo {
 }
 impl WorldInfo {
     pub fn build_world(self) -> World {
-        let objects_len = self.objects.len();
         World {
-            bvh: BvhNode::new(
+            bvh: BvhTree::new(
                 self.objects,
-                0,
-                objects_len,
                 self.camera.start_time(),
                 self.camera.end_time(),
             ),
@@ -51,7 +48,7 @@ impl WorldInfo {
     }
 }
 pub struct World {
-    pub bvh: BvhNode,
+    pub bvh: BvhTree,
     pub lights: Vec<Rc<dyn Hittable>>,
     pub background: Box<dyn Background>,
     pub camera: Camera,
@@ -161,15 +158,9 @@ impl World {
             base_lib::Background::Sky => Box::new(Sky::default()),
             base_lib::Background::ConstantColor(color) => Box::new(ConstantColor { color }),
         };
-        let objects_len = spheres.len();
+
         Self {
-            bvh: BvhNode::new(
-                spheres,
-                0,
-                objects_len,
-                scene.camera.start_time,
-                scene.camera.end_time,
-            ),
+            bvh: BvhTree::new(spheres, scene.camera.start_time, scene.camera.end_time),
             lights,
             background,
             camera: Camera::new(
