@@ -1,13 +1,12 @@
 mod cornell_smoke;
-mod dielectric_demo;
+mod demo;
+mod dielectric;
+
 mod easy_cornell_box;
 mod easy_scene;
-mod lambertian_test;
 mod light_demo;
-mod metalic_demo;
 mod one_sphere;
 mod random_scene;
-mod shape_demo;
 mod two_spheres;
 
 use super::{
@@ -28,8 +27,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 pub use two_spheres::two_spheres;
 
 pub struct WorldInfo {
-    pub objects: Vec<Rc<dyn Hittable>>,
-    pub lights: Vec<Rc<dyn Hittable>>,
+    pub objects: Vec<Object>,
+    pub lights: Vec<Object>,
     pub background: Box<dyn Background>,
     pub camera: Camera,
 }
@@ -49,7 +48,7 @@ impl WorldInfo {
 }
 pub struct World {
     pub bvh: BvhTree,
-    pub lights: Vec<Rc<dyn Hittable>>,
+    pub lights: Vec<Object>,
     pub background: Box<dyn Background>,
     pub camera: Camera,
 }
@@ -148,12 +147,12 @@ impl World {
         let lights = objects_temp
             .iter()
             .filter(|(is_light, _obj)| *is_light)
-            .map(|(_is_light, obj)| obj.clone())
+            .map(|(_is_light, obj)| Object::new(obj.clone(), Transform::identity()))
             .collect::<Vec<_>>();
         let spheres = objects_temp
             .iter()
-            .map(|(_is_light, obj)| obj.clone())
-            .collect::<Vec<Rc<dyn Hittable>>>();
+            .map(|(_is_light, obj)| Object::new(obj.clone(), Transform::identity()))
+            .collect::<_>();
         let background: Box<dyn Background> = match scene.background {
             base_lib::Background::Sky => Box::new(Sky::default()),
             base_lib::Background::ConstantColor(color) => Box::new(ConstantColor { color }),
@@ -181,7 +180,7 @@ impl World {
         ray: &Ray,
         t_min: f32,
         t_max: f32,
-    ) -> Option<(Rc<dyn Hittable>, HitRecord)> {
+    ) -> Option<(Object, HitRecord)> {
         self.lights
             .iter()
             .map(|light| (light.clone(), light.hit(ray, t_min, t_max)))
@@ -253,27 +252,23 @@ pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
         }),
         Box::new(ScenarioFn {
             name: "Lambertian Demonstration".to_string(),
-            f: lambertian_test::lambertian_test,
-        }),
-        Box::new(ScenarioFn {
-            name: "Object Demo".to_string(),
-            f: shape_demo::object_demo,
+            f: demo::lambertian::demo,
         }),
         Box::new(ScenarioFn {
             name: "Metallic Demonstration Smooth".to_string(),
-            f: metalic_demo::metallic_smooth,
+            f: demo::metalic_demo::metallic_smooth,
         }),
         Box::new(ScenarioFn {
             name: "Metallic Demonstration Rough".to_string(),
-            f: metalic_demo::metallic_rough,
+            f: demo::metalic_demo::metallic_rough,
         }),
         Box::new(ScenarioFn {
             name: "Dielectric Demonstration, Low Refraction".to_string(),
-            f: dielectric_demo::dielectric_no_refraction,
+            f: dielectric::dielectric_no_refraction,
         }),
         Box::new(ScenarioFn {
             name: "Dielectric Demonstration, High Refraction".to_string(),
-            f: dielectric_demo::dielectric_refraction,
+            f: dielectric::dielectric_refraction,
         }),
         Box::new(ScenarioFn {
             name: "Light Demonstration".to_string(),

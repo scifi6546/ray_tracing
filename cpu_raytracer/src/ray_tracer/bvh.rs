@@ -1,11 +1,13 @@
-use super::Ray;
+use super::{
+    hittable::{Hittable, Object, RayAreaInfo},
+    HitRecord, Ray,
+};
 use crate::prelude::*;
-use crate::ray_tracer::hittable::{Hittable, RayAreaInfo};
+
 use cgmath::Point3;
 
-use crate::ray_tracer::HitRecord;
 use log::info;
-use std::path::Iter;
+
 use std::{cmp::Ordering, rc::Rc};
 #[derive(Clone, Copy, Debug)]
 pub struct Aabb {
@@ -45,11 +47,11 @@ impl Aabb {
     }
 }
 pub struct BvhTree {
-    objects: Vec<Rc<dyn Hittable>>,
+    objects: Vec<Object>,
     root_node: BvhTreeNode,
 }
 impl BvhTree {
-    pub fn new(objects: Vec<Rc<dyn Hittable>>, time_0: f32, time_1: f32) -> Self {
+    pub fn new(objects: Vec<Object>, time_0: f32, time_1: f32) -> Self {
         let root_node = BvhTreeNode::new(&objects, &objects, 0, objects.len(), 0, time_0, time_1);
         Self { objects, root_node }
     }
@@ -82,13 +84,7 @@ enum BvhTreeNode {
     },
 }
 impl BvhTreeNode {
-    fn hit(
-        &self,
-        objects: &[Rc<dyn Hittable>],
-        ray: &Ray,
-        t_min: f32,
-        t_max: f32,
-    ) -> Option<HitRecord> {
+    fn hit(&self, objects: &[Object], ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         if !self
             .bounding_box(objects, t_min, t_max)
             .expect("object does not have bounding box")
@@ -115,13 +111,13 @@ impl BvhTreeNode {
             }
         }
     }
-    fn bounding_box(&self, objects: &[Rc<dyn Hittable>], time_0: f32, time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, objects: &[Object], time_0: f32, time_1: f32) -> Option<Aabb> {
         match self {
             Self::Child { bounding_box, .. } => Some(bounding_box.clone()),
             Self::Leaf { idx } => Some(objects[*idx].bounding_box(time_0, time_1).unwrap()),
         }
     }
-    fn box_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>, axis: usize) -> Ordering {
+    fn box_compare(a: Object, b: Object, axis: usize) -> Ordering {
         let a_box = a
             .bounding_box(0.0, 0.0)
             .expect("bvh node does not have bounding box");
@@ -135,18 +131,18 @@ impl BvhTreeNode {
             Ordering::Greater
         }
     }
-    fn box_x_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
+    fn box_x_compare(a: Object, b: Object) -> Ordering {
         Self::box_compare(a, b, 0)
     }
-    fn box_y_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
+    fn box_y_compare(a: Object, b: Object) -> Ordering {
         Self::box_compare(a, b, 1)
     }
-    fn box_z_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
+    fn box_z_compare(a: Object, b: Object) -> Ordering {
         Self::box_compare(a, b, 2)
     }
     pub fn new(
-        objects: &[Rc<dyn Hittable>],
-        objects_full: &[Rc<dyn Hittable>],
+        objects: &[Object],
+        objects_full: &[Object],
         start: usize,
         end: usize,
         offset: usize,
@@ -156,17 +152,11 @@ impl BvhTreeNode {
         let axis = rand_u32(0, 2);
         let span = end - start;
         let comparator = if axis == 0 {
-            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
-                Self::box_x_compare((*a).clone(), (*b).clone())
-            }
+            |a: &Object, b: &Object| Self::box_x_compare((*a).clone(), (*b).clone())
         } else if axis == 1 {
-            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
-                Self::box_y_compare((*a).clone(), (*b).clone())
-            }
+            |a: &Object, b: &Object| Self::box_y_compare((*a).clone(), (*b).clone())
         } else {
-            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
-                Self::box_z_compare((*a).clone(), (*b).clone())
-            }
+            |a: &Object, b: &Object| Self::box_z_compare((*a).clone(), (*b).clone())
         };
         let (left, right) = if span == 1 {
             (
@@ -223,28 +213,6 @@ impl BvhTreeNode {
             );
 
             (left, right)
-            /*
-            let left: Rc<dyn Hittable> = Rc::new(BvhNode::new(
-                (0..middle).map(|i| s_vec[i].clone()).collect(),
-                0,
-                middle,
-                time_0,
-                time_1,
-            ));
-            let right_objects = (middle..s_vec.len())
-                .map(|i| s_vec[i].clone())
-                .collect::<Vec<_>>();
-            let right_objects_len = right_objects.len();
-            let right: Rc<dyn Hittable> = Rc::new(BvhNode::new(
-                right_objects,
-                0,
-                right_objects_len,
-                time_0,
-                time_1,
-            ));
-            (left, right)
-
-                 */
         };
         let left_box = left
             .bounding_box(objects_full, time_0, time_1)

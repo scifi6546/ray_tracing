@@ -39,10 +39,14 @@ impl Transform {
                 .expect("transform is not invertible"),
         }
     }
+    fn from_matrix(world_transform: Matrix4<f32>) -> Self {
+        Self { world_transform }
+    }
     pub fn identity() -> Self {
-        Self {
-            world_transform: Matrix4::identity(),
-        }
+        Self::from_matrix(Matrix4::identity())
+    }
+    pub fn translation(translation: Vector3<f32>) -> Self {
+        Self::from_matrix(Matrix4::from_translation(translation))
     }
     fn mul_ray(&self, ray: Ray) -> Ray {
         let direction_world = ray.origin + ray.direction;
@@ -103,9 +107,15 @@ impl std::ops::Mul<Ray> for Transform {
         (&self).mul_ray(rhs)
     }
 }
+#[derive(Clone)]
 pub struct Object {
     pub shape: Rc<dyn Hittable>,
     pub transform: Transform,
+}
+impl Object {
+    pub fn new(shape: Rc<dyn Hittable>, transform: Transform) -> Self {
+        Self { shape, transform }
+    }
 }
 impl Hittable for Object {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {

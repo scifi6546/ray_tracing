@@ -1,6 +1,6 @@
 use super::{
-    Camera, ConstantColor, DiffuseLight, FlipNormals, Lambertian, SolidColor, World, WorldInfo,
-    XYRect, XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    Camera, ConstantColor, DiffuseLight, FlipNormals, Lambertian, Object, SolidColor, Transform,
+    World, WorldInfo, XYRect, XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -33,59 +33,77 @@ pub fn easy_cornell_box() -> WorldInfo {
             color: RgbColor::new(0.73, 0.73, 0.73),
         }),
     }));
-    let top_light = Rc::new(FlipNormals {
-        item: Rc::new(XZRect {
-            x0: 213.0,
-            x1: 343.0,
-            z0: 227.0,
-            z1: 332.0,
-            k: 554.0,
-            material: light,
+    let top_light = Object::new(
+        Rc::new(FlipNormals {
+            item: Rc::new(XZRect {
+                x0: 213.0,
+                x1: 343.0,
+                z0: 227.0,
+                z1: 332.0,
+                k: 554.0,
+                material: light,
+            }),
         }),
-    });
+        Transform::identity(),
+    );
 
     WorldInfo {
         objects: vec![
-            Rc::new(YZRect {
-                y0: 0.0,
-                y1: 555.0,
-                z0: 0.0,
-                z1: 555.0,
-                k: 555.0,
-                material: green,
-            }),
-            Rc::new(YZRect {
-                y0: 0.0,
-                y1: 555.0,
-                z0: 0.0,
-                z1: 555.0,
-                k: 0.0,
-                material: red,
-            }),
-            Rc::new(XZRect {
-                x0: 0.0,
-                x1: 555.0,
-                z0: 0.0,
-                z1: 555.0,
-                k: 0.0,
-                material: white.clone(),
-            }),
-            Rc::new(XZRect {
-                x0: 0.0,
-                x1: 555.0,
-                z0: 0.0,
-                z1: 555.0,
-                k: 555.0,
-                material: white.clone(),
-            }),
-            Rc::new(XYRect {
-                x0: 0.0,
-                x1: 555.0,
-                y0: 0.0,
-                y1: 555.0,
-                k: 555.0,
-                material: white,
-            }),
+            Object::new(
+                Rc::new(YZRect {
+                    y0: 0.0,
+                    y1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 555.0,
+                    material: green,
+                }),
+                Transform::identity(),
+            ),
+            Object::new(
+                Rc::new(YZRect {
+                    y0: 0.0,
+                    y1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 0.0,
+                    material: red,
+                }),
+                Transform::identity(),
+            ),
+            Object::new(
+                Rc::new(XZRect {
+                    x0: 0.0,
+                    x1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 0.0,
+                    material: white.clone(),
+                }),
+                Transform::identity(),
+            ),
+            Object::new(
+                Rc::new(XZRect {
+                    x0: 0.0,
+                    x1: 555.0,
+                    z0: 0.0,
+                    z1: 555.0,
+                    k: 555.0,
+                    material: white.clone(),
+                }),
+                Transform::identity(),
+            ),
+            Object::new(
+                Rc::new(XYRect {
+                    x0: 0.0,
+                    x1: 555.0,
+                    y0: 0.0,
+                    y1: 555.0,
+                    k: 555.0,
+                    material: white,
+                }),
+                Transform::identity(),
+            ),
             top_light.clone(),
         ],
         lights: vec![top_light],
