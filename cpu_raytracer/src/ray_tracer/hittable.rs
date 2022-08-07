@@ -4,7 +4,6 @@ mod rect;
 mod render_box;
 mod rotation;
 mod sphere;
-mod translate;
 
 use super::{Aabb, Material, Ray};
 
@@ -17,7 +16,6 @@ pub use render_box::RenderBox;
 pub use rotation::RotateY;
 pub use sphere::{MovingSphere, Sphere};
 use std::{cell::RefCell, rc::Rc};
-pub use translate::Translate;
 
 pub trait Hittable {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
@@ -46,7 +44,7 @@ impl Transform {
         Self::from_matrix(Matrix4::identity())
     }
     pub fn translation(translation: Vector3<f32>) -> Self {
-        Self::from_matrix(Matrix4::from_translation(translation))
+        Self::from_matrix(Matrix4::from_translation(-1.0 * translation))
     }
     fn mul_ray(&self, ray: Ray) -> Ray {
         let direction_world = ray.origin + ray.direction;

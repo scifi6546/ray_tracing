@@ -1,7 +1,7 @@
 use super::{
     Camera, ConstantColor, ConstantMedium, DiffuseLight, FlipNormals, Isotropic, Lambertian,
-    Object, RenderBox, RotateY, SolidColor, Sphere, Transform, Translate, WorldInfo, XYRect,
-    XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    Object, RenderBox, RotateY, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
+    IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -109,15 +109,11 @@ pub fn cornell_smoke() -> WorldInfo {
             ),
             Object::new(
                 Rc::new(ConstantMedium::new(
-                    Rc::new(Translate {
-                        item: RenderBox::new(
-                            Point3::new(0.0, 0.0, 0.0),
-                            Point3::new(165.0, 330.0, 165.0),
-                            white.clone(),
-                        ),
-
-                        offset: Vector3::new(265.0, 0.0, 295.0),
-                    }),
+                    Rc::new(RenderBox::new(
+                        Point3::new(0.0, 0.0, 0.0),
+                        Point3::new(165.0, 330.0, 165.0),
+                        white.clone(),
+                    )),
                     Rc::new(RefCell::new(Isotropic {
                         albedo: Box::new(SolidColor {
                             color: RgbColor::new(0.0, 0.0, 0.0),
@@ -125,18 +121,14 @@ pub fn cornell_smoke() -> WorldInfo {
                     })),
                     0.01,
                 )),
-                Transform::identity(),
+                Transform::translation(Vector3::new(265.0, 0.0, 295.0)),
             ),
             Object::new(
                 Rc::new(ConstantMedium::new(
-                    Rc::new(Translate {
-                        item: Sphere {
-                            radius: 100.0,
-                            origin: Point3::new(0.0, 0.0, 0.0),
-                            material: white.clone(),
-                        },
-
-                        offset: Vector3::new(265.0, 500.0, 295.0),
+                    Rc::new(Sphere {
+                        radius: 100.0,
+                        origin: Point3::new(0.0, 0.0, 0.0),
+                        material: white.clone(),
                     }),
                     Rc::new(RefCell::new(Isotropic {
                         albedo: Box::new(SolidColor {
@@ -145,35 +137,18 @@ pub fn cornell_smoke() -> WorldInfo {
                     })),
                     0.01,
                 )),
-                Transform::identity(),
+                Transform::translation(Vector3::new(265.0, 500.0, 295.0)),
             ),
-            /*
-            Rc::new(Translate {
-                item: Rc::new(RotateY::new(
-                    Rc::new(RenderBox::new(
-                        Point3::new(0.0, 0.0, 0.0),
-                        Point3::new(165.0, 330.0, 165.0),
-                        white.clone(),
-                    )),
-                    15.0,
-                )),
-                offset: Vector3::new(265.0, 0.0, 295.0),
-            }),
-
-             */
             Object::new(
-                Rc::new(Translate {
-                    item: RotateY::new(
-                        RenderBox::new(
-                            Point3::new(0.0, 0.0, 0.0),
-                            Point3::new(165.0, 165.0, 165.0),
-                            white,
-                        ),
-                        -18.0,
+                Rc::new(RotateY::new(
+                    RenderBox::new(
+                        Point3::new(0.0, 0.0, 0.0),
+                        Point3::new(165.0, 165.0, 165.0),
+                        white,
                     ),
-                    offset: Vector3::new(130.0, 0.0, 65.0),
-                }),
-                Transform::identity(),
+                    -18.0,
+                )),
+                Transform::translation(Vector3::new(130.0, 0.0, 65.0)),
             ),
         ],
         lights: vec![top_light],

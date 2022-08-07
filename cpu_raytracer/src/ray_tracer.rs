@@ -22,7 +22,7 @@ use cgmath::{InnerSpace, Vector3};
 #[allow(unused_imports)]
 use hittable::{
     ConstantMedium, FlipNormals, HitRecord, Hittable, MovingSphere, Object, RayAreaInfo, RenderBox,
-    RotateY, Sphere, Transform, Translate, XYRect, XZRect, YZRect,
+    RotateY, Sphere, Transform, XYRect, XZRect, YZRect,
 };
 #[allow(unused_imports)]
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};

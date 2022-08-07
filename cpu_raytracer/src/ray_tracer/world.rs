@@ -53,7 +53,7 @@ pub struct World {
     pub camera: Camera,
 }
 impl World {
-    pub fn from_scene(scene: &base_lib::Scene) -> Self {
+    pub fn from_baselib_scene(scene: &base_lib::Scene) -> Self {
         let objects_temp = scene
             .objects
             .iter()
@@ -216,7 +216,7 @@ struct BaselibScenario {
 }
 impl ScenarioCtor for BaselibScenario {
     fn build(&self) -> World {
-        World::from_scene(&(self.ctor)())
+        World::from_baselib_scene(&(self.ctor)())
     }
 
     fn name(&self) -> String {
