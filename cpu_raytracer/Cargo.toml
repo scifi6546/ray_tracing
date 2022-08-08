@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 miniquad = "0.3.0-alpha.46"
-cgmath = "0.18.0"
+cgmath = {version = "0.18.0", features = ["swizzle"]}
 rand="0.8.5"
 image = "0.24.2"
 egui = "0.18.1"

@@ -3,10 +3,11 @@ mod flip_normals;
 mod rect;
 mod render_box;
 mod sphere;
+use log::info;
 
 use super::{Aabb, Material, Ray};
 
-use cgmath::{InnerSpace, Matrix4, Point2, Point3, SquareMatrix, Vector3, Vector4};
+use cgmath::{InnerSpace, Matrix3, Matrix4, Point2, Point3, SquareMatrix, Vector3, Vector4};
 
 pub use constant_medium::ConstantMedium;
 pub use flip_normals::FlipNormals;
@@ -145,24 +146,47 @@ impl std::ops::Mul<Vector4<f32>> for Transform {
 pub struct Object {
     pub shape: Rc<dyn Hittable>,
     pub transform: Transform,
+    counter: usize,
 }
+static mut counter: usize = 0;
 impl Object {
     pub fn new(shape: Rc<dyn Hittable>, transform: Transform) -> Self {
-        Self { shape, transform }
+        Self {
+            shape,
+            transform,
+            counter: 0,
+        }
     }
 }
+
 impl Hittable for Object {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let shape_ray = &self.transform * ray;
+        fn get_three(m: &Matrix4<f32>) -> Matrix3<f32> {
+            let v1 = m[0];
+            let v2 = m[1];
+            let v3 = m[2];
+            let t = [v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z];
+            let m: &Matrix3<f32> = (&t).into();
+            return m.clone();
+        }
         if let Some(hit) = self.shape.hit(&shape_ray, t_min, t_max) {
+            let three = get_three(&self.transform.world_transform);
+            let three_inv = three.invert().unwrap();
             let inv = self.transform.get_inverse();
             let world_position = inv * hit.position;
+            if unsafe { counter } <= 10 {
+                info!("{:?}", inv.world_transform);
+                info!("three: {:?}", three);
+                unsafe { counter += 1 }
+            }
 
             let hit_normal_end_world = inv * (hit.position + hit.normal);
             let normal_world = (world_position - hit_normal_end_world).normalize();
-            let normal_world = inv * Vector4::new(hit.normal.x, hit.normal.y, hit.normal.z, 0.0);
-            let normal_world = Vector3::new(normal_world.x, normal_world.y, normal_world.z);
-            let normal_world = hit.normal;
+            let normal_world = three_inv*hit.normal;
+            //let normal_world = inv * Vector4::new(hit.normal.x, hit.normal.y, hit.normal.z, 0.0);
+            //let normal_world = Vector3::new(normal_world.x, normal_world.y, normal_world.z);
+            //let normal_world = hit.normal;
             let h = Some(HitRecord {
                 position: world_position,
                 normal: normal_world,
