@@ -1,6 +1,6 @@
 mod extension_manager;
 use super::{find_memory_type_index, record_submit_commandbuffer};
-use ash::vk::PhysicalDevice;
+use ash::vk::{PhysicalDevice, PhysicalDeviceFeatures2};
 use ash::{
     extensions::{
         ext::DebugUtils,
@@ -86,6 +86,48 @@ pub struct Base {
     pub device_extension_manager: ExtensionManager,
 }
 impl Base {
+    unsafe fn is_device_suitable(
+        instance: &Instance,
+        dev: &vk::PhysicalDevice,
+        required_extensions: &ExtensionManager,
+    ) -> bool {
+        let extensions = instance
+            .enumerate_device_extension_properties(*dev)
+            .expect("failed to get extensions")
+            .iter()
+            .map(|ext| {
+                CStr::from_ptr(ext.extension_name.as_ptr())
+                    .to_str()
+                    .expect("failed to get extension name")
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+        required_extensions.contains(&extensions)
+    }
+    unsafe fn get_queue_family_index(
+        instance: &Instance,
+        surface_loader: &Surface,
+        surface: &vk::SurfaceKHR,
+        dev: &vk::PhysicalDevice,
+    ) -> Option<usize> {
+        let queue_properties = instance.get_physical_device_queue_family_properties(*dev);
+        let queue_family_index = queue_properties
+            .iter()
+            .enumerate()
+            .find_map(|(index, info)| {
+                let supports_graphic_and_surface =
+                    info.queue_flags.contains(vk::QueueFlags::GRAPHICS)
+                        && surface_loader
+                            .get_physical_device_surface_support(*dev, index as u32, *surface)
+                            .expect("failed to get device_support");
+                if supports_graphic_and_surface {
+                    Some(index)
+                } else {
+                    None
+                }
+            });
+        queue_family_index
+    }
     pub fn new(window_width: u32, window_height: u32) -> Self {
         let event_loop = EventLoop::new();
         let window = WindowBuilder::new()
@@ -189,63 +231,16 @@ impl Base {
             device_extension_manager.add_extension(Swapchain::name().as_ptr());
         }
 
-        unsafe fn is_device_suitable(
-            instance: &Instance,
-            dev: &vk::PhysicalDevice,
-            required_extensions: &ExtensionManager,
-        ) -> bool {
-            let extensions = instance
-                .enumerate_device_extension_properties(*dev)
-                .expect("failed to get extensions")
-                .iter()
-                .map(|ext| {
-                    CStr::from_ptr(ext.extension_name.as_ptr())
-                        .to_str()
-                        .expect("failed to get extension name")
-                        .to_string()
-                })
-                .collect::<Vec<_>>();
-            required_extensions.contains(&extensions)
-        }
-        unsafe fn get_queue_family_index(
-            instance: &Instance,
-            surface_loader: &Surface,
-            surface: &vk::SurfaceKHR,
-            dev: &vk::PhysicalDevice,
-        ) -> Option<usize> {
-            let queue_properties = instance.get_physical_device_queue_family_properties(*dev);
-            let queue_family_index =
-                queue_properties
-                    .iter()
-                    .enumerate()
-                    .find_map(|(index, info)| {
-                        let supports_graphic_and_surface = info
-                            .queue_flags
-                            .contains(vk::QueueFlags::GRAPHICS)
-                            && surface_loader
-                                .get_physical_device_surface_support(*dev, index as u32, *surface)
-                                .expect("failed to get device_support");
-                        if supports_graphic_and_surface {
-                            Some(index)
-                        } else {
-                            None
-                        }
-                    });
-            queue_family_index
-        }
-
         let (p_device, queue_family_index) = unsafe {
             p_devices
                 .iter()
-                .filter(|dev| is_device_suitable(&instance, dev, &device_extension_manager))
+                .filter(|dev| Self::is_device_suitable(&instance, dev, &device_extension_manager))
                 .find_map(|dev| {
-                    get_queue_family_index(&instance, &surface_loader, &surface, dev)
+                    Self::get_queue_family_index(&instance, &surface_loader, &surface, dev)
                         .map(|idx| (*dev, idx))
                 })
                 .expect("failed to find device")
         };
-
-        let device_extension_names_raw = [Swapchain::name().as_ptr()];
 
         let queue_family_index = queue_family_index as u32;
         let features = vk::PhysicalDeviceFeatures::builder().shader_clip_distance(true);
@@ -253,10 +248,18 @@ impl Base {
         let queue_info = vk::DeviceQueueCreateInfo::builder()
             .queue_family_index(queue_family_index)
             .queue_priorities(&priorities);
+        let mut acceleration_feature =
+            vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
+                .acceleration_structure(true);
+        let mut features_next = vk::PhysicalDeviceFeatures2::builder()
+            .features(*features)
+            .push_next(&mut acceleration_feature);
+
         let device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(std::slice::from_ref(&queue_info))
             .enabled_extension_names(device_extension_manager.extensions())
-            .enabled_features(&features);
+            //.enabled_features(&features)
+            .push_next(&mut features_next);
         let device = unsafe {
             instance
                 .create_device(p_device, &device_create_info, None)
