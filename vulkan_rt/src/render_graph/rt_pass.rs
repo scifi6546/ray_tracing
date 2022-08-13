@@ -1,5 +1,7 @@
 use super::{PassBase, VulkanOutput, VulkanOutputType, VulkanPass};
+use crate::prelude::{RenderModel, Vertex};
 use ash::vk;
+use ash::vk::DeviceSize;
 use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc},
     MemoryLocation,
@@ -13,7 +15,81 @@ pub struct RtPass {
 impl RtPass {
     pub fn new(pass_base: &PassBase) -> Self {
         const ALLOC_SIZE: usize = 20 * 256;
+
         unsafe {
+            unsafe fn get_addr(
+                device: &ash::Device,
+                buffer: &vk::Buffer,
+            ) -> vk::DeviceOrHostAddressConstKHR {
+                let buffer_device_address_info =
+                    vk::BufferDeviceAddressInfo::builder().buffer(*buffer);
+                let device_address = device.get_buffer_device_address(&buffer_device_address_info);
+                vk::DeviceOrHostAddressConstKHR { device_address }
+            }
+            for (idx, model) in pass_base.engine_entities.borrow().iter_models() {
+                let vertex_address = get_addr(&pass_base.base.device, &model.vertex_buffer);
+                let index_address = get_addr(&pass_base.base.device, &model.index_buffer);
+
+                let triangles = vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
+                    .vertex_format(vk::Format::R32G32B32_SFLOAT)
+                    .vertex_data(vertex_address)
+                    .vertex_stride(Vertex::stride() as DeviceSize)
+                    .max_vertex(model.max_index as u32)
+                    .index_type(RenderModel::index_type())
+                    .index_data(index_address)
+                    .build();
+                /*
+                vk::AccelerationStructureGeometryDataKHR {
+                                        triangles: vk::AccelerationStructureGeometryTrianglesDataKHR {
+                                            s_type: Default::default(),
+                                            p_next: (),
+                                            vertex_format: Default::default(),
+                                            vertex_data: Default::default(),
+                                            vertex_stride: 0,
+                                            max_vertex: 0,
+                                            index_type: Default::default(),
+                                            index_data: Default::default(),
+                                            transform_data: Default::default(),
+                                        },
+                                    }
+                 */
+                let geo = [vk::AccelerationStructureGeometryKHR::builder()
+                    .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
+                    .geometry(vk::AccelerationStructureGeometryDataKHR { triangles })
+                    .build()];
+                let build_type = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+                    .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
+                    .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
+                    .geometries(&geo);
+                let num = pass_base
+                    .raytracing_state
+                    .acceleration_structure
+                    .get_acceleration_structure_build_sizes(
+                        vk::AccelerationStructureBuildTypeKHR::HOST,
+                        &build_type,
+                        &[1],
+                    );
+                println!("model size: {}", num.acceleration_structure_size);
+            }
+            /*
+            let geometries = [vk::AccelerationStructureGeometryKHR::builder()
+                .geometry(vk::AccelerationStructureGeometryDataKHR {})
+                .build()];
+            let build_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+                .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL)
+                .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
+                .geometries(&geometries);
+            let sizes = pass_base
+                .raytracing_state
+                .acceleration_structure
+                .get_acceleration_structure_build_sizes(
+                    vk::AccelerationStructureBuildTypeKHR::HOST,
+                    &build_info,
+                    &[10],
+                );
+            println!("sizes: {:?}", sizes);
+
+             */
             let queue_family_indicies = [pass_base.base.queue_family_index];
             let info = vk::BufferCreateInfo::builder()
                 .size(ALLOC_SIZE as vk::DeviceSize)

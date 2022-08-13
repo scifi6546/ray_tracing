@@ -251,9 +251,16 @@ impl Base {
         let mut acceleration_feature =
             vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
                 .acceleration_structure(true);
+        let mut rt_pipeline_feature =
+            vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder().ray_tracing_pipeline(true);
+        let mut vulkan_12_features = vk::PhysicalDeviceVulkan12Features::builder()
+            .buffer_device_address(true)
+            .descriptor_indexing(true);
         let mut features_next = vk::PhysicalDeviceFeatures2::builder()
             .features(*features)
-            .push_next(&mut acceleration_feature);
+            .push_next(&mut acceleration_feature)
+            .push_next(&mut rt_pipeline_feature)
+            .push_next(&mut vulkan_12_features);
 
         let device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(std::slice::from_ref(&queue_info))

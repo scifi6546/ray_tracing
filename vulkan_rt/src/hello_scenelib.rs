@@ -51,7 +51,7 @@ impl App {
                 device: base.device.clone(),
                 physical_device: base.p_device.clone(),
                 debug_settings: AllocatorDebugSettings::default(),
-                buffer_device_address: false,
+                buffer_device_address: true,
             })
             .expect("created allocator"),
         ));
