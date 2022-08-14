@@ -243,6 +243,20 @@ impl Base {
         };
 
         let queue_family_index = queue_family_index as u32;
+        unsafe {
+            let mut rt_pipeline = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder();
+            let mut accel = vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder();
+            let mut f = vk::PhysicalDeviceFeatures2::builder()
+                .push_next(&mut rt_pipeline)
+                .push_next(&mut accel)
+                .build();
+            instance.get_physical_device_features2(p_device, &mut f);
+
+            println!("Availible features:\n{:#?}", f);
+            println!("{:#?}", rt_pipeline.build());
+            println!("{:#?}", accel.build());
+        }
+
         let features = vk::PhysicalDeviceFeatures::builder().shader_clip_distance(true);
         let priorities = [1.0];
         let queue_info = vk::DeviceQueueCreateInfo::builder()
@@ -250,7 +264,8 @@ impl Base {
             .queue_priorities(&priorities);
         let mut acceleration_feature =
             vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
-                .acceleration_structure(true);
+                .acceleration_structure(true)
+                .acceleration_structure_host_commands(false);
         let mut rt_pipeline_feature =
             vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder().ray_tracing_pipeline(true);
         let mut vulkan_12_features = vk::PhysicalDeviceVulkan12Features::builder()
