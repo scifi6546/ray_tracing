@@ -69,9 +69,9 @@ impl Hittable for ConstantMedium {
         self.boundary.bounding_box(time_0, time_1)
     }
     fn prob(&self, ray: Ray) -> f32 {
-        todo!()
+        self.boundary.prob(ray)
     }
     fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
-        todo!()
+        self.boundary.generate_ray_in_area(origin, time)
     }
 }

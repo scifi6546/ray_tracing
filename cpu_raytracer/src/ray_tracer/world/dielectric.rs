@@ -1,13 +1,18 @@
 use super::{
-    Camera, DiffuseLight, ImageTexture, Lambertian, Metal, MultiplyTexture, Object, Sky,
-    SolidColor, Sphere, Transform, WorldInfo, XZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    Camera, Dielectric, DiffuseLight, Lambertian, Object, Sky, SolidColor, Sphere, Transform,
+    WorldInfo, XZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 
 use base_lib::RgbColor;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
-
-pub fn light_demo() -> WorldInfo {
+pub fn dielectric_no_refraction() -> WorldInfo {
+    dielectric_demo(1.0)
+}
+pub fn dielectric_refraction() -> WorldInfo {
+    dielectric_demo(1.5)
+}
+pub fn dielectric_demo(refraction: f32) -> WorldInfo {
     let look_at = Point3::new(0.0f32, 1.0, 0.0);
     let origin = Point3::new(10.0f32, 10.0, 2.0);
     let focus_distance = {
@@ -34,11 +39,21 @@ pub fn light_demo() -> WorldInfo {
         Rc::new(Sphere {
             radius: 1.0,
             origin: Point3::new(0.0, 1.0, 0.0),
-            material: Rc::new(RefCell::new(Metal {
+            material: Rc::new(RefCell::new(Dielectric {
+                index_refraction: refraction,
+                color: 0.8 * RgbColor::new(1.0, 1.0, 1.0),
+            })),
+        }),
+        Transform::identity(),
+    );
+    let distorted_sphere = Object::new(
+        Rc::new(Sphere {
+            radius: 1.0,
+            origin: Point3::new(-1.0, 1.0, 1.0),
+            material: Rc::new(RefCell::new(Lambertian {
                 albedo: Box::new(SolidColor {
                     color: RgbColor::new(0.5, 0.1, 0.0),
                 }),
-                fuzz: 0.01,
             })),
         }),
         Transform::identity(),
@@ -48,18 +63,15 @@ pub fn light_demo() -> WorldInfo {
             radius: 0.2,
             origin: Point3::new(0.0, 3.0, 1.0),
             material: Rc::new(RefCell::new(DiffuseLight {
-                emit: Box::new(MultiplyTexture {
-                    a: Box::new(ImageTexture::new("assets/earthmap.jpg")),
-                    b: Box::new(SolidColor {
-                        color: 100.0 * RgbColor::WHITE,
-                    }),
+                emit: Box::new(SolidColor {
+                    color: 2.0 * RgbColor::WHITE,
                 }),
             })),
         }),
         Transform::identity(),
     );
     WorldInfo {
-        objects: vec![floor, light.clone(), l_sphere],
+        objects: vec![floor, light.clone(), distorted_sphere, l_sphere],
         lights: vec![light],
         background: Box::new(Sky { intensity: 0.3 }),
         camera: Camera::new(

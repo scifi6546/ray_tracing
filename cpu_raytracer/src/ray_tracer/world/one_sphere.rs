@@ -1,5 +1,6 @@
 use super::{
-    Camera, Lambertian, Sky, SolidColor, Sphere, World, WorldInfo, IMAGE_HEIGHT, IMAGE_WIDTH,
+    Camera, Lambertian, Object, Sky, SolidColor, Sphere, Transform, WorldInfo, IMAGE_HEIGHT,
+    IMAGE_WIDTH,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -14,23 +15,26 @@ pub fn one_sphere() -> WorldInfo {
     };
 
     WorldInfo {
-        objects: vec![Rc::new(Sphere {
-            radius: 0.5,
-            origin: Point3 {
-                x: 0.0,
-                y: 0.0,
-                z: -1.0,
-            },
-            material: Rc::new(RefCell::new(Lambertian {
-                albedo: Box::new(SolidColor {
-                    color: RgbColor {
-                        red: 0.1,
-                        green: 0.2,
-                        blue: 0.5,
-                    },
-                }),
-            })),
-        })],
+        objects: vec![Object::new(
+            Rc::new(Sphere {
+                radius: 0.5,
+                origin: Point3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: -1.0,
+                },
+                material: Rc::new(RefCell::new(Lambertian {
+                    albedo: Box::new(SolidColor {
+                        color: RgbColor {
+                            red: 0.1,
+                            green: 0.2,
+                            blue: 0.5,
+                        },
+                    }),
+                })),
+            }),
+            Transform::identity(),
+        )],
         lights: vec![],
         background: Box::new(Sky::default()),
         camera: Camera::new(

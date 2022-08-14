@@ -49,8 +49,16 @@ impl GuiCtx {
                 if ui.button("Save Render").clicked() {
                     info!("saving file");
                     if let Some(save_path) = rfd::FileDialog::new().save_file() {
-                        self.message_chanel
-                            .send(Message::SaveFile(save_path.clone()));
+                        if let Some(err) = self
+                            .message_chanel
+                            .send(Message::SaveFile(save_path.clone()))
+                            .err()
+                        {
+                            error!(
+                                "failed to save file because rendering thread crashed, error: {:?}",
+                                err
+                            )
+                        }
                         info!("saving file to path: {:?}", save_path);
                     } else {
                         info!("file save canceled");

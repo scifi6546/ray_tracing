@@ -1,12 +1,12 @@
-use super::Ray;
+use super::{
+    hittable::{Hittable, Object},
+    HitRecord, Ray,
+};
 use crate::prelude::*;
-use crate::ray_tracer::hittable::{Hittable, RayAreaInfo};
+
 use cgmath::Point3;
 
-use crate::ray_tracer::HitRecord;
-use std::path::Iter;
-use std::{cmp::Ordering, rc::Rc};
-
+use std::cmp::Ordering;
 #[derive(Clone, Copy, Debug)]
 pub struct Aabb {
     pub minimum: Point3<f32>,
@@ -44,184 +44,175 @@ impl Aabb {
         }
     }
 }
-pub struct BvhNode {
-    left: Rc<dyn Hittable>,
-    right: Rc<dyn Hittable>,
-    bounding_box: Aabb,
-}
-impl BvhNode {
-    pub fn new(
-        objects: Vec<Rc<dyn Hittable>>,
-        start: usize,
-        end: usize,
-        time_0: f32,
-        time_1: f32,
-    ) -> Self {
-        let axis = rand_u32(0, 2);
-        let span = end - start;
-        let comparator = if axis == 0 {
-            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
-                Self::box_x_compare((*a).clone(), (*b).clone())
-            }
-        } else if axis == 1 {
-            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
-                Self::box_y_compare((*a).clone(), (*b).clone())
-            }
-        } else {
-            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
-                Self::box_z_compare((*a).clone(), (*b).clone())
-            }
-        };
-
-        let (left, right) = if span == 1 {
-            (objects[start].clone(), objects[start].clone())
-        } else if span == 2 {
-            if comparator(&objects[start].clone(), &objects[start + 1].clone()) == Ordering::Less {
-                (objects[start].clone(), objects[start + 1].clone())
-            } else {
-                (objects[start + 1].clone(), objects[start].clone())
-            }
-        } else {
-            let mut s_vec = (start..end).map(|i| objects[i].clone()).collect::<Vec<_>>();
-            s_vec.sort_by(comparator);
-            let middle = s_vec.len() / 2;
-            let left: Rc<dyn Hittable> = Rc::new(BvhNode::new(
-                (0..middle).map(|i| s_vec[i].clone()).collect(),
-                0,
-                middle,
-                time_0,
-                time_1,
-            ));
-            let right_objects = (middle..s_vec.len())
-                .map(|i| s_vec[i].clone())
-                .collect::<Vec<_>>();
-            let right_objects_len = right_objects.len();
-            let right: Rc<dyn Hittable> = Rc::new(BvhNode::new(
-                right_objects,
-                0,
-                right_objects_len,
-                time_0,
-                time_1,
-            ));
-            (left, right)
-        };
-        let left_box = left
-            .bounding_box(time_0, time_1)
-            .expect("no bounding box for object");
-        let right_box = right
-            .bounding_box(time_0, time_1)
-            .expect("no bounding box for object");
-        let bounding_box = left_box.surrounding_box(right_box);
-
-        Self {
-            left,
-            right,
-            bounding_box,
-        }
-    }
-    fn box_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>, axis: usize) -> Ordering {
-        let a_box = a
-            .bounding_box(0.0, 0.0)
-            .expect("bvh node does not have bounding box");
-        let b_box = b
-            .bounding_box(0.0, 0.0)
-            .expect("bvh node does not have bounding box");
-
-        if a_box.minimum[axis] < b_box.minimum[axis] {
-            Ordering::Less
-        } else {
-            Ordering::Greater
-        }
-    }
-    fn box_x_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
-        Self::box_compare(a, b, 0)
-    }
-    fn box_y_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
-        Self::box_compare(a, b, 1)
-    }
-    fn box_z_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
-        Self::box_compare(a, b, 2)
-    }
-}
-impl Hittable for BvhNode {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        if !self.bounding_box.hit(*ray, t_min, t_max) {
-            None
-        } else {
-            match self.left.hit(ray, t_min, t_max) {
-                Some(left_hit) => match self.right.hit(ray, t_min, left_hit.t) {
-                    Some(right_hit) => Some(right_hit),
-                    None => Some(left_hit),
-                },
-                None => self.right.hit(ray, t_min, t_max),
-            }
-        }
-    }
-
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
-        Some(self.bounding_box)
-    }
-    fn prob(&self, ray: Ray) -> f32 {
-        todo!()
-    }
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
-        todo!()
-    }
-}
 pub struct BvhTree {
-    items: Vec<Rc<dyn Hittable>>,
-    nodes: BvhTreeNode,
+    objects: Vec<Object>,
+    root_node: BvhTreeNode,
 }
 impl BvhTree {
-    pub fn new(items: Vec<Rc<dyn Hittable>>, start: usize, end: usize) -> Self {
-        let axis = rand_u32(0, 2);
-        let span = end - start;
-        let comparator = if axis == 0 {
-            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
-                Self::box_x_compare((*a).clone(), (*b).clone())
-            }
-        } else if axis == 1 {
-            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
-                Self::box_y_compare((*a).clone(), (*b).clone())
-            }
-        } else {
-            |a: &Rc<dyn Hittable>, b: &Rc<dyn Hittable>| {
-                Self::box_z_compare((*a).clone(), (*b).clone())
-            }
-        };
-        todo!()
+    pub fn new(objects: Vec<Object>, time_0: f32, time_1: f32) -> Self {
+        let root_node = BvhTreeNode::new(&objects, &objects, 0, objects.len(), 0, time_0, time_1);
+        Self { objects, root_node }
     }
-    fn box_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>, axis: usize) -> Ordering {
-        let a_box = a
-            .bounding_box(0.0, 0.0)
-            .expect("bvh node does not have bounding box");
-        let b_box = b
-            .bounding_box(0.0, 0.0)
-            .expect("bvh node does not have bounding box");
-
-        if a_box.minimum[axis] < b_box.minimum[axis] {
-            Ordering::Less
-        } else {
-            Ordering::Greater
-        }
+    pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        self.root_node.hit(&self.objects, ray, t_min, t_max)
     }
-    fn box_x_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
-        Self::box_compare(a, b, 0)
-    }
-    fn box_y_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
-        Self::box_compare(a, b, 1)
-    }
-    fn box_z_compare(a: Rc<dyn Hittable>, b: Rc<dyn Hittable>) -> Ordering {
-        Self::box_compare(a, b, 2)
+    pub fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
+        self.root_node.bounding_box(&self.objects, time_0, time_1)
     }
 }
 enum BvhTreeNode {
     Child {
         bounding_box: Aabb,
         left: Box<BvhTreeNode>,
-        right_idx: Box<BvhTreeNode>,
+        right: Box<BvhTreeNode>,
     },
     Leaf {
-        leaf: Box<dyn Hittable>,
+        idx: usize,
     },
+}
+impl BvhTreeNode {
+    fn hit(&self, objects: &[Object], ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        if !self
+            .bounding_box(objects, t_min, t_max)
+            .expect("object does not have bounding box")
+            .hit(*ray, t_min, t_max)
+        {
+            None
+        } else {
+            match self {
+                Self::Child { left, right, .. } => {
+                    let left_hit = left.hit(objects, ray, t_min, t_max);
+                    if left_hit.is_none() {
+                        right.hit(objects, ray, t_min, t_max)
+                    } else {
+                        let right_hit =
+                            right.hit(objects, ray, t_min, left_hit.as_ref().unwrap().t);
+                        if right_hit.is_some() {
+                            right_hit
+                        } else {
+                            left_hit
+                        }
+                    }
+                }
+                Self::Leaf { idx } => objects[*idx].hit(ray, t_min, t_max),
+            }
+        }
+    }
+    fn bounding_box(&self, objects: &[Object], time_0: f32, time_1: f32) -> Option<Aabb> {
+        match self {
+            Self::Child { bounding_box, .. } => Some(bounding_box.clone()),
+            Self::Leaf { idx } => Some(objects[*idx].bounding_box(time_0, time_1).unwrap()),
+        }
+    }
+    fn box_compare(a: Object, b: Object, axis: usize) -> Ordering {
+        let a_box = a
+            .bounding_box(0.0, 0.0)
+            .expect("bvh node does not have bounding box");
+        let b_box = b
+            .bounding_box(0.0, 0.0)
+            .expect("bvh node does not have bounding box");
+
+        if a_box.minimum[axis] < b_box.minimum[axis] {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        }
+    }
+    fn box_x_compare(a: Object, b: Object) -> Ordering {
+        Self::box_compare(a, b, 0)
+    }
+    fn box_y_compare(a: Object, b: Object) -> Ordering {
+        Self::box_compare(a, b, 1)
+    }
+    fn box_z_compare(a: Object, b: Object) -> Ordering {
+        Self::box_compare(a, b, 2)
+    }
+    pub fn new(
+        objects: &[Object],
+        objects_full: &[Object],
+        start: usize,
+        end: usize,
+        offset: usize,
+        time_0: f32,
+        time_1: f32,
+    ) -> Self {
+        let axis = rand_u32(0, 2);
+        let span = end - start;
+        let comparator = if axis == 0 {
+            |a: &Object, b: &Object| Self::box_x_compare((*a).clone(), (*b).clone())
+        } else if axis == 1 {
+            |a: &Object, b: &Object| Self::box_y_compare((*a).clone(), (*b).clone())
+        } else {
+            |a: &Object, b: &Object| Self::box_z_compare((*a).clone(), (*b).clone())
+        };
+        let (left, right) = if span == 1 {
+            (
+                Self::Leaf {
+                    idx: start + offset,
+                },
+                Self::Leaf {
+                    idx: start + offset,
+                },
+            )
+        } else if span == 2 {
+            if comparator(&objects[start].clone(), &objects[start + 1].clone()) == Ordering::Less {
+                (
+                    Self::Leaf {
+                        idx: start + offset,
+                    },
+                    Self::Leaf {
+                        idx: start + 1 + offset,
+                    },
+                )
+            } else {
+                (
+                    Self::Leaf {
+                        idx: start + 1 + offset,
+                    },
+                    Self::Leaf {
+                        idx: start + offset,
+                    },
+                )
+            }
+        } else {
+            let mut s_vec = (start..end).map(|i| objects[i].clone()).collect::<Vec<_>>();
+            s_vec.sort_by(comparator);
+            let middle = s_vec.len() / 2;
+
+            let left = Self::new(
+                &s_vec[0..middle],
+                objects_full,
+                0,
+                middle,
+                offset,
+                time_0,
+                time_1,
+            );
+            let s = &s_vec[middle..s_vec.len()];
+            let right = Self::new(
+                &s_vec[middle..s_vec.len()],
+                objects_full,
+                0,
+                s.len(),
+                offset + middle,
+                time_0,
+                time_1,
+            );
+
+            (left, right)
+        };
+        let left_box = left
+            .bounding_box(objects_full, time_0, time_1)
+            .expect("no bounding box for object");
+        let right_box = right
+            .bounding_box(objects_full, time_0, time_1)
+            .expect("no bounding box for object");
+        let bounding_box = left_box.surrounding_box(right_box);
+
+        Self::Child {
+            left: Box::new(left),
+            right: Box::new(right),
+            bounding_box,
+        }
+    }
 }

@@ -3,6 +3,9 @@ use std::os::raw::c_char;
 pub struct ExtensionManager {
     extensions: Vec<*const c_char>,
 }
+pub enum ContainError {
+    DoesNotContain(String),
+}
 impl ExtensionManager {
     pub fn new() -> Self {
         Self { extensions: vec![] }
@@ -20,6 +23,30 @@ impl ExtensionManager {
     }
     pub fn extensions(&self) -> &[*const c_char] {
         &self.extensions
+    }
+    pub unsafe fn extensions_string(&self) -> Vec<String> {
+        self.extensions
+            .iter()
+            .map(|name| {
+                CStr::from_ptr(*name)
+                    .to_str()
+                    .expect("failed to get str")
+                    .to_string()
+            })
+            .collect()
+    }
+    /// check if extensions vec contains all extensions required
+    pub fn contains(&self, extensions: &[String]) -> bool {
+        self.extensions
+            .iter()
+            .map(|name| unsafe {
+                CStr::from_ptr(*name)
+                    .to_str()
+                    .expect("failed to get str")
+                    .to_string()
+            })
+            .map(|name| extensions.contains(&name))
+            .fold(true, |acc, x| acc && x)
     }
     pub unsafe fn print(&self) {
         println!("extension count: {}", self.extensions.len());

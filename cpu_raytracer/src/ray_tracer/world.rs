@@ -1,46 +1,42 @@
 mod cornell_smoke;
-mod dielectric_demo;
+mod demo;
+mod dielectric;
+
 mod easy_cornell_box;
 mod easy_scene;
-mod lambertian_test;
 mod light_demo;
-mod metalic_demo;
 mod one_sphere;
 mod random_scene;
-mod shape_demo;
 mod two_spheres;
 
 use super::{
-    bvh::BvhNode, hittable::*, material::*, texture::*, Background, Camera, ConstantColor,
+    bvh::BvhTree, hittable::*, material::*, texture::*, Background, Camera, ConstantColor,
     FlipNormals, HitRecord, Hittable, Sky, IMAGE_HEIGHT, IMAGE_WIDTH,
 };
 use crate::prelude::*;
-use cgmath::{Point3, Vector3};
+use cgmath::Point3;
 
 pub use cornell_smoke::cornell_smoke;
 pub use easy_cornell_box::easy_cornell_box;
 pub use easy_scene::easy_scene;
 pub use one_sphere::one_sphere;
 pub use random_scene::random_scene;
-use std::ffi::OsString;
+
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub use two_spheres::two_spheres;
 
 pub struct WorldInfo {
-    pub objects: Vec<Rc<dyn Hittable>>,
-    pub lights: Vec<Rc<dyn Hittable>>,
+    pub objects: Vec<Object>,
+    pub lights: Vec<Object>,
     pub background: Box<dyn Background>,
     pub camera: Camera,
 }
 impl WorldInfo {
     pub fn build_world(self) -> World {
-        let objects_len = self.objects.len();
         World {
-            bvh: BvhNode::new(
+            bvh: BvhTree::new(
                 self.objects,
-                0,
-                objects_len,
                 self.camera.start_time(),
                 self.camera.end_time(),
             ),
@@ -51,13 +47,13 @@ impl WorldInfo {
     }
 }
 pub struct World {
-    pub bvh: BvhNode,
-    pub lights: Vec<Rc<dyn Hittable>>,
+    pub bvh: BvhTree,
+    pub lights: Vec<Object>,
     pub background: Box<dyn Background>,
     pub camera: Camera,
 }
 impl World {
-    pub fn from_scene(scene: &base_lib::Scene) -> Self {
+    pub fn from_baselib_scene(scene: &base_lib::Scene) -> Self {
         let objects_temp = scene
             .objects
             .iter()
@@ -151,25 +147,19 @@ impl World {
         let lights = objects_temp
             .iter()
             .filter(|(is_light, _obj)| *is_light)
-            .map(|(_is_light, obj)| obj.clone())
+            .map(|(_is_light, obj)| Object::new(obj.clone(), Transform::identity()))
             .collect::<Vec<_>>();
         let spheres = objects_temp
             .iter()
-            .map(|(_is_light, obj)| obj.clone())
-            .collect::<Vec<Rc<dyn Hittable>>>();
+            .map(|(_is_light, obj)| Object::new(obj.clone(), Transform::identity()))
+            .collect::<_>();
         let background: Box<dyn Background> = match scene.background {
             base_lib::Background::Sky => Box::new(Sky::default()),
             base_lib::Background::ConstantColor(color) => Box::new(ConstantColor { color }),
         };
-        let objects_len = spheres.len();
+
         Self {
-            bvh: BvhNode::new(
-                spheres,
-                0,
-                objects_len,
-                scene.camera.start_time,
-                scene.camera.end_time,
-            ),
+            bvh: BvhTree::new(spheres, scene.camera.start_time, scene.camera.end_time),
             lights,
             background,
             camera: Camera::new(
@@ -190,7 +180,7 @@ impl World {
         ray: &Ray,
         t_min: f32,
         t_max: f32,
-    ) -> Option<(Rc<dyn Hittable>, HitRecord)> {
+    ) -> Option<(Object, HitRecord)> {
         self.lights
             .iter()
             .map(|light| (light.clone(), light.hit(ray, t_min, t_max)))
@@ -226,7 +216,7 @@ struct BaselibScenario {
 }
 impl ScenarioCtor for BaselibScenario {
     fn build(&self) -> World {
-        World::from_scene(&(self.ctor)())
+        World::from_baselib_scene(&(self.ctor)())
     }
 
     fn name(&self) -> String {
@@ -262,31 +252,31 @@ pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
         }),
         Box::new(ScenarioFn {
             name: "Lambertian Demonstration".to_string(),
-            f: lambertian_test::lambertian_test,
-        }),
-        Box::new(ScenarioFn {
-            name: "Object Demo".to_string(),
-            f: shape_demo::object_demo,
+            f: demo::lambertian::demo,
         }),
         Box::new(ScenarioFn {
             name: "Metallic Demonstration Smooth".to_string(),
-            f: metalic_demo::metallic_smooth,
+            f: demo::metalic_demo::metallic_smooth,
         }),
         Box::new(ScenarioFn {
             name: "Metallic Demonstration Rough".to_string(),
-            f: metalic_demo::metallic_rough,
+            f: demo::metalic_demo::metallic_rough,
         }),
         Box::new(ScenarioFn {
             name: "Dielectric Demonstration, Low Refraction".to_string(),
-            f: dielectric_demo::dielectric_no_refraction,
+            f: dielectric::dielectric_no_refraction,
         }),
         Box::new(ScenarioFn {
             name: "Dielectric Demonstration, High Refraction".to_string(),
-            f: dielectric_demo::dielectric_refraction,
+            f: dielectric::dielectric_refraction,
         }),
         Box::new(ScenarioFn {
             name: "Light Demonstration".to_string(),
             f: light_demo::light_demo,
+        }),
+        Box::new(ScenarioFn {
+            name: "Cube Field".to_string(),
+            f: demo::cube_field::build_field,
         }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes

@@ -1,13 +1,7 @@
 pub use base_lib::{clamp, RgbColor};
 use cgmath::{num_traits::*, prelude::*, Point2, Point3, Vector3};
-use image::ImageBuffer;
 use log::info;
-use std::{
-    cmp::PartialOrd,
-    fmt::*,
-    ops::{Add, AddAssign, Div, Mul, Sub},
-    path,
-};
+use std::{cmp::PartialOrd, fmt::*, ops::Div, path};
 use to_numpy::NumpyArray3D;
 
 pub fn rand_f32(min: f32, max: f32) -> f32 {
@@ -72,9 +66,7 @@ impl RgbImage {
         for x in 0..self.width() {
             for y in 0..self.height() {
                 let color = self.get_xy(x, y) / num_samples as f32;
-                fn convert(color: f32) -> u8 {
-                    (color.min(1.0).max(0.0) * 255.0) as u8
-                }
+
                 let rgb = color.as_rgb_u8();
                 let u8_color = image::Rgb(rgb);
                 image.put_pixel(x, self.height() - y - 1, u8_color);

@@ -5,13 +5,16 @@ use cgmath::{
     num_traits::FloatConst, Deg, Euler, Matrix, Matrix4, Point3, Quaternion, Rad, SquareMatrix,
     Vector3,
 };
+use generational_arena::{Arena, Index as ArenaIndex};
 use gpu_allocator::vulkan::*;
 pub use mesh::*;
+
 use std::{
     collections::HashMap,
     rc::Rc,
     sync::{Arc, Mutex},
 };
+
 #[repr(C)]
 #[derive(bytemuck::Pod, bytemuck::Zeroable, Clone, Copy)]
 pub struct Mat4 {
@@ -59,6 +62,22 @@ impl Vector4 {
 pub struct Vertex {
     pub pos: Vector4,
     pub uv: Vector2,
+}
+impl Vertex {
+    pub const fn format() -> VertexFormat {
+        VertexFormat {
+            position: vk::Format::R32G32B32A32_SFLOAT,
+            uv: vk::Format::R32G32_SFLOAT,
+        }
+    }
+    pub const fn stride() -> usize {
+        std::mem::size_of::<Self>()
+    }
+}
+#[derive(Clone, Debug, Copy)]
+pub struct VertexFormat {
+    pub position: vk::Format,
+    pub uv: vk::Format,
 }
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
@@ -669,11 +688,20 @@ impl Camera {
     }
 }
 struct RuntimeScenerio {
-    mesh_ids: Vec<usize>,
+    mesh_ids: Vec<ArenaIndex>,
     camera_id: usize,
 }
+pub struct RenderModelIter<'a> {
+    iter: generational_arena::Iter<'a, RenderModel>,
+}
+impl<'a> std::iter::Iterator for RenderModelIter<'a> {
+    type Item = (ArenaIndex, &'a RenderModel);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
 pub struct EngineEntities {
-    meshes: Vec<RenderModel>,
+    meshes: Arena<RenderModel>,
     cameras: Vec<Camera>,
     selected_name: String,
     scenes: HashMap<String, RuntimeScenerio>,
@@ -686,7 +714,7 @@ impl EngineEntities {
         descriptor_layouts: &[vk::DescriptorSetLayout],
     ) -> Self {
         let raw_scenes = base_lib::get_scenarios();
-        let mut meshes = vec![];
+        let mut meshes = Arena::new();
         let mut cameras = vec![];
         let mut scenes = HashMap::new();
         let mut selected_name = String::new();
@@ -702,8 +730,8 @@ impl EngineEntities {
                     descriptor_pool,
                     descriptor_layouts,
                 );
-                mesh_ids.push(meshes.len());
-                meshes.push(runtime_model);
+                let idx = meshes.insert(runtime_model);
+                mesh_ids.push(idx);
             }
             let camera_id = cameras.len();
             cameras.push(camera);
@@ -738,11 +766,16 @@ impl EngineEntities {
         self.selected_name = name
     }
     pub unsafe fn free_resources(&mut self, base: &Base, allocator: Arc<Mutex<Allocator>>) {
-        for model in self.meshes.drain(..) {
+        for (_idx, model) in self.meshes.drain() {
             model.free_resources(
                 base,
                 &mut allocator.lock().expect("failed to get allocator"),
             )
+        }
+    }
+    pub fn iter_models(&self) -> RenderModelIter {
+        RenderModelIter {
+            iter: self.meshes.iter(),
         }
     }
 }

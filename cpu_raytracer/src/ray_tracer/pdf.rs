@@ -1,4 +1,4 @@
-use super::World;
+use super::{hittable::Hittable, World};
 use crate::prelude::*;
 
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};

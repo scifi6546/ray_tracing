@@ -275,8 +275,17 @@ pub struct RenderModel {
     pub texture: RenderTexture,
     pub num_indices: u32,
     pub animation: AnimationList,
+    /// maximum index accesed by index buffer
+    pub max_index: usize,
 }
+
 impl RenderModel {
+    pub const fn index_type() -> vk::IndexType {
+        vk::IndexType::UINT32
+    }
+    pub fn num_triangles(&self) -> u32 {
+        self.num_indices / 3
+    }
     pub unsafe fn free_resources(self, base: &Base, allocator: &mut Allocator) {
         base.device.device_wait_idle().expect("failed to wait idle");
         self.texture.free_resources(base, allocator);
@@ -304,9 +313,14 @@ impl Model {
         descriptor_pool: &vk::DescriptorPool,
         descriptor_layouts: &[vk::DescriptorSetLayout],
     ) -> RenderModel {
+        let ray_tracing_usage_flags = vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+            | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+            | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR;
+        let max_index = self.mesh.indices.iter().max().unwrap_or(&0).clone() as usize;
+
         let index_buffer_info = vk::BufferCreateInfo::builder()
             .size(size_of::<u32>() as u64 * self.mesh.indices.len() as u64)
-            .usage(vk::BufferUsageFlags::INDEX_BUFFER)
+            .usage(vk::BufferUsageFlags::INDEX_BUFFER | ray_tracing_usage_flags)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
         let index_buffer = unsafe {
             base.device
@@ -315,6 +329,8 @@ impl Model {
         };
         let index_buffer_memory_req =
             unsafe { base.device.get_buffer_memory_requirements(index_buffer) };
+        //     index_buffer_memory_req.
+        let t = vk::MemoryAllocateFlags::DEVICE_ADDRESS;
         let index_allocation = allocator
             .allocate(&AllocationCreateDesc {
                 name: "index buffer memory",
@@ -346,7 +362,7 @@ impl Model {
 
         let vertex_input_buffer_info = vk::BufferCreateInfo::builder()
             .size(size_of::<Vertex>() as u64 * self.mesh.vertices.len() as u64)
-            .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
+            .usage(vk::BufferUsageFlags::VERTEX_BUFFER | ray_tracing_usage_flags)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
         let vertex_buffer = unsafe {
             base.device
@@ -401,6 +417,7 @@ impl Model {
 
             num_indices: self.mesh.indices.len() as u32,
             animation: self.animation.clone(),
+            max_index,
         }
     }
 }

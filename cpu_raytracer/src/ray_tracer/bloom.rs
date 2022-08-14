@@ -1,6 +1,4 @@
 use crate::prelude::*;
-use log::debug;
-use to_numpy::NumpyArray3D;
 trait PostProcessingStage {
     fn process(&self, texture_in: &RgbImage) -> RgbImage;
 }
@@ -73,7 +71,7 @@ pub fn bloom(texture: &mut RgbImage) {
     let bright_texture = select.process(texture);
 
     let blur = GaussianBlur { amount: 10 };
-    let mut bloom_texture = blur.process(&bright_texture);
+    let bloom_texture = blur.process(&bright_texture);
 
     let gamma = 2.2;
     for x in 0..texture.width() {
