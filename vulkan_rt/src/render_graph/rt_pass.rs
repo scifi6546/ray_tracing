@@ -14,10 +14,22 @@ use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
-unsafe fn get_addr(device: &ash::Device, buffer: &vk::Buffer) -> vk::DeviceOrHostAddressConstKHR {
+unsafe fn get_device_address(device: &ash::Device, buffer: &vk::Buffer) -> vk::DeviceAddress {
     let buffer_device_address_info = vk::BufferDeviceAddressInfo::builder().buffer(*buffer);
-    let device_address = device.get_buffer_device_address(&buffer_device_address_info);
-    vk::DeviceOrHostAddressConstKHR { device_address }
+    device.get_buffer_device_address(&buffer_device_address_info)
+}
+unsafe fn get_addr_const(
+    device: &ash::Device,
+    buffer: &vk::Buffer,
+) -> vk::DeviceOrHostAddressConstKHR {
+    vk::DeviceOrHostAddressConstKHR {
+        device_address: get_device_address(device, buffer),
+    }
+}
+unsafe fn get_addr(device: &ash::Device, buffer: &vk::Buffer) -> vk::DeviceOrHostAddressKHR {
+    vk::DeviceOrHostAddressKHR {
+        device_address: get_device_address(device, buffer),
+    }
 }
 struct ModelAccelerationStructure {
     buffer: vk::Buffer,
@@ -33,8 +45,8 @@ impl ModelAccelerationStructure {
     ) -> Self {
         let queue_family_indicies = [base.queue_family_index];
         unsafe {
-            let vertex_address = get_addr(&base.device, &model.vertex_buffer);
-            let index_address = get_addr(&base.device, &model.index_buffer);
+            let vertex_address = get_addr_const(&base.device, &model.vertex_buffer);
+            let index_address = get_addr_const(&base.device, &model.index_buffer);
 
             let triangles = vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
                 .vertex_format(vk::Format::R32G32B32_SFLOAT)
@@ -43,6 +55,9 @@ impl ModelAccelerationStructure {
                 .max_vertex(model.max_index as u32)
                 .index_type(RenderModel::index_type())
                 .index_data(index_address)
+                .transform_data(vk::DeviceOrHostAddressConstKHR {
+                    host_address: std::ptr::null_mut(),
+                })
                 .build();
 
             let geo = [vk::AccelerationStructureGeometryKHR::builder()
@@ -102,14 +117,48 @@ impl ModelAccelerationStructure {
                 .primitive_offset(0)
                 .first_vertex(0)
                 .build()];
+            let scratch_buffer_info = vk::BufferCreateInfo::builder()
+                .size(build_size.build_scratch_size)
+                .queue_family_indices(&queue_family_indicies)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE)
+                .usage(
+                    vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
+                        | vk::BufferUsageFlags::STORAGE_BUFFER
+                        | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+                );
+            let scratch_buffer = base
+                .device
+                .create_buffer(&scratch_buffer_info, None)
+                .expect("failed to create buffer");
+            let scratch_memory_reqs = base.device.get_buffer_memory_requirements(scratch_buffer);
+            let scratch_memory = allocator
+                .lock()
+                .expect("failed to get lock")
+                .allocate(&AllocationCreateDesc {
+                    name: "scratch memory",
+                    requirements: scratch_memory_reqs,
+                    location: MemoryLocation::GpuOnly,
+                    linear: true,
+                })
+                .expect("failed to bind scratch memory");
+            base.device
+                .bind_buffer_memory(
+                    scratch_buffer,
+                    scratch_memory.memory(),
+                    scratch_memory.offset(),
+                )
+                .expect("failed to bind memory");
             let range_arr: [&[vk::AccelerationStructureBuildRangeInfoKHR]; 1] =
                 [&build_range_infos];
+
             let build_type = [vk::AccelerationStructureBuildGeometryInfoKHR::builder()
                 .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
                 .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
                 .geometries(&geo)
+                .scratch_data(get_addr(&base.device, &scratch_buffer))
                 .dst_acceleration_structure(acceleration_structure)
                 .build()];
+            base.device.device_wait_idle().expect("failed to wait idle");
             record_submit_commandbuffer(
                 &base.device,
                 base.setup_command_buffer,
@@ -128,6 +177,12 @@ impl ModelAccelerationStructure {
             base.device
                 .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
                 .expect("failed to wait for fence");
+            allocator
+                .lock()
+                .expect("failed to get allocator")
+                .free(scratch_memory)
+                .expect("failed to free");
+            base.device.destroy_buffer(scratch_buffer, None);
             /*
             raytracing_state
                 .acceleration_structure
