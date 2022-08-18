@@ -246,13 +246,16 @@ impl Base {
         unsafe {
             let mut rt_pipeline = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder();
             let mut accel = vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder();
+            let mut vk_13_features = vk::PhysicalDeviceVulkan13Features::builder();
             let mut f = vk::PhysicalDeviceFeatures2::builder()
                 .push_next(&mut rt_pipeline)
                 .push_next(&mut accel)
+                .push_next(&mut vk_13_features)
                 .build();
             instance.get_physical_device_features2(p_device, &mut f);
 
-            println!("Availible features:\n{:#?}", f);
+            println!("Available features:\n{:#?}", f);
+            println!("{:#?}", vk_13_features.build());
             println!("{:#?}", rt_pipeline.build());
             println!("{:#?}", accel.build());
         }
@@ -271,11 +274,14 @@ impl Base {
         let mut vulkan_12_features = vk::PhysicalDeviceVulkan12Features::builder()
             .buffer_device_address(true)
             .descriptor_indexing(true);
+        let mut vulkan_13_features =
+            vk::PhysicalDeviceVulkan13Features::builder().synchronization2(true);
         let mut features_next = vk::PhysicalDeviceFeatures2::builder()
             .features(*features)
             .push_next(&mut acceleration_feature)
             .push_next(&mut rt_pipeline_feature)
-            .push_next(&mut vulkan_12_features);
+            .push_next(&mut vulkan_12_features)
+            .push_next(&mut vulkan_13_features);
 
         let device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(std::slice::from_ref(&queue_info))

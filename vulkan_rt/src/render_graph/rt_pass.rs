@@ -43,8 +43,11 @@ impl ModelAccelerationStructure {
                 .max_vertex(model.max_index as u32)
                 .index_type(RenderModel::index_type())
                 .index_data(index_address)
+                .transform_data(vk::DeviceOrHostAddressConstKHR {
+                    host_address: std::ptr::null_mut(),
+                })
                 .build();
-
+            println!("triangles\n{:#?}", triangles);
             let geo = [vk::AccelerationStructureGeometryKHR::builder()
                 .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
                 .geometry(vk::AccelerationStructureGeometryDataKHR { triangles })
@@ -104,21 +107,82 @@ impl ModelAccelerationStructure {
                 .build()];
             let range_arr: [&[vk::AccelerationStructureBuildRangeInfoKHR]; 1] =
                 [&build_range_infos];
+            let scratch_buffer_info = vk::BufferCreateInfo::builder()
+                .size(build_size.build_scratch_size)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE)
+                .usage(
+                    vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+                        | vk::BufferUsageFlags::STORAGE_BUFFER,
+                );
+            let scratch_buffer = base
+                .device
+                .create_buffer(&scratch_buffer_info, None)
+                .expect("failed to create scratch buffer");
+            let scratch_reqs = base.device.get_buffer_memory_requirements(scratch_buffer);
+            let scratch_allocation = allocator
+                .lock()
+                .expect("failed to get alloc")
+                .allocate(&AllocationCreateDesc {
+                    name: "scratch allocation",
+                    requirements: scratch_reqs,
+                    location: MemoryLocation::GpuOnly,
+                    linear: true,
+                })
+                .expect("failed to get alloc");
+            base.device
+                .bind_buffer_memory(
+                    scratch_buffer,
+                    scratch_allocation.memory(),
+                    scratch_allocation.offset(),
+                )
+                .expect("failed to bind memory");
+            let scratch_addres_info = vk::BufferDeviceAddressInfo::builder().buffer(scratch_buffer);
+            let scratch_address = base.device.get_buffer_device_address(&scratch_addres_info);
             let build_type = [vk::AccelerationStructureBuildGeometryInfoKHR::builder()
                 .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
                 .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
                 .geometries(&geo)
+                .scratch_data(vk::DeviceOrHostAddressKHR {
+                    device_address: scratch_address,
+                })
                 .dst_acceleration_structure(acceleration_structure)
                 .build()];
+            let t_fence_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+            let fence = base
+                .device
+                .create_fence(&t_fence_info, None)
+                .expect("failed to create fence");
+            let command_buffer_info = vk::CommandBufferAllocateInfo::builder()
+                .command_buffer_count(1)
+                .command_pool(base.pool)
+                .level(vk::CommandBufferLevel::PRIMARY);
+            let command_buffer = base
+                .device
+                .allocate_command_buffers(&command_buffer_info)
+                .expect("failed to get buffer")[0];
+            base.device
+                .device_wait_idle()
+                .expect("failed to wait idle before cmd_buffer");
             record_submit_commandbuffer(
                 &base.device,
-                base.setup_command_buffer,
-                base.setup_commands_reuse_fence,
+                command_buffer,
+                fence,
                 base.present_queue,
                 &[],
                 &[],
                 &[],
                 |device, command_buffer| {
+                    println!("{:#?}", build_type);
+                    println!("{:#?}", *build_type[0].p_geometries);
+                    println!("{:#?}", range_arr);
+                    let mut barrier = [vk::MemoryBarrier2::builder()
+                        .dst_access_mask(vk::AccessFlags2::ACCELERATION_STRUCTURE_WRITE_KHR)
+                        .dst_stage_mask(vk::PipelineStageFlags2::ACCELERATION_STRUCTURE_BUILD_KHR)
+                        .build()];
+
+                    let dep_info = vk::DependencyInfo::builder().memory_barriers(&barrier);
+                    device.cmd_pipeline_barrier2(command_buffer, &dep_info);
+
                     raytracing_state
                         .acceleration_structure
                         .cmd_build_acceleration_structures(command_buffer, &build_type, &range_arr);
@@ -126,7 +190,7 @@ impl ModelAccelerationStructure {
             );
             base.device.device_wait_idle().expect("failed to wait idle");
             base.device
-                .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
+                .wait_for_fences(&[fence], true, u64::MAX)
                 .expect("failed to wait for fence");
             /*
             raytracing_state
@@ -139,6 +203,12 @@ impl ModelAccelerationStructure {
                 .expect("failed to build bottom level accceleration structure");
 
              */
+            allocator
+                .lock()
+                .expect("failed to get alloc lock")
+                .free(scratch_allocation)
+                .expect("failed to free");
+            base.device.destroy_buffer(scratch_buffer, None);
             Self {
                 buffer,
                 allocation: Some(allocation),
