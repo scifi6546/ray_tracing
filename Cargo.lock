@@ -2307,14 +2307,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vulkan_choose"
-version = "0.1.0"
-dependencies = [
- "ash",
- "rfd",
-]
-
-[[package]]
 name = "vulkan_rt"
 version = "0.1.0"
 dependencies = [
