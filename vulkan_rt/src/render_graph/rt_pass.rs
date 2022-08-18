@@ -59,7 +59,7 @@ impl ModelAccelerationStructure {
                     host_address: std::ptr::null_mut(),
                 })
                 .build();
-
+            println!("triangles\n{:#?}", triangles);
             let geo = [vk::AccelerationStructureGeometryKHR::builder()
                 .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
                 .geometry(vk::AccelerationStructureGeometryDataKHR { triangles })
@@ -150,15 +150,12 @@ impl ModelAccelerationStructure {
                 .expect("failed to bind memory");
             let range_arr: [&[vk::AccelerationStructureBuildRangeInfoKHR]; 1] =
                 [&build_range_infos];
-
             let build_type = [vk::AccelerationStructureBuildGeometryInfoKHR::builder()
                 .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
                 .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
                 .geometries(&geo)
-                .scratch_data(get_addr(&base.device, &scratch_buffer))
                 .dst_acceleration_structure(acceleration_structure)
                 .build()];
-            base.device.device_wait_idle().expect("failed to wait idle");
             record_submit_commandbuffer(
                 &base.device,
                 base.setup_command_buffer,
