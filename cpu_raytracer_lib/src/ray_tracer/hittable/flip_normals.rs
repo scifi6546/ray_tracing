@@ -2,10 +2,18 @@ use super::{Aabb, HitRecord, Hittable};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::RayAreaInfo;
 use cgmath::Point3;
+use dyn_clone::clone_box;
+use std::ops::Deref;
 use std::rc::Rc;
-
 pub struct FlipNormals {
-    pub item: Rc<dyn Hittable>,
+    pub item: Box<dyn Hittable>,
+}
+impl Clone for FlipNormals {
+    fn clone(&self) -> Self {
+        Self {
+            item: clone_box(self.item.deref()),
+        }
+    }
 }
 impl Hittable for FlipNormals {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {

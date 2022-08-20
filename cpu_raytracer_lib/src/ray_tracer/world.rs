@@ -15,6 +15,7 @@ use super::{
 };
 use crate::prelude::*;
 use cgmath::Point3;
+use dyn_clone::clone_box;
 
 pub use cornell_smoke::cornell_smoke;
 pub use easy_cornell_box::easy_cornell_box;
@@ -22,6 +23,7 @@ pub use easy_scene::easy_scene;
 pub use one_sphere::one_sphere;
 pub use random_scene::random_scene;
 
+use std::ops::Deref;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 pub use two_spheres::two_spheres;
@@ -58,24 +60,24 @@ impl World {
             .objects
             .iter()
             .map(|obj| {
-                let material: Rc<RefCell<dyn Material>> = match &obj.material {
-                    base_lib::Material::Light(tex) => Rc::new(RefCell::new(DiffuseLight {
+                let material: Box<dyn Material> = match &obj.material {
+                    base_lib::Material::Light(tex) => Box::new(DiffuseLight {
                         emit: match tex {
                             base_lib::Texture::ConstantColor(color) => {
                                 Box::new(SolidColor { color: *color })
                             }
                         },
-                    })),
-                    base_lib::Material::Lambertian(tex) => Rc::new(RefCell::new(Lambertian {
+                    }),
+                    base_lib::Material::Lambertian(tex) => Box::new(Lambertian {
                         albedo: match tex {
                             base_lib::Texture::ConstantColor(color) => {
                                 Box::new(SolidColor { color: *color })
                             }
                         },
-                    })),
+                    }),
                 };
-                let obj_out: Rc<dyn Hittable> = match obj.shape {
-                    base_lib::Shape::Sphere { radius, origin } => Rc::new(Sphere {
+                let obj_out: Box<dyn Hittable> = match obj.shape {
+                    base_lib::Shape::Sphere { radius, origin } => Box::new(Sphere {
                         radius,
                         origin,
                         material,
@@ -84,7 +86,7 @@ impl World {
                         center,
                         size_x,
                         size_y,
-                    } => Rc::new(XYRect {
+                    } => Box::new(XYRect {
                         material,
                         x0: center.x - size_x,
                         x1: center.x + size_x,
@@ -96,7 +98,7 @@ impl World {
                         center,
                         size_y,
                         size_z,
-                    } => Rc::new(YZRect {
+                    } => Box::new(YZRect {
                         material,
                         y0: center.y - size_y,
                         y1: center.y + size_y,
@@ -108,7 +110,7 @@ impl World {
                         center,
                         size_x,
                         size_z,
-                    } => Rc::new(XZRect {
+                    } => Box::new(XZRect {
                         material,
                         x0: center.x - size_x,
                         x1: center.x + size_x,
@@ -121,7 +123,7 @@ impl World {
                         size_x,
                         size_y,
                         size_z,
-                    } => Rc::new(RenderBox::new(
+                    } => Box::new(RenderBox::new(
                         Point3::new(center.x - size_x, center.y - size_y, center.z - size_z),
                         Point3::new(center.x + size_x, center.y + size_y, center.z + size_z),
                         material,
@@ -131,7 +133,7 @@ impl World {
                 for modifier in obj.modifiers.iter() {
                     match modifier {
                         base_lib::Modifiers::FlipNormals => {
-                            obj_out = Rc::new(FlipNormals { item: obj_out });
+                            obj_out = Box::new(FlipNormals { item: obj_out });
                         }
                     }
                 }
@@ -143,15 +145,15 @@ impl World {
                     obj_out,
                 )
             })
-            .collect::<Vec<(bool, Rc<dyn Hittable>)>>();
+            .collect::<Vec<(bool, Box<dyn Hittable>)>>();
         let lights = objects_temp
             .iter()
             .filter(|(is_light, _obj)| *is_light)
-            .map(|(_is_light, obj)| Object::new(obj.clone(), Transform::identity()))
+            .map(|(_is_light, obj)| Object::new(clone_box(obj.deref()), Transform::identity()))
             .collect::<Vec<_>>();
         let spheres = objects_temp
             .iter()
-            .map(|(_is_light, obj)| Object::new(obj.clone(), Transform::identity()))
+            .map(|(_is_light, obj)| Object::new(clone_box(obj.deref()), Transform::identity()))
             .collect::<_>();
         let background: Box<dyn Background> = match scene.background {
             base_lib::Background::Sky => Box::new(Sky::default()),
@@ -223,8 +225,11 @@ impl ScenarioCtor for BaselibScenario {
         self.name.clone()
     }
 }
-
-pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
+pub struct Scenarios {
+    pub items: HashMap<String, Box<dyn ScenarioCtor>>,
+    pub default: String,
+}
+pub fn get_scenarios() -> Scenarios {
     let mut scenes: Vec<Box<dyn ScenarioCtor>> = vec![
         Box::new(ScenarioFn {
             name: "Cornell Smoke".to_string(),
@@ -290,5 +295,8 @@ pub fn get_scenarios() -> HashMap<String, Box<dyn ScenarioCtor>> {
         });
         map.insert(name, ctor);
     }
-    map
+    Scenarios {
+        items: map,
+        default: "Cornell Smoke".to_string(),
+    }
 }

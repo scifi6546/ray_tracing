@@ -17,14 +17,14 @@ pub fn two_spheres() -> WorldInfo {
     WorldInfo {
         objects: vec![
             Object::new(
-                Rc::new(Sphere {
+                Box::new(Sphere {
                     radius: 0.5,
                     origin: Point3 {
                         x: 0.0,
                         y: 0.0,
                         z: -1.0,
                     },
-                    material: Rc::new(RefCell::new(Lambertian {
+                    material: Box::new(Lambertian {
                         albedo: Box::new(SolidColor {
                             color: RgbColor {
                                 red: 0.1,
@@ -32,24 +32,24 @@ pub fn two_spheres() -> WorldInfo {
                                 blue: 0.5,
                             },
                         }),
-                    })),
+                    }),
                 }),
                 Transform::identity(),
             ),
             Object::new(
-                Rc::new(Sphere {
+                Box::new(Sphere {
                     radius: 0.5,
                     origin: Point3 {
                         x: 1.0,
                         y: 0.0,
                         z: -1.0,
                     },
-                    material: Rc::new(RefCell::new(Metal {
+                    material: Box::new(Metal {
                         albedo: Box::new(SolidColor {
                             color: RgbColor::new(0.8, 0.6, 0.2),
                         }),
                         fuzz: 0.0,
-                    })),
+                    }),
                 }),
                 Transform::identity(),
             ),

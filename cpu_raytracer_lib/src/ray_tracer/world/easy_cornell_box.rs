@@ -13,29 +13,29 @@ pub fn easy_cornell_box() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-    let green = Rc::new(RefCell::new(Lambertian {
+    let green = Box::new(Lambertian {
         albedo: Box::new(SolidColor {
             color: RgbColor::new(0.12, 0.45, 0.15),
         }),
-    }));
-    let red = Rc::new(RefCell::new(Lambertian {
+    });
+    let red = Box::new(Lambertian {
         albedo: Box::new(SolidColor {
             color: RgbColor::new(0.65, 0.05, 0.05),
         }),
-    }));
-    let light = Rc::new(RefCell::new(DiffuseLight {
+    });
+    let light = Box::new(DiffuseLight {
         emit: Box::new(SolidColor {
             color: RgbColor::new(15.0, 15.0, 15.0),
         }),
-    }));
-    let white = Rc::new(RefCell::new(Lambertian {
+    });
+    let white = Box::new(Lambertian {
         albedo: Box::new(SolidColor {
             color: RgbColor::new(0.73, 0.73, 0.73),
         }),
-    }));
+    });
     let top_light = Object::new(
-        Rc::new(FlipNormals {
-            item: Rc::new(XZRect {
+        Box::new(FlipNormals {
+            item: Box::new(XZRect {
                 x0: 213.0,
                 x1: 343.0,
                 z0: 227.0,
@@ -50,7 +50,7 @@ pub fn easy_cornell_box() -> WorldInfo {
     WorldInfo {
         objects: vec![
             Object::new(
-                Rc::new(YZRect {
+                Box::new(YZRect {
                     y0: 0.0,
                     y1: 555.0,
                     z0: 0.0,
@@ -61,7 +61,7 @@ pub fn easy_cornell_box() -> WorldInfo {
                 Transform::identity(),
             ),
             Object::new(
-                Rc::new(YZRect {
+                Box::new(YZRect {
                     y0: 0.0,
                     y1: 555.0,
                     z0: 0.0,
@@ -72,7 +72,7 @@ pub fn easy_cornell_box() -> WorldInfo {
                 Transform::identity(),
             ),
             Object::new(
-                Rc::new(XZRect {
+                Box::new(XZRect {
                     x0: 0.0,
                     x1: 555.0,
                     z0: 0.0,
@@ -83,7 +83,7 @@ pub fn easy_cornell_box() -> WorldInfo {
                 Transform::identity(),
             ),
             Object::new(
-                Rc::new(XZRect {
+                Box::new(XZRect {
                     x0: 0.0,
                     x1: 555.0,
                     z0: 0.0,
@@ -94,7 +94,7 @@ pub fn easy_cornell_box() -> WorldInfo {
                 Transform::identity(),
             ),
             Object::new(
-                Rc::new(XYRect {
+                Box::new(XYRect {
                     x0: 0.0,
                     x1: 555.0,
                     y0: 0.0,

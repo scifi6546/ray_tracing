@@ -11,15 +11,15 @@ pub fn metallic_rough() -> WorldInfo {
 }
 pub fn metalic_demo_fuzz(fuzz: f32) -> WorldInfo {
     return new_demo(vec![Object::new(
-        Rc::new(Sphere {
+        Box::new(Sphere {
             radius: 1.0,
             origin: Point3::new(0.0, 1.0, 0.0),
-            material: Rc::new(RefCell::new(Metal {
+            material: Box::new(Metal {
                 albedo: Box::new(SolidColor {
                     color: RgbColor::new(0.5, 0.1, 0.0),
                 }),
                 fuzz,
-            })),
+            }),
         }),
         Transform::identity(),
     )]);

@@ -1,7 +1,7 @@
 use super::Ray;
 use crate::prelude::*;
 use cgmath::prelude::*;
-pub trait Background {
+pub trait Background: Send {
     fn color(&self, ray: Ray) -> RgbColor;
 }
 pub struct Sky {

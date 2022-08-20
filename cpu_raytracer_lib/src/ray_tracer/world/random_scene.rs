@@ -10,10 +10,10 @@ use std::{cell::RefCell, rc::Rc};
 pub fn random_scene() -> WorldInfo {
     let big: [Object; 4] = [
         Object::new(
-            Rc::new(Sphere {
+            Box::new(Sphere {
                 radius: 1000.0,
                 origin: Point3::new(0.0, -1000.0, 1000.0),
-                material: Rc::new(RefCell::new(Lambertian {
+                material: Box::new(Lambertian {
                     albedo: Box::new(SolidColor {
                         color: RgbColor {
                             red: 0.5,
@@ -21,43 +21,43 @@ pub fn random_scene() -> WorldInfo {
                             blue: 0.5,
                         },
                     }),
-                })),
+                }),
             }),
             Transform::identity(),
         ),
         Object::new(
-            Rc::new(Sphere {
+            Box::new(Sphere {
                 radius: 1.0,
                 origin: Point3::new(0.0, 1.0, 0.0),
-                material: Rc::new(RefCell::new(Dielectric {
+                material: Box::new(Dielectric {
                     index_refraction: 1.5,
                     color: RgbColor::new(1.0, 1.0, 1.0),
-                })),
+                }),
             }),
             Transform::identity(),
         ),
         Object::new(
-            Rc::new(Sphere {
+            Box::new(Sphere {
                 radius: 1.0,
                 origin: Point3::new(-4.0, 1.0, 0.0),
-                material: Rc::new(RefCell::new(Lambertian {
+                material: Box::new(Lambertian {
                     albedo: Box::new(SolidColor {
                         color: RgbColor::new(0.4, 0.2, 0.1),
                     }),
-                })),
+                }),
             }),
             Transform::identity(),
         ),
         Object::new(
-            Rc::new(Sphere {
+            Box::new(Sphere {
                 radius: 1.0,
                 origin: Point3::new(4.0, 1.0, 0.0),
-                material: Rc::new(RefCell::new(Metal {
+                material: Box::new(Metal {
                     albedo: Box::new(SolidColor {
                         color: RgbColor::new(0.4, 0.2, 0.1),
                     }),
                     fuzz: 0.0,
-                })),
+                }),
             }),
             Transform::identity(),
         ),
@@ -75,43 +75,43 @@ pub fn random_scene() -> WorldInfo {
                 if check.dot(check).sqrt() > 0.9 {
                     if choose_mat < 0.8 {
                         Some(Object::new(
-                            Rc::new(MovingSphere {
+                            Box::new(MovingSphere {
                                 radius: 0.2,
                                 center_0: center,
                                 center_1: center + Vector3::new(0.0, rand_f32(0.0, 0.5), 0.0),
                                 time_0: 0.0,
                                 time_1: 1.0,
-                                material: Rc::new(RefCell::new(Lambertian {
+                                material: Box::new(Lambertian {
                                     albedo: Box::new(SolidColor {
                                         color: RgbColor::random(),
                                     }),
-                                })),
+                                }),
                             }),
                             Transform::identity(),
                         ))
                     } else if choose_mat < 0.95 {
                         Some(Object::new(
-                            Rc::new(Sphere {
+                            Box::new(Sphere {
                                 radius: 0.2,
                                 origin: center,
-                                material: Rc::new(RefCell::new(Metal {
+                                material: Box::new(Metal {
                                     albedo: Box::new(SolidColor {
                                         color: RgbColor::random(),
                                     }),
                                     fuzz: rand::random::<f32>() * 0.5 + 0.5,
-                                })),
+                                }),
                             }),
                             Transform::identity(),
                         ))
                     } else {
                         Some(Object::new(
-                            Rc::new(Sphere {
+                            Box::new(Sphere {
                                 radius: 0.2,
                                 origin: center,
-                                material: Rc::new(RefCell::new(Dielectric {
+                                material: Box::new(Dielectric {
                                     color: RgbColor::new(1.0, 1.0, 1.0),
                                     index_refraction: 1.5,
-                                })),
+                                }),
                             }),
                             Transform::identity(),
                         ))

@@ -16,14 +16,14 @@ pub fn one_sphere() -> WorldInfo {
 
     WorldInfo {
         objects: vec![Object::new(
-            Rc::new(Sphere {
+            Box::new(Sphere {
                 radius: 0.5,
                 origin: Point3 {
                     x: 0.0,
                     y: 0.0,
                     z: -1.0,
                 },
-                material: Rc::new(RefCell::new(Lambertian {
+                material: Box::new(Lambertian {
                     albedo: Box::new(SolidColor {
                         color: RgbColor {
                             red: 0.1,
@@ -31,7 +31,7 @@ pub fn one_sphere() -> WorldInfo {
                             blue: 0.5,
                         },
                     }),
-                })),
+                }),
             }),
             Transform::identity(),
         )],

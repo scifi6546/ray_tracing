@@ -1,14 +1,25 @@
 use crate::prelude::*;
 use crate::ray_tracer::rand_vec;
 use cgmath::{InnerSpace, Point2, Point3, Vector3};
+use dyn_clone::clone_box;
+use std::ops::Deref;
 
-pub trait Texture {
+pub trait Texture: Send + dyn_clone::DynClone {
     fn name(&self) -> &'static str;
     fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor;
 }
+
 pub struct MultiplyTexture {
     pub a: Box<dyn Texture>,
     pub b: Box<dyn Texture>,
+}
+impl Clone for MultiplyTexture {
+    fn clone(&self) -> Self {
+        Self {
+            a: clone_box(self.a.deref()),
+            b: clone_box(self.b.deref()),
+        }
+    }
 }
 impl Texture for MultiplyTexture {
     fn name(&self) -> &'static str {
@@ -19,6 +30,7 @@ impl Texture for MultiplyTexture {
         self.a.color(uv, pos) * self.b.color(uv, pos)
     }
 }
+#[derive(Clone)]
 pub struct SolidColor {
     pub(crate) color: RgbColor,
 }
@@ -30,9 +42,18 @@ impl Texture for SolidColor {
         self.color
     }
 }
+
 pub struct CheckerTexture {
     pub odd: Box<dyn Texture>,
     pub even: Box<dyn Texture>,
+}
+impl Clone for CheckerTexture {
+    fn clone(&self) -> Self {
+        Self {
+            odd: clone_box(self.odd.deref()),
+            even: clone_box(self.even.deref()),
+        }
+    }
 }
 impl Texture for CheckerTexture {
     fn name(&self) -> &'static str {
@@ -47,6 +68,7 @@ impl Texture for CheckerTexture {
         }
     }
 }
+#[derive(Clone)]
 pub struct Perlin {
     ran_float: [Vector3<f32>; Self::POINT_COUNT],
     perm_x: [usize; Self::POINT_COUNT],
@@ -158,6 +180,7 @@ impl Texture for Perlin {
         RgbColor::new(f, f, f)
     }
 }
+#[derive(Clone)]
 pub struct ImageTexture {
     texture: RgbImage,
 }
@@ -190,6 +213,7 @@ impl Texture for ImageTexture {
         self.texture.get_uv(uv)
     }
 }
+#[derive(Clone)]
 pub struct DebugV {}
 impl Texture for DebugV {
     fn name(&self) -> &'static str {

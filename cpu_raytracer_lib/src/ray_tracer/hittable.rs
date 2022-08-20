@@ -9,13 +9,15 @@ use super::{Aabb, Material, Ray};
 use cgmath::{InnerSpace, Matrix3, Matrix4, Point2, Point3, SquareMatrix, Vector3, Vector4};
 
 pub use constant_medium::ConstantMedium;
+use dyn_clone::{clone_box, DynClone};
 pub use flip_normals::FlipNormals;
 pub use rect::{XYRect, XZRect, YZRect};
 pub use render_box::RenderBox;
 pub use sphere::{MovingSphere, Sphere};
-use std::{cell::RefCell, rc::Rc};
+use std::ops::Deref;
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-pub trait Hittable {
+pub trait Hittable: Send + DynClone {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
     fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb>;
     /// probability of hitting the box for given ray going towards point
@@ -141,14 +143,22 @@ impl std::ops::Mul<Vector4<f32>> for Transform {
         (&self).mul_vec4(rhs)
     }
 }
-#[derive(Clone)]
+
 pub struct Object {
-    pub shape: Rc<dyn Hittable>,
+    pub shape: Box<dyn Hittable>,
     pub transform: Transform,
+}
+impl Clone for Object {
+    fn clone(&self) -> Self {
+        Self {
+            shape: clone_box(self.shape.deref()),
+            transform: self.transform,
+        }
+    }
 }
 
 impl Object {
-    pub fn new(shape: Rc<dyn Hittable>, transform: Transform) -> Self {
+    pub fn new(shape: Box<dyn Hittable>, transform: Transform) -> Self {
         Self { shape, transform }
     }
 }
@@ -180,7 +190,7 @@ impl Hittable for Object {
                 t: hit.t,
                 front_face: hit.front_face,
                 uv: hit.uv,
-                material: hit.material.clone(),
+                material: hit.material,
             });
 
             h
@@ -261,16 +271,27 @@ impl Hittable for Object {
         }
     }
 }
-#[derive(Clone)]
+
 pub struct HitRecord {
     pub position: Point3<f32>,
     pub normal: Vector3<f32>,
     pub t: f32,
     pub front_face: bool,
     pub uv: Point2<f32>,
-    pub material: Rc<RefCell<dyn Material>>,
+    pub material: Box<dyn Material>,
 }
-
+impl Clone for HitRecord {
+    fn clone(&self) -> Self {
+        Self {
+            position: self.position,
+            normal: self.normal,
+            t: self.t,
+            front_face: self.front_face,
+            uv: self.uv,
+            material: clone_box(self.material.deref()),
+        }
+    }
+}
 impl HitRecord {
     pub fn new(
         ray: &Ray,
@@ -278,7 +299,7 @@ impl HitRecord {
         normal: Vector3<f32>,
         t: f32,
         uv: Point2<f32>,
-        material: Rc<RefCell<dyn Material>>,
+        material: Box<dyn Material>,
     ) -> Self {
         let front_face = ray.direction.dot(normal) < 0.0;
         Self {

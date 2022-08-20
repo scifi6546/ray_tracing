@@ -18,30 +18,30 @@ pub fn new_demo(mut special_item: Vec<Object>) -> WorldInfo {
         (t.dot(t)).sqrt()
     };
     let floor = Object::new(
-        Rc::new(XZRect {
+        Box::new(XZRect {
             x0: -5.0,
             x1: 5.0,
             z0: -5.0,
             z1: 5.0,
             k: 0.0,
-            material: Rc::new(RefCell::new(Lambertian {
+            material: Box::new(Lambertian {
                 albedo: Box::new(SolidColor {
                     color: RgbColor::new(0.5, 0.5, 0.5),
                 }),
-            })),
+            }),
         }),
         Transform::identity(),
     );
 
     let light = Object::new(
-        Rc::new(Sphere {
+        Box::new(Sphere {
             radius: 0.2,
             origin: Point3::new(0.0, 3.0, 1.0),
-            material: Rc::new(RefCell::new(DiffuseLight {
+            material: Box::new(DiffuseLight {
                 emit: Box::new(SolidColor {
                     color: 2000.0 * RgbColor::WHITE,
                 }),
-            })),
+            }),
         }),
         Transform::identity(),
     );

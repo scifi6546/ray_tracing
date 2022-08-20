@@ -17,8 +17,16 @@ pub enum LogMessage {
     Error(String),
 }
 static mut LOG_MESSAGES: Mutex<Option<Vec<LogMessage>>> = Mutex::new(None);
+static mut LOGGER: Logger = Logger {};
 pub struct Logger {}
 impl Logger {
+    pub fn init() {
+        unsafe {
+            log::set_logger(&LOGGER)
+                .map(|()| log::set_max_level(log::LevelFilter::Debug))
+                .expect("failed to set logger");
+        }
+    }
     pub fn new() -> Self {
         Self {}
     }
@@ -40,10 +48,10 @@ impl log::Log for Logger {
         if self.enabled(record.metadata()) {
             let mut log_result = unsafe { LOG_MESSAGES.lock().expect("failed to get lock") };
             if log_result.is_none() {
+                log::set_max_level(log::LevelFilter::Debug);
                 *log_result = Some(vec![]);
             }
             let mut log_messages = log_result.as_mut().unwrap();
-
             let message = match record.level() {
                 LogLevel::Trace => LogMessage::Trace(record.args().to_string()),
                 LogLevel::Debug => {
@@ -62,7 +70,5 @@ impl log::Log for Logger {
         }
     }
 
-    fn flush(&self) {
-        println!("flush??")
-    }
+    fn flush(&self) {}
 }

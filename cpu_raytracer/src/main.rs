@@ -2,6 +2,7 @@ mod gui;
 
 use cgmath::{InnerSpace, Vector2, Vector3};
 use cpu_raytracer_lib::{
+    prelude::*,
     ray_tracer::{LogMessage, RayTracer, RayTracerInfo},
     Image, Message,
 };
@@ -11,7 +12,13 @@ use miniquad::{
     UserData, VertexAttribute, VertexFormat,
 };
 
-use std::sync::mpsc::Receiver;
+use log::info;
+use std::{
+    sync::mpsc::{channel, Receiver},
+    thread,
+    time::Instant,
+};
+
 pub fn vec_near_zero(v: Vector3<f32>) -> bool {
     v.dot(v) < 1e-8
 }
@@ -25,7 +32,7 @@ struct Vertex {
 struct Handler {
     pipeline: Pipeline,
     bindings: Bindings,
-    image_channel: Receiver<Image>,
+    image_reciever: Receiver<Image>,
 
     gui: GuiCtx,
 }
@@ -77,19 +84,47 @@ impl Handler {
             ],
             shader,
         );
-        let (image_channel, message_sender, info) = RayTracer::Dep_new();
+        let mut ray_tracer = RayTracer::new();
+        let (message_sender, message_reciever) = channel();
+        let (image_sender, image_reciever) = channel();
+        let info = ray_tracer.get_info();
+        thread::spawn(move || {
+            let mut rgb_img = RgbImage::new_black(1000, 1000);
+            let mut total_time = Instant::now();
+            let mut num_samples = 1usize;
+            loop {
+                if let Ok(message) = message_reciever.try_recv() {
+                    println!("recieved message");
+                    match message {
+                        Message::LoadScenario(scenario) => {
+                            ray_tracer.load_scenario(scenario);
+                        }
+                        Message::SaveFile(path) => rgb_img.save_image(path, num_samples),
+                    }
+                }
+                ray_tracer.tracing_loop(&mut rgb_img, num_samples);
+                image_sender
+                    .send(Image::from_rgb_image(&rgb_img))
+                    .expect("channel failed");
+                let average_time_s = total_time.elapsed().as_secs_f32() / (num_samples) as f32;
+                info!(
+                    "frame: {}, average time per frame: {} (s)",
+                    num_samples, average_time_s
+                );
+                num_samples += 1;
+            }
+        });
         Self {
             pipeline,
             bindings,
-            image_channel,
-
+            image_reciever,
             gui: GuiCtx::new(ctx, &info, message_sender),
         }
     }
 }
 impl EventHandler for Handler {
     fn update(&mut self, ctx: &mut Context) {
-        if let Ok(img) = self.image_channel.try_recv() {
+        if let Ok(img) = self.image_reciever.try_recv() {
             let tex = img.make_texture(ctx);
             self.bindings.images = vec![tex];
         }

@@ -24,14 +24,14 @@ pub fn build_field() -> WorldInfo {
         .iter()
         .map(|c| {
             Object::new(
-                Rc::new(RenderBox::new(
+                Box::new(RenderBox::new(
                     Point3::new(-0.5, -0.5, -0.5),
                     Point3::new(0.5, 0.5, 0.5),
-                    Rc::new(RefCell::new(Lambertian {
+                    Box::new(Lambertian {
                         albedo: Box::new(SolidColor {
                             color: RgbColor::new(0.5, 0.1, 0.0),
                         }),
-                    })),
+                    }),
                 )),
                 Transform::identity()
                     .translate(Vector3::new(c.x, 0.5, c.z))

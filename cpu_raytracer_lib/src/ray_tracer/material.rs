@@ -3,10 +3,12 @@ use super::{
     Texture,
 };
 use cgmath::{num_traits::*, InnerSpace, Vector3};
+use dyn_clone::{clone_box, DynClone};
+use std::ops::Deref;
 
 use std::rc::Rc;
 //pub type PDF = f32;
-pub trait Material {
+pub trait Material: Send + DynClone {
     fn name(&self) -> &'static str;
     fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord>;
     fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray)
@@ -15,8 +17,16 @@ pub trait Material {
         None
     }
 }
+
 pub struct Lambertian {
     pub albedo: Box<dyn Texture>,
+}
+impl Clone for Lambertian {
+    fn clone(&self) -> Self {
+        Self {
+            albedo: clone_box(self.albedo.deref()),
+        }
+    }
 }
 impl Material for Lambertian {
     fn name(&self) -> &'static str {
@@ -49,9 +59,18 @@ impl Material for Lambertian {
         }
     }
 }
+
 pub struct Metal {
     pub albedo: Box<dyn Texture>,
     pub fuzz: f32,
+}
+impl Clone for Metal {
+    fn clone(&self) -> Self {
+        Self {
+            albedo: clone_box(self.albedo.deref()),
+            fuzz: self.fuzz,
+        }
+    }
 }
 impl Material for Metal {
     fn name(&self) -> &'static str {
@@ -86,6 +105,7 @@ impl Material for Metal {
         panic!("material is specular")
     }
 }
+#[derive(Clone)]
 pub struct Dielectric {
     pub index_refraction: f32,
     pub color: RgbColor,
@@ -145,8 +165,16 @@ impl Material for Dielectric {
         panic!("material is specular should not have scattering")
     }
 }
+
 pub struct DiffuseLight {
     pub emit: Box<dyn Texture>,
+}
+impl Clone for DiffuseLight {
+    fn clone(&self) -> Self {
+        Self {
+            emit: clone_box(self.emit.deref()),
+        }
+    }
 }
 impl Material for DiffuseLight {
     fn name(&self) -> &'static str {
@@ -173,10 +201,17 @@ impl Material for DiffuseLight {
         }
     }
 }
+
 pub struct Isotropic {
     pub albedo: Box<dyn Texture>,
 }
-
+impl Clone for Isotropic {
+    fn clone(&self) -> Self {
+        Self {
+            albedo: clone_box(self.albedo.deref()),
+        }
+    }
+}
 impl Material for Isotropic {
     fn name(&self) -> &'static str {
         "Isotropic"

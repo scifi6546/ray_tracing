@@ -5,8 +5,9 @@ use super::{
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
+use dyn_clone::clone_box;
+use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
-
 #[allow(dead_code)]
 pub fn cornell_smoke() -> WorldInfo {
     let look_at = Point3::new(278.0f32, 278.0, 0.0);
@@ -15,36 +16,36 @@ pub fn cornell_smoke() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-    let green = Rc::new(RefCell::new(Lambertian {
+    let green = Box::new(Lambertian {
         albedo: Box::new(SolidColor {
             color: RgbColor::new(0.12, 0.45, 0.15),
         }),
-    }));
-    let red = Rc::new(RefCell::new(Lambertian {
+    });
+    let red = Box::new(Lambertian {
         albedo: Box::new(SolidColor {
             color: RgbColor::new(0.65, 0.05, 0.05),
         }),
-    }));
-    let light = Rc::new(RefCell::new(DiffuseLight {
+    });
+    let light = Box::new(DiffuseLight {
         emit: Box::new(SolidColor {
             color: RgbColor::new(7.0, 7.0, 7.0),
         }),
-    }));
+    });
 
-    let white = Rc::new(RefCell::new(Lambertian {
+    let white = Box::new(Lambertian {
         albedo: Box::new(SolidColor {
             color: RgbColor::new(0.73, 0.73, 0.73),
         }),
-    }));
+    });
     let top_light = Object::new(
-        Rc::new(FlipNormals {
-            item: Rc::new(XZRect {
+        Box::new(FlipNormals {
+            item: Box::new(XZRect {
                 x0: 113.0,
                 x1: 443.0,
                 z0: 127.0,
                 z1: 423.0,
                 k: 554.0,
-                material: light.clone(),
+                material: clone_box(light.deref()),
             }),
         }),
         Transform::identity(),
@@ -53,7 +54,7 @@ pub fn cornell_smoke() -> WorldInfo {
     WorldInfo {
         objects: vec![
             Object::new(
-                Rc::new(YZRect {
+                Box::new(YZRect {
                     y0: 0.0,
                     y1: 555.0,
                     z0: 0.0,
@@ -64,7 +65,7 @@ pub fn cornell_smoke() -> WorldInfo {
                 Transform::identity(),
             ),
             Object::new(
-                Rc::new(YZRect {
+                Box::new(YZRect {
                     y0: 0.0,
                     y1: 555.0,
                     z0: 0.0,
@@ -76,7 +77,7 @@ pub fn cornell_smoke() -> WorldInfo {
             ),
             top_light.clone(),
             Object::new(
-                Rc::new(XZRect {
+                Box::new(XZRect {
                     x0: 0.0,
                     x1: 555.0,
                     z0: 0.0,
@@ -87,7 +88,7 @@ pub fn cornell_smoke() -> WorldInfo {
                 Transform::identity(),
             ),
             Object::new(
-                Rc::new(XZRect {
+                Box::new(XZRect {
                     x0: 0.0,
                     x1: 555.0,
                     z0: 0.0,
@@ -98,7 +99,7 @@ pub fn cornell_smoke() -> WorldInfo {
                 Transform::identity(),
             ),
             Object::new(
-                Rc::new(XYRect {
+                Box::new(XYRect {
                     x0: 0.0,
                     x1: 555.0,
                     y0: 0.0,
@@ -109,39 +110,39 @@ pub fn cornell_smoke() -> WorldInfo {
                 Transform::identity(),
             ),
             Object::new(
-                Rc::new(ConstantMedium::new(
-                    Rc::new(RenderBox::new(
+                Box::new(ConstantMedium::new(
+                    Box::new(RenderBox::new(
                         Point3::new(0.0, 0.0, 0.0),
                         Point3::new(165.0, 330.0, 165.0),
                         white.clone(),
                     )),
-                    Rc::new(RefCell::new(Isotropic {
+                    Box::new(Isotropic {
                         albedo: Box::new(SolidColor {
                             color: RgbColor::new(0.0, 0.0, 0.0),
                         }),
-                    })),
+                    }),
                     0.01,
                 )),
                 Transform::identity().translate(Vector3::new(265.0, 0.0, 295.0)),
             ),
             Object::new(
-                Rc::new(ConstantMedium::new(
-                    Rc::new(Sphere {
+                Box::new(ConstantMedium::new(
+                    Box::new(Sphere {
                         radius: 100.0,
                         origin: Point3::new(0.0, 0.0, 0.0),
                         material: white.clone(),
                     }),
-                    Rc::new(RefCell::new(Isotropic {
+                    Box::new(Isotropic {
                         albedo: Box::new(SolidColor {
                             color: RgbColor::new(0.5, 0.0, 0.0),
                         }),
-                    })),
+                    }),
                     0.01,
                 )),
                 Transform::identity().translate(Vector3::new(265.0, 500.0, 295.0)),
             ),
             Object::new(
-                Rc::new(RenderBox::new(
+                Box::new(RenderBox::new(
                     Point3::new(0.0, 0.0, 0.0),
                     Point3::new(165.0, 165.0, 165.0),
                     white,

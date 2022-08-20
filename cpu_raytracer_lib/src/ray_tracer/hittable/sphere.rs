@@ -3,15 +3,24 @@ use crate::prelude::*;
 use crate::ray_tracer::hittable::RayAreaInfo;
 use crate::ray_tracer::rand_unit_vec;
 use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
+use dyn_clone::clone_box;
+use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
 
-#[derive(Clone)]
 pub struct Sphere {
     pub radius: f32,
     pub origin: Point3<f32>,
-    pub material: Rc<RefCell<dyn Material>>,
+    pub material: Box<dyn Material>,
 }
-
+impl Clone for Sphere {
+    fn clone(&self) -> Self {
+        Self {
+            radius: self.radius,
+            origin: self.origin,
+            material: clone_box(self.material.deref()),
+        }
+    }
+}
 impl Hittable for Sphere {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let rel_origin = ray.origin - self.origin;
@@ -39,7 +48,7 @@ impl Hittable for Sphere {
             (position - self.origin) / self.radius,
             root,
             uv,
-            self.material.clone(),
+            clone_box(self.material.deref()),
         ))
     }
     fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
@@ -84,13 +93,26 @@ impl Sphere {
         Point2::new(phi / (2.0 * f32::PI()), theta / f32::PI())
     }
 }
+
 pub struct MovingSphere {
     pub center_0: Point3<f32>,
     pub center_1: Point3<f32>,
     pub time_0: f32,
     pub time_1: f32,
     pub radius: f32,
-    pub material: Rc<RefCell<dyn Material>>,
+    pub material: Box<dyn Material>,
+}
+impl Clone for MovingSphere {
+    fn clone(&self) -> Self {
+        Self {
+            center_0: self.center_0,
+            center_1: self.center_1,
+            time_0: self.time_0,
+            time_1: self.time_1,
+            radius: self.radius,
+            material: clone_box(self.material.deref()),
+        }
+    }
 }
 impl MovingSphere {
     fn center(&self, time: f32) -> Point3<f32> {
@@ -125,7 +147,7 @@ impl Hittable for MovingSphere {
             normal,
             root,
             Sphere::get_sphere_uv(normal),
-            self.material.clone(),
+            clone_box(self.material.deref()),
         ))
     }
 

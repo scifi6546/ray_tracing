@@ -1,15 +1,30 @@
 use super::{Aabb, HitRecord, Hittable, Material, RayAreaInfo};
 use crate::prelude::*;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
+use dyn_clone::clone_box;
+use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
 
 pub struct XYRect {
-    pub material: Rc<RefCell<dyn Material>>,
+    pub material: Box<dyn Material>,
     pub x0: f32,
     pub x1: f32,
     pub y0: f32,
     pub y1: f32,
     pub k: f32,
+}
+
+impl Clone for XYRect {
+    fn clone(&self) -> Self {
+        Self {
+            material: clone_box(self.material.deref()),
+            x0: self.x0,
+            x1: self.x1,
+            y0: self.y0,
+            y1: self.y1,
+            k: self.k,
+        }
+    }
 }
 impl XYRect {
     pub const NORMAL: Vector3<f32> = Vector3 {
@@ -43,7 +58,7 @@ impl Hittable for XYRect {
             Self::NORMAL,
             t,
             uv,
-            self.material.clone(),
+            clone_box(self.material.deref()),
         ))
     }
 
@@ -86,13 +101,26 @@ impl Hittable for XYRect {
         }
     }
 }
+
 pub struct XZRect {
     pub x0: f32,
     pub x1: f32,
     pub z0: f32,
     pub z1: f32,
     pub k: f32,
-    pub material: Rc<RefCell<dyn Material>>,
+    pub material: Box<dyn Material>,
+}
+impl Clone for XZRect {
+    fn clone(&self) -> Self {
+        Self {
+            x0: self.x0,
+            x1: self.x1,
+            z0: self.z0,
+            z1: self.z1,
+            k: self.k,
+            material: clone_box(self.material.deref()),
+        }
+    }
 }
 impl XZRect {
     pub const NORMAL: Vector3<f32> = Vector3 {
@@ -121,7 +149,7 @@ impl Hittable for XZRect {
                 (x - self.x0) / (self.x1 - self.x0),
                 (z - self.z0) / (self.z1 - self.z0),
             ),
-            self.material.clone(),
+            clone_box(self.material.deref()),
         ))
     }
 
@@ -165,13 +193,27 @@ impl Hittable for XZRect {
         }
     }
 }
+
 pub struct YZRect {
     pub y0: f32,
     pub y1: f32,
     pub z0: f32,
     pub z1: f32,
     pub k: f32,
-    pub material: Rc<RefCell<dyn Material>>,
+    pub material: Box<dyn Material>,
+}
+
+impl Clone for YZRect {
+    fn clone(&self) -> Self {
+        Self {
+            y0: self.y0,
+            y1: self.y1,
+            z0: self.z0,
+            z1: self.z1,
+            k: self.k,
+            material: clone_box(self.material.deref()),
+        }
+    }
 }
 impl YZRect {
     pub const NORMAL: Vector3<f32> = Vector3 {
@@ -204,7 +246,7 @@ impl Hittable for YZRect {
                 (y - self.y0) / (self.y1 - self.y0),
                 (z - self.z0) / (self.z1 - self.z0),
             ),
-            self.material.clone(),
+            clone_box(self.material.deref()),
         ))
     }
 

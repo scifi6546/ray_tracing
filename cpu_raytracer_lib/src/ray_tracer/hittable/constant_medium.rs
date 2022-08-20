@@ -1,16 +1,28 @@
 use super::{Aabb, HitRecord, Hittable, Material, RayAreaInfo};
 use crate::prelude::*;
 use cgmath::{Point2, Point3, Vector3};
-use std::{cell::RefCell, rc::Rc};
+use dyn_clone::clone_box;
+use std::ops::Deref;
+use std::{cell::RefCell, rc::Rc, sync::Arc};
+
 pub struct ConstantMedium {
-    boundary: Rc<dyn Hittable>,
-    phase_function: Rc<RefCell<dyn Material>>,
+    boundary: Box<dyn Hittable>,
+    phase_function: Box<dyn Material>,
     neg_inv_density: f32,
+}
+impl Clone for ConstantMedium {
+    fn clone(&self) -> Self {
+        Self {
+            boundary: clone_box(self.boundary.deref()),
+            phase_function: clone_box(self.phase_function.deref()),
+            neg_inv_density: self.neg_inv_density,
+        }
+    }
 }
 impl ConstantMedium {
     pub fn new(
-        boundary: Rc<dyn Hittable>,
-        phase_function: Rc<RefCell<dyn Material>>,
+        boundary: Box<dyn Hittable>,
+        phase_function: Box<dyn Material>,
         density: f32,
     ) -> Self {
         Self {
@@ -61,7 +73,7 @@ impl Hittable for ConstantMedium {
             t,
             front_face: false,
             uv: Point2::new(0.0, 0.0),
-            material: self.phase_function.clone(),
+            material: clone_box(self.phase_function.deref()),
         })
     }
 
