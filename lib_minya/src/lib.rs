@@ -1,10 +1,7 @@
 pub mod prelude;
 pub mod ray_tracer;
 use cgmath::{prelude::*, Vector3};
-pub enum Message {
-    LoadScenario(String),
-    SaveFile(std::path::PathBuf),
-}
+
 use prelude::*;
 pub fn reflect(v: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
     v - 2.0 * v.dot(normal) * normal

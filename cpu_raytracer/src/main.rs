@@ -4,8 +4,8 @@ use cgmath::{InnerSpace, Vector2, Vector3};
 use gui::GuiCtx;
 use lib_minya::{
     prelude::*,
-    ray_tracer::{LogMessage, RayTracer, RayTracerInfo},
-    Image, Message,
+    ray_tracer::{CurrentShader, LogMessage, RayTracer, RayTracerInfo},
+    Image,
 };
 use miniquad::{
     conf, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline, Shader,
@@ -18,7 +18,11 @@ use std::{
     thread,
     time::Instant,
 };
-
+pub enum Message {
+    LoadScenario(String),
+    SaveFile(std::path::PathBuf),
+    SetShader(CurrentShader),
+}
 pub fn vec_near_zero(v: Vector3<f32>) -> bool {
     v.dot(v) < 1e-8
 }
@@ -84,7 +88,7 @@ impl Handler {
             ],
             shader,
         );
-        let mut ray_tracer = RayTracer::new(None, None);
+        let mut ray_tracer = RayTracer::new(None, None, None);
         let (message_sender, message_reciever) = channel();
         let (image_sender, image_reciever) = channel();
         let info = ray_tracer.get_info();
@@ -101,6 +105,10 @@ impl Handler {
                             ray_tracer.load_scenario(scenario);
                         }
                         Message::SaveFile(path) => rgb_img.save_image(path, num_samples),
+                        Message::SetShader(s) => {
+                            rgb_img = RgbImage::new_black(1000, 1000);
+                            ray_tracer.set_shader(s);
+                        }
                     }
                 }
                 ray_tracer.trace_image(&mut rgb_img);

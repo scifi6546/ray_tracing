@@ -1,7 +1,7 @@
 use super::{LogMessage, Message, RayTracerInfo};
 use egui_miniquad as egui_mq;
+use lib_minya::ray_tracer::CurrentShader;
 use log::{error, info};
-
 use std::sync::mpsc::{Receiver, Sender};
 pub struct GuiCtx {
     egui_mq: egui_mq::EguiMq,
@@ -39,6 +39,8 @@ impl GuiCtx {
                 }
             });
             egui::Window::new("Save File").show(egui_ctx, |ui| {
+                ui.separator();
+                ui.label(egui::RichText::new("Save").heading());
                 if ui.button("Save Render").clicked() {
                     info!("saving file");
                     if let Some(save_path) = rfd::FileDialog::new().save_file() {
@@ -57,7 +59,18 @@ impl GuiCtx {
                         info!("file save canceled");
                     }
                 }
+                ui.separator();
+                ui.label(egui::RichText::new("Set Shader").heading());
+                let shaders = CurrentShader::names();
+                for s in shaders {
+                    if ui.button(&s).clicked() {
+                        self.message_chanel
+                            .send(Message::SetShader(CurrentShader::from_str(&s)))
+                            .expect("failed to send");
+                    }
+                }
             });
+
             egui::Window::new("Log")
                 .vscroll(false)
                 .hscroll(false)
