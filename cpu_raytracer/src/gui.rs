@@ -5,30 +5,23 @@ use log::{error, info};
 use std::sync::mpsc::{Receiver, Sender};
 pub struct GuiCtx {
     egui_mq: egui_mq::EguiMq,
-    log_reciever: Receiver<LogMessage>,
+
     scenarios: Vec<String>,
     message_chanel: Sender<Message>,
-    log_messages: Vec<LogMessage>,
 }
 impl GuiCtx {
     pub fn new(
         ctx: &mut miniquad::Context,
         info: &RayTracerInfo,
-        log_reciever: Receiver<LogMessage>,
         message_chanel: Sender<Message>,
     ) -> Self {
         Self {
             egui_mq: egui_mq::EguiMq::new(ctx),
-            log_reciever,
             scenarios: info.scenarios.clone(),
-            log_messages: vec![],
             message_chanel,
         }
     }
     pub fn update(&mut self, ctx: &mut miniquad::Context) {
-        for msg in self.log_reciever.try_iter() {
-            self.log_messages.push(msg);
-        }
         self.egui_mq.run(ctx, |egui_ctx| {
             egui::Window::new("Scenarios").show(egui_ctx, |ui| {
                 ui.heading("Choose Scenario: ");
@@ -77,7 +70,8 @@ impl GuiCtx {
                                 .num_columns(2)
                                 .striped(true)
                                 .show(ui, |ui| {
-                                    for msg in self.log_messages.iter() {
+                                    let log_messages = cpu_raytracer_lib::ray_tracer::logger::Logger::get_log_messages();
+                                    for msg in log_messages.iter() {
                                         let (log_level, text) = match msg {
                                             LogMessage::Debug(s) => (
                                                 egui::RichText::new("Debug")

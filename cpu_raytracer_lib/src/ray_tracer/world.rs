@@ -193,7 +193,7 @@ impl World {
         self.bvh.hit(ray, t_min, t_max)
     }
 }
-pub trait ScenarioCtor {
+pub trait ScenarioCtor: Send {
     fn build(&self) -> World;
     fn name(&self) -> String;
 }

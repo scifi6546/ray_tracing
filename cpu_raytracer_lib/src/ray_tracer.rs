@@ -3,7 +3,7 @@ mod bloom;
 mod bvh;
 mod camera;
 mod hittable;
-mod logger;
+pub mod logger;
 mod material;
 mod pdf;
 mod texture;
@@ -135,30 +135,34 @@ pub struct RayTracerInfo {
 }
 
 impl RayTracer {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> (
-        Receiver<Image>,
-        Sender<Message>,
-        Receiver<LogMessage>,
-        RayTracerInfo,
-    ) {
-        let (logger, log_reciever) = Logger::new();
+    pub fn new() -> (Self, Receiver<Image>, Sender<Message>) {
+        let (sender, recvier) = channel();
+
+        let logger = Logger::new();
         unsafe { LOGGER = Some(logger) };
         log::set_logger(unsafe { LOGGER.as_ref().unwrap() })
             .map(|()| log::set_max_level(log::LevelFilter::Debug))
             .expect("failed to set logger");
-        let (sender, recvier) = channel();
         let (message_sender, msg_reciever) = channel();
+        let scenarios = world::get_scenarios();
+        (
+            Self {
+                sender,
+                msg_reciever,
+                scenarios,
+            },
+            recvier,
+            message_sender,
+        )
+    }
+    pub fn Dep_new() -> (Receiver<Image>, Sender<Message>, RayTracerInfo) {
+        let (s, img_reciever, sender) = Self::new();
 
         let (info_send, info_rcv) = channel::<Vec<String>>();
         thread::spawn(move || {
             let scenarios = world::get_scenarios();
             let scenario_names = scenarios.keys().cloned().collect::<Vec<_>>();
-            let s = Self {
-                sender,
-                msg_reciever,
-                scenarios,
-            };
+
             info_send
                 .send(scenario_names.clone())
                 .expect("failed to send scenario names to main thread");
@@ -166,15 +170,19 @@ impl RayTracer {
             s.start_tracing()
         });
         (
-            recvier,
-            message_sender,
-            log_reciever,
+            img_reciever,
+            sender,
             RayTracerInfo {
                 scenarios: info_rcv.recv().unwrap(),
             },
         )
     }
-    fn tracing_loop(&self, world: &World, rgb_img: &mut RgbImage, num_samples: usize) {
+    pub fn tracing_loop(
+        &self,
+        world: &World,
+        rgb_img: &mut RgbImage,
+        num_samples: usize,
+    ) -> RgbImage {
         for x in 0..IMAGE_WIDTH {
             for y in 0..IMAGE_WIDTH {
                 let u = (x as f32 + rand_f32(0.0, 1.0)) / (IMAGE_WIDTH as f32 - 1.0);
@@ -190,10 +198,7 @@ impl RayTracer {
         let mut send_img = rgb_img.clone() / num_samples as f32;
 
         bloom(&mut send_img);
-
-        self.sender
-            .send(Image::from_rgb_image(&send_img))
-            .expect("channel failed");
+        return send_img;
     }
     pub fn start_tracing(&self) {
         debug!("test debug");
@@ -236,7 +241,10 @@ impl RayTracer {
                     Message::SaveFile(path) => rgb_img.save_image(path, num_samples),
                 }
             }
-            self.tracing_loop(&world, &mut rgb_img, num_samples);
+            let send_img = self.tracing_loop(&world, &mut rgb_img, num_samples);
+            self.sender
+                .send(Image::from_rgb_image(&send_img))
+                .expect("channel failed");
             let average_time_s = total_time.elapsed().as_secs_f32() / (num_samples) as f32;
             info!(
                 "frame: {}, average time per frame: {} (s)",

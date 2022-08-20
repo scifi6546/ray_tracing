@@ -77,13 +77,13 @@ impl Handler {
             ],
             shader,
         );
-        let (image_channel, message_sender, log_reciever, info) = RayTracer::new();
+        let (image_channel, message_sender, info) = RayTracer::Dep_new();
         Self {
             pipeline,
             bindings,
             image_channel,
 
-            gui: GuiCtx::new(ctx, &info, log_reciever, message_sender),
+            gui: GuiCtx::new(ctx, &info, message_sender),
         }
     }
 }
