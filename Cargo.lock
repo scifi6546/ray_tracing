@@ -415,23 +415,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cpu_raytracer"
-version = "0.1.0"
-dependencies = [
- "base_lib",
- "cgmath",
- "egui",
- "egui-miniquad",
- "image 0.24.3",
- "lib_minya",
- "log",
- "miniquad",
- "rand",
- "rfd",
- "to_numpy",
-]
-
-[[package]]
 name = "crc32fast"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1272,6 +1255,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f5c75688da582b8ffc1f1799e9db273f32133c49e048f614d22ec3256773ccc"
 dependencies = [
  "adler",
+]
+
+[[package]]
+name = "minya_bin"
+version = "0.1.0"
+dependencies = [
+ "base_lib",
+ "cgmath",
+ "egui",
+ "egui-miniquad",
+ "image 0.24.3",
+ "lib_minya",
+ "log",
+ "miniquad",
+ "rand",
+ "rfd",
+ "to_numpy",
 ]
 
 [[package]]
