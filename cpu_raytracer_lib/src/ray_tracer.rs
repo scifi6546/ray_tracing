@@ -8,9 +8,10 @@ mod material;
 mod pdf;
 mod texture;
 mod world;
-use super::{prelude::*, Image};
+use super::{prelude::*, Image, Message};
 use crate::reflect;
 use bloom::bloom;
+
 use log::{debug, error, info, trace, warn};
 pub use logger::LogMessage;
 use logger::Logger;
@@ -133,10 +134,6 @@ pub struct RayTracerInfo {
     pub scenarios: Vec<String>,
 }
 
-pub enum Message {
-    LoadScenario(String),
-    SaveFile(std::path::PathBuf),
-}
 impl RayTracer {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> (

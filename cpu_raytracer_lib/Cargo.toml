@@ -1,19 +1,15 @@
 [package]
-name = "cpu_raytracer"
+name = "cpu_raytracer_lib"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-miniquad = "0.3.0-alpha.46"
 cgmath = {version = "0.18.0", features = ["swizzle"]}
-rand="0.8.5"
-image = "0.24.2"
-egui = "0.18.1"
-log = "0.4.17"
-to_numpy = {path = "../to_numpy"}
 base_lib = {path = "../base_lib"}
-cpu_raytracer_lib = {path="../cpu_raytracer_lib"}
-egui-miniquad = "0.11"
-rfd = "0.9.1"
+to_numpy = {path = "../to_numpy"}
+image = "0.24.2"
+log = "0.4.17"
+rand="0.8.5"
+miniquad = "0.3.0-alpha.46"

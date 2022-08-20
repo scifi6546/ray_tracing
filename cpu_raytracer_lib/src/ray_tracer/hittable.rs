@@ -3,7 +3,6 @@ mod flip_normals;
 mod rect;
 mod render_box;
 mod sphere;
-use log::info;
 
 use super::{Aabb, Material, Ray};
 
@@ -146,16 +145,11 @@ impl std::ops::Mul<Vector4<f32>> for Transform {
 pub struct Object {
     pub shape: Rc<dyn Hittable>,
     pub transform: Transform,
-    counter: usize,
 }
-static mut counter: usize = 0;
+
 impl Object {
     pub fn new(shape: Rc<dyn Hittable>, transform: Transform) -> Self {
-        Self {
-            shape,
-            transform,
-            counter: 0,
-        }
+        Self { shape, transform }
     }
 }
 
@@ -175,15 +169,8 @@ impl Hittable for Object {
             let three_inv = three.invert().unwrap();
             let inv = self.transform.get_inverse();
             let world_position = inv * hit.position;
-            if unsafe { counter } <= 10 {
-                info!("{:?}", inv.world_transform);
-                info!("three: {:?}", three);
-                unsafe { counter += 1 }
-            }
 
-            let hit_normal_end_world = inv * (hit.position + hit.normal);
-            let normal_world = (world_position - hit_normal_end_world).normalize();
-            let normal_world = three_inv*hit.normal;
+            let normal_world = three_inv * hit.normal;
             //let normal_world = inv * Vector4::new(hit.normal.x, hit.normal.y, hit.normal.z, 0.0);
             //let normal_world = Vector3::new(normal_world.x, normal_world.y, normal_world.z);
             //let normal_world = hit.normal;
@@ -195,14 +182,7 @@ impl Hittable for Object {
                 uv: hit.uv,
                 material: hit.material.clone(),
             });
-            let h2 = Some(HitRecord::new(
-                &ray,
-                world_position,
-                normal_world,
-                hit.t,
-                hit.uv,
-                hit.material,
-            ));
+
             h
         } else {
             None

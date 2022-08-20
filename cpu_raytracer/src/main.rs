@@ -1,22 +1,19 @@
 mod gui;
-mod prelude;
-mod ray_tracer;
 
 use cgmath::{InnerSpace, Vector2, Vector3};
+use cpu_raytracer_lib::{
+    ray_tracer::{LogMessage, RayTracer, RayTracerInfo},
+    Image, Message,
+};
 use gui::GuiCtx;
 use miniquad::{
     conf, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline, Shader,
-    Texture, UserData, VertexAttribute, VertexFormat,
+    UserData, VertexAttribute, VertexFormat,
 };
-use prelude::{RgbColor, RgbImage};
-use ray_tracer::{LogMessage, Message, RayTracerInfo};
+
 use std::sync::mpsc::Receiver;
 pub fn vec_near_zero(v: Vector3<f32>) -> bool {
     v.dot(v) < 1e-8
-}
-
-pub fn reflect(v: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
-    v - 2.0 * v.dot(normal) * normal
 }
 
 #[repr(C)]
@@ -80,7 +77,7 @@ impl Handler {
             ],
             shader,
         );
-        let (image_channel, message_sender, log_reciever, info) = ray_tracer::RayTracer::new();
+        let (image_channel, message_sender, log_reciever, info) = RayTracer::new();
         Self {
             pipeline,
             bindings,
@@ -167,50 +164,7 @@ impl EventHandler for Handler {
         self.gui.key_up_event(ctx, keycode, keymods);
     }
 }
-pub struct Image {
-    buffer: Vec<u8>,
-    width: u32,
-    height: u32,
-}
-impl Image {
-    pub fn from_rgb_image(image: &RgbImage) -> Self {
-        let buffer = image.buffer.iter().flat_map(|c| c.as_rgba_u8()).collect();
-        Self {
-            buffer,
-            width: image.width,
-            height: image.height,
-        }
-    }
-    pub fn new(buffer: Vec<u8>, width: u32, height: u32) -> Self {
-        assert_eq!(buffer.len(), width as usize * height as usize * 4);
-        Self {
-            buffer,
-            width,
-            height,
-        }
-    }
-    pub fn from_fn(ctor: fn(u32, u32) -> [u8; 4], width: u32, height: u32) -> Self {
-        Self {
-            buffer: (0..width)
-                .flat_map(|y| (0..height).flat_map(move |x| ctor(x, y)))
-                .collect(),
-            width,
-            height,
-        }
-    }
-    pub fn set_xy(&mut self, x: u32, y: u32, pixel: [u8; 4]) {
-        let offset = (self.width * y + x) * 4;
-        for i in 0..4 {
-            self.buffer[(offset + i) as usize] = pixel[i as usize];
-        }
-    }
-    pub fn set_xy_color(&mut self, x: u32, y: u32, pixel: RgbColor) {
-        self.set_xy(x, y, pixel.as_rgba_u8());
-    }
-    pub fn make_texture(&self, ctx: &mut Context) -> Texture {
-        Texture::from_rgba8(ctx, self.width as u16, self.height as u16, &self.buffer)
-    }
-}
+
 fn main() {
     miniquad::start(
         conf::Conf {
