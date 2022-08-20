@@ -94,17 +94,21 @@ impl Handler {
             let mut num_samples = 1usize;
             loop {
                 if let Ok(message) = message_reciever.try_recv() {
-                    println!("recieved message");
                     match message {
                         Message::LoadScenario(scenario) => {
+                            info!("loading scenario: {}", scenario);
+                            rgb_img = RgbImage::new_black(1000, 1000);
                             ray_tracer.load_scenario(scenario);
                         }
                         Message::SaveFile(path) => rgb_img.save_image(path, num_samples),
                     }
                 }
-                ray_tracer.tracing_loop(&mut rgb_img, num_samples);
+                ray_tracer.trace_image(&mut rgb_img);
+                let mut img_send = rgb_img.clone() / num_samples as f32;
+                ray_tracer.post_process(&mut img_send);
+
                 image_sender
-                    .send(Image::from_rgb_image(&rgb_img))
+                    .send(Image::from_rgb_image(&img_send))
                     .expect("channel failed");
                 let average_time_s = total_time.elapsed().as_secs_f32() / (num_samples) as f32;
                 info!(

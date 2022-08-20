@@ -157,9 +157,8 @@ impl RayTracer {
     pub fn load_scenario(&mut self, scenario: String) {
         self.world = self.scenarios[&scenario].build();
     }
-    /// renders current scene to image
-    pub fn tracing_loop(&self, rgb_img: &mut RgbImage, num_samples: usize) {
-        info!("tracing loop!!");
+    /// Does one ray tracing step and saves result to image
+    pub fn trace_image(&self, rgb_img: &mut RgbImage) {
         for x in 0..IMAGE_WIDTH {
             for y in 0..IMAGE_WIDTH {
                 let u = (x as f32 + rand_f32(0.0, 1.0)) / (IMAGE_WIDTH as f32 - 1.0);
@@ -172,8 +171,17 @@ impl RayTracer {
                 rgb_img.add_xy(x, y, c);
             }
         }
-        let mut send_img = rgb_img.clone() / num_samples as f32;
-
-        bloom(&mut send_img);
+    }
+    /// performs post processing step on image
+    pub fn post_process(&self, rgb_img: &mut RgbImage) {
+        bloom(rgb_img);
+    }
+    /// renders current scene to image
+    pub fn tracing_loop(&self, rgb_img: &mut RgbImage, num_samples: usize) {
+        for _ in 0..num_samples {
+            self.trace_image(rgb_img);
+        }
+        *rgb_img = rgb_img.clone() / num_samples as f32;
+        self.post_process(rgb_img);
     }
 }
