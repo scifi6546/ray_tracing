@@ -420,28 +420,14 @@ version = "0.1.0"
 dependencies = [
  "base_lib",
  "cgmath",
- "cpu_raytracer_lib",
  "egui",
  "egui-miniquad",
  "image 0.24.3",
+ "lib_minya",
  "log",
  "miniquad",
  "rand",
  "rfd",
- "to_numpy",
-]
-
-[[package]]
-name = "cpu_raytracer_lib"
-version = "0.1.0"
-dependencies = [
- "base_lib",
- "cgmath",
- "dyn-clone",
- "image 0.24.3",
- "log",
- "miniquad",
- "rand",
  "to_numpy",
 ]
 
@@ -1128,6 +1114,20 @@ name = "lebe"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7efd1d698db0759e6ef11a7cd44407407399a910c774dd804c64c032da7826ff"
+
+[[package]]
+name = "lib_minya"
+version = "0.1.0"
+dependencies = [
+ "base_lib",
+ "cgmath",
+ "dyn-clone",
+ "image 0.24.3",
+ "log",
+ "miniquad",
+ "rand",
+ "to_numpy",
+]
 
 [[package]]
 name = "libc"

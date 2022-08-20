@@ -30,7 +30,7 @@ use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal}
 use pdf::{CosinePdf, LightPdf, PdfList, ScatterRecord};
 #[allow(unused_imports)]
 use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, SolidColor, Texture};
-use world::World;
+pub use world::{ScenarioCtor, World};
 
 use std::collections::HashMap;
 use std::{
@@ -38,7 +38,6 @@ use std::{
     thread,
     time::Instant,
 };
-use world::ScenarioCtor;
 
 const IMAGE_HEIGHT: u32 = 1000;
 const IMAGE_WIDTH: u32 = 1000;
@@ -124,7 +123,7 @@ fn ray_color(ray: Ray, world: &World, depth: u32) -> RgbColor {
         world.background.color(ray)
     }
 }
-static mut LOGGER: Option<Logger> = None;
+
 pub struct RayTracer {
     scenarios: HashMap<String, Box<dyn ScenarioCtor>>,
     world: World,
@@ -134,11 +133,23 @@ pub struct RayTracerInfo {
 }
 
 impl RayTracer {
-    pub fn new() -> Self {
+    pub fn new(
+        additional_scenarios: Option<HashMap<String, Box<dyn ScenarioCtor>>>,
+        default_scenario: Option<String>,
+    ) -> Self {
         Logger::init();
 
-        let scenarios = world::get_scenarios();
-        let world = scenarios.items[&scenarios.default].build();
+        let mut scenarios = world::get_scenarios();
+        if let Some(mut add_scenarios) = additional_scenarios {
+            for (k, scenario) in add_scenarios.drain() {
+                scenarios.items.insert(k, scenario);
+            }
+        }
+        let default = match default_scenario {
+            Some(s) => s,
+            None => scenarios.default,
+        };
+        let world = scenarios.items[&default].build();
         Self {
             scenarios: scenarios.items,
             world,

@@ -1,5 +1,5 @@
 [package]
-name = "cpu_raytracer_lib"
+name = "lib_minya"
 version = "0.1.0"
 edition = "2021"
 

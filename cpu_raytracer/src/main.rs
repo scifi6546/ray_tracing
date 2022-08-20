@@ -1,12 +1,12 @@
 mod gui;
 
 use cgmath::{InnerSpace, Vector2, Vector3};
-use cpu_raytracer_lib::{
+use gui::GuiCtx;
+use lib_minya::{
     prelude::*,
     ray_tracer::{LogMessage, RayTracer, RayTracerInfo},
     Image, Message,
 };
-use gui::GuiCtx;
 use miniquad::{
     conf, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline, Shader,
     UserData, VertexAttribute, VertexFormat,
@@ -84,7 +84,7 @@ impl Handler {
             ],
             shader,
         );
-        let mut ray_tracer = RayTracer::new();
+        let mut ray_tracer = RayTracer::new(None, None);
         let (message_sender, message_reciever) = channel();
         let (image_sender, image_reciever) = channel();
         let info = ray_tracer.get_info();

@@ -70,7 +70,8 @@ impl GuiCtx {
                                 .num_columns(2)
                                 .striped(true)
                                 .show(ui, |ui| {
-                                    let log_messages = cpu_raytracer_lib::ray_tracer::logger::Logger::get_log_messages();
+                                    let log_messages =
+                                        lib_minya::ray_tracer::logger::Logger::get_log_messages();
 
                                     for msg in log_messages.iter() {
                                         let (log_level, text) = match msg {

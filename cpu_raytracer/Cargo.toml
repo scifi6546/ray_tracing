@@ -14,6 +14,6 @@ egui = "0.18.1"
 log = "0.4.17"
 to_numpy = {path = "../to_numpy"}
 base_lib = {path = "../base_lib"}
-cpu_raytracer_lib = {path="../cpu_raytracer_lib"}
+lib_minya = {path="../lib_minya"}
 egui-miniquad = "0.11"
 rfd = "0.9.1"
