@@ -1,5 +1,4 @@
 use super::{
-    super::{IMAGE_HEIGHT, IMAGE_WIDTH},
     Camera, Dielectric, Lambertian, Metal, MovingSphere, Object, Sky, SolidColor, Sphere,
     Transform, WorldInfo,
 };
@@ -129,7 +128,7 @@ pub fn random_scene() -> WorldInfo {
         lights: vec![],
         background: Box::new(Sky::default()),
         camera: Camera::new(
-            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
+            1.0,
             20.0,
             Point3::new(13.0, 2.0, 3.0),
             Point3::new(0.0, 0.0, 0.0),

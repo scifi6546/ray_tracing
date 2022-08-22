@@ -32,7 +32,7 @@ impl Texture for MultiplyTexture {
 }
 #[derive(Clone)]
 pub struct SolidColor {
-    pub(crate) color: RgbColor,
+    pub color: RgbColor,
 }
 impl Texture for SolidColor {
     fn name(&self) -> &'static str {

@@ -1,7 +1,4 @@
-use super::{
-    Camera, Lambertian, Object, Sky, SolidColor, Sphere, Transform, WorldInfo, IMAGE_HEIGHT,
-    IMAGE_WIDTH,
-};
+use super::{Camera, Lambertian, Object, Sky, SolidColor, Sphere, Transform, WorldInfo};
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use std::{cell::RefCell, rc::Rc};
@@ -38,7 +35,7 @@ pub fn one_sphere() -> WorldInfo {
         lights: vec![],
         background: Box::new(Sky::default()),
         camera: Camera::new(
-            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
+            1.0,
             20.0,
             origin,
             look_at,

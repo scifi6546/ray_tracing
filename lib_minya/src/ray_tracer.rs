@@ -1,13 +1,13 @@
-mod background;
+pub mod background;
 mod bloom;
 mod bvh;
-mod camera;
-mod hittable;
+pub mod camera;
+pub mod hittable;
 pub mod logger;
-mod material;
+pub mod material;
 mod pdf;
-mod texture;
-mod world;
+pub mod texture;
+pub mod world;
 use super::{prelude::*, Image};
 use crate::reflect;
 use bloom::bloom;
@@ -39,9 +39,6 @@ use std::{
     time::Instant,
 };
 
-const IMAGE_HEIGHT: u32 = 1000;
-const IMAGE_WIDTH: u32 = 1000;
-
 pub fn rand_unit_vec() -> Vector3<f32> {
     loop {
         let v = 2.0 * (rand_vec() - Vector3::new(0.5, 0.5, 0.5));
@@ -60,6 +57,42 @@ pub fn rand_vec() -> Vector3<f32> {
 }
 pub trait Shader {
     fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RgbColor;
+}
+pub struct LightMapShader {}
+impl Shader for LightMapShader {
+    fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RgbColor {
+        if depth == 0 {
+            return RgbColor {
+                red: 0.0,
+                green: 0.0,
+                blue: 0.0,
+            };
+        }
+        if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
+            world
+                .lights
+                .iter()
+                .map(|l| {
+                    let area = l.generate_ray_in_area(record.position, record.t);
+                    if let Some(r) = world.nearest_hit(&area.to_area, 0.001, f32::MAX) {
+                        let at = area.end_point;
+                        let t = (at - r.position);
+                        let m = t.magnitude();
+                        let o = m * RgbColor::WHITE;
+                        if o.is_nan() {
+                            RgbColor::new(1.0, 0.0, 0.0)
+                        } else {
+                            o
+                        }
+                    } else {
+                        RgbColor::BLACK
+                    }
+                })
+                .fold(RgbColor::BLACK, |acc, x| acc + x)
+        } else {
+            RgbColor::BLACK
+        }
+    }
 }
 pub struct DiffuseShader {}
 impl Shader for DiffuseShader {
@@ -160,15 +193,21 @@ impl Shader for RayTracingShader {
 pub enum CurrentShader {
     Raytracing,
     Diffuse,
+    LightMap,
 }
 impl CurrentShader {
-    pub fn names() -> [String; 2] {
-        ["Ray Tracing".to_string(), "Diffuse".to_string()]
+    pub fn names() -> [String; 3] {
+        [
+            "Ray Tracing".to_string(),
+            "Diffuse".to_string(),
+            "LightMap".to_string(),
+        ]
     }
     pub fn from_str(s: &str) -> Self {
         match s {
             "Ray Tracing" => Self::Raytracing,
             "Diffuse" => Self::Diffuse,
+            "LightMap" => Self::LightMap,
             _ => panic!("invalid name"),
         }
     }
@@ -179,6 +218,7 @@ pub struct RayTracer {
     current_shader: CurrentShader,
     ray_tracing_shader: RayTracingShader,
     diffuse_shader: DiffuseShader,
+    light_map_shader: LightMapShader,
 }
 pub struct RayTracerInfo {
     pub scenarios: Vec<String>,
@@ -211,6 +251,7 @@ impl RayTracer {
             world,
             ray_tracing_shader: RayTracingShader {},
             diffuse_shader: DiffuseShader {},
+            light_map_shader: LightMapShader {},
             current_shader,
         }
     }
@@ -232,16 +273,19 @@ impl RayTracer {
     }
     /// Does one ray tracing step and saves result to image
     pub fn trace_image(&self, rgb_img: &mut RgbImage) {
-        for x in 0..IMAGE_WIDTH {
-            for y in 0..IMAGE_WIDTH {
-                let u = (x as f32 + rand_f32(0.0, 1.0)) / (IMAGE_WIDTH as f32 - 1.0);
-                let v = (y as f32 + rand_f32(0.0, 1.0)) / (IMAGE_HEIGHT as f32 - 1.0);
+        let image_width = rgb_img.width();
+        let image_height = rgb_img.height();
+        for x in 0..image_width {
+            for y in 0..image_height {
+                let u = (x as f32 + rand_f32(0.0, 1.0)) / (image_width as f32 - 1.0);
+                let v = (y as f32 + rand_f32(0.0, 1.0)) / (image_height as f32 - 1.0);
                 let r = self.world.camera.get_ray(u, v);
                 let c = match self.current_shader {
                     CurrentShader::Diffuse => self.diffuse_shader.ray_color(r, &self.world, 50),
                     CurrentShader::Raytracing => {
                         self.ray_tracing_shader.ray_color(r, &self.world, 50)
                     }
+                    CurrentShader::LightMap => self.light_map_shader.ray_color(r, &self.world, 50),
                 };
 
                 if c.is_nan() {

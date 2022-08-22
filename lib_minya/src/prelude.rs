@@ -1,7 +1,8 @@
 pub use base_lib::{clamp, RgbColor};
+pub use cgmath;
 use cgmath::{num_traits::*, prelude::*, Point2, Point3, Vector3};
 use log::info;
-use std::{cmp::PartialOrd, fmt::*, ops::Div, path};
+use std::{cmp::PartialOrd, fmt::*, ops::Div, path::Path};
 use to_numpy::NumpyArray3D;
 
 pub fn rand_f32(min: f32, max: f32) -> f32 {
@@ -74,7 +75,7 @@ impl RgbImage {
         }
         return image;
     }
-    pub fn save_image(&self, p: path::PathBuf, num_samples: usize) {
+    pub fn save_image<P: AsRef<Path>>(&self, p: P, num_samples: usize) {
         let img = self.to_image(num_samples);
         img.save(p).expect("failed to save image");
     }

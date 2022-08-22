@@ -1,6 +1,6 @@
 use super::{
     Camera, ConstantColor, DiffuseLight, FlipNormals, Lambertian, Object, SolidColor, Transform,
-    WorldInfo, XYRect, XZRect, YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    WorldInfo, XYRect, XZRect, YZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -111,7 +111,7 @@ pub fn easy_cornell_box() -> WorldInfo {
             color: RgbColor::new(0.0, 0.0, 0.0),
         }),
         camera: Camera::new(
-            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
+            1.0,
             40.0,
             origin,
             look_at,

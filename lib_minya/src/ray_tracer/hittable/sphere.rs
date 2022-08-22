@@ -79,6 +79,7 @@ impl Hittable for Sphere {
             normal: sphere_direction,
             area: self.area(),
             direction: end_point - origin,
+            end_point,
         }
     }
 }

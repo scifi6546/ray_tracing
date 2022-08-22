@@ -4,7 +4,7 @@ pub mod metalic_demo;
 
 use super::{
     Camera, DiffuseLight, Lambertian, Metal, Object, RenderBox, Sky, SolidColor, Sphere, Transform,
-    WorldInfo, XZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    WorldInfo, XZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -52,7 +52,7 @@ pub fn new_demo(mut special_item: Vec<Object>) -> WorldInfo {
         lights: vec![light],
         background: Box::new(Sky::default()),
         camera: Camera::new(
-            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
+            1.0,
             20.0,
             origin,
             look_at,

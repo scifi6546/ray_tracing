@@ -253,7 +253,9 @@ impl Hittable for Object {
         let out_area_info = self
             .shape
             .generate_ray_in_area(self.transform * origin, time);
+
         let inv = self.transform.get_inverse();
+        let end_point = inv * out_area_info.end_point;
         let to_area = inv * out_area_info.to_area;
         let scaling = inv * Point3::new(1.0f32, 0.0, 0.0) - inv * Point3::new(0.0f32, 0.0, 0.0);
         let scaling = scaling.magnitude().abs();
@@ -268,6 +270,7 @@ impl Hittable for Object {
             area,
             direction,
             normal,
+            end_point,
         }
     }
 }
@@ -317,4 +320,5 @@ pub struct RayAreaInfo {
     pub area: f32,
     pub direction: Vector3<f32>,
     pub normal: Vector3<f32>,
+    pub end_point: Point3<f32>,
 }

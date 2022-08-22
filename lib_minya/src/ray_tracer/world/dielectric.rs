@@ -1,6 +1,6 @@
 use super::{
     Camera, Dielectric, DiffuseLight, Lambertian, Object, Sky, SolidColor, Sphere, Transform,
-    WorldInfo, XZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    WorldInfo, XZRect,
 };
 
 use base_lib::RgbColor;
@@ -75,7 +75,7 @@ pub fn dielectric_demo(refraction: f32) -> WorldInfo {
         lights: vec![light],
         background: Box::new(Sky { intensity: 0.3 }),
         camera: Camera::new(
-            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
+            1.0,
             20.0,
             origin,
             look_at,

@@ -50,8 +50,16 @@ pub struct BvhTree {
 }
 impl BvhTree {
     pub fn new(objects: Vec<Object>, time_0: f32, time_1: f32) -> Self {
-        let root_node = BvhTreeNode::new(&objects, &objects, 0, objects.len(), 0, time_0, time_1);
-        Self { objects, root_node }
+        if objects.is_empty() {
+            Self {
+                objects: Vec::new(),
+                root_node: BvhTreeNode::None,
+            }
+        } else {
+            let root_node =
+                BvhTreeNode::new(&objects, &objects, 0, objects.len(), 0, time_0, time_1);
+            Self { objects, root_node }
+        }
     }
     pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         self.root_node.hit(&self.objects, ray, t_min, t_max)
@@ -61,6 +69,7 @@ impl BvhTree {
     }
 }
 enum BvhTreeNode {
+    None,
     Child {
         bounding_box: Aabb,
         left: Box<BvhTreeNode>,
@@ -80,6 +89,7 @@ impl BvhTreeNode {
             None
         } else {
             match self {
+                Self::None => None,
                 Self::Child { left, right, .. } => {
                     let left_hit = left.hit(objects, ray, t_min, t_max);
                     if left_hit.is_none() {
@@ -100,6 +110,10 @@ impl BvhTreeNode {
     }
     fn bounding_box(&self, objects: &[Object], time_0: f32, time_1: f32) -> Option<Aabb> {
         match self {
+            Self::None => Some(Aabb {
+                minimum: Point3::new(0.0, 0.0, 0.0),
+                maximum: Point3::new(0.0, 0.0, 0.0),
+            }),
             Self::Child { bounding_box, .. } => Some(bounding_box.clone()),
             Self::Leaf { idx } => Some(objects[*idx].bounding_box(time_0, time_1).unwrap()),
         }

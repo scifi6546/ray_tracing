@@ -17,14 +17,20 @@ pub enum LogMessage {
     Error(String),
 }
 static mut LOG_MESSAGES: Mutex<Option<Vec<LogMessage>>> = Mutex::new(None);
+static mut LOG_SETUP: Mutex<bool> = Mutex::new(false);
 static mut LOGGER: Logger = Logger {};
 pub struct Logger {}
+
 impl Logger {
     pub fn init() {
         unsafe {
-            log::set_logger(&LOGGER)
-                .map(|()| log::set_max_level(log::LevelFilter::Debug))
-                .expect("failed to set logger");
+            let mut log_setup = LOG_SETUP.lock().expect("failed to get lock");
+            if *log_setup == false {
+                log::set_logger(&LOGGER)
+                    .map(|()| log::set_max_level(log::LevelFilter::Debug))
+                    .expect("failed to set logger");
+                *log_setup = true;
+            }
         }
     }
     pub fn new() -> Self {

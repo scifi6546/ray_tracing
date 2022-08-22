@@ -98,6 +98,7 @@ impl Hittable for XYRect {
             normal: Self::NORMAL,
             area: self.area(),
             direction: end_point - origin,
+            end_point,
         }
     }
 }
@@ -190,6 +191,7 @@ impl Hittable for XZRect {
             normal: Self::NORMAL,
             area: (self.x1 - self.x0) * (self.z1 - self.z0),
             direction: end_point - origin,
+            end_point,
         }
     }
 }
@@ -286,6 +288,7 @@ impl Hittable for YZRect {
             normal: Self::NORMAL,
             area: self.area(),
             direction: end_point - origin,
+            end_point,
         }
     }
 }

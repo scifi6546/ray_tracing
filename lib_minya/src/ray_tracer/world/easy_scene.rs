@@ -1,7 +1,7 @@
 use super::{
     Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, ImageTexture,
     Lambertian, Metal, Object, Perlin, RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect,
-    YZRect, IMAGE_HEIGHT, IMAGE_WIDTH,
+    YZRect,
 };
 use crate::prelude::*;
 
@@ -164,7 +164,7 @@ pub fn easy_scene() -> WorldInfo {
             color: RgbColor::new(0.00, 0.00, 0.00),
         }),
         camera: Camera::new(
-            IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32,
+            1.0,
             20.0,
             origin,
             look_at,

@@ -11,7 +11,7 @@ mod two_spheres;
 
 use super::{
     bvh::BvhTree, hittable::*, material::*, texture::*, Background, Camera, ConstantColor,
-    FlipNormals, HitRecord, Hittable, Sky, IMAGE_HEIGHT, IMAGE_WIDTH,
+    FlipNormals, HitRecord, Hittable, Sky,
 };
 use crate::prelude::*;
 use cgmath::Point3;
