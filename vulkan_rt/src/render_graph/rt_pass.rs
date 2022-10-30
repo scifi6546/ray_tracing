@@ -10,10 +10,12 @@ use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc, Allocator},
     MemoryLocation,
 };
+use std::ffi::c_void;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
+
 unsafe fn get_device_address(device: &ash::Device, buffer: &vk::Buffer) -> vk::DeviceAddress {
     let buffer_device_address_info = vk::BufferDeviceAddressInfo::builder().buffer(*buffer);
     device.get_buffer_device_address(&buffer_device_address_info)
@@ -31,6 +33,11 @@ unsafe fn get_addr(device: &ash::Device, buffer: &vk::Buffer) -> vk::DeviceOrHos
         device_address: get_device_address(device, buffer),
     }
 }
+static TRANSFORM_MAT: [[f32; 4]; 3] = [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+];
 struct ModelAccelerationStructure {
     buffer: vk::Buffer,
     allocation: Option<Allocation>,
@@ -42,7 +49,7 @@ impl ModelAccelerationStructure {
         allocator: Arc<Mutex<Allocator>>,
         raytracing_state: &RayTracingState,
         model: &RenderModel,
-    ) -> Self {
+    ) -> Result<Self, vk::Result> {
         let queue_family_indicies = [base.queue_family_index];
         unsafe {
             let vertex_address = get_addr_const(&base.device, &model.vertex_buffer);
@@ -56,7 +63,8 @@ impl ModelAccelerationStructure {
                 .index_type(RenderModel::index_type())
                 .index_data(index_address)
                 .transform_data(vk::DeviceOrHostAddressConstKHR {
-                    host_address: std::ptr::null_mut(),
+                    // host_address: TRANSFORM_MAT.as_ptr() as *const c_void,
+                    host_address: 0 as *const c_void,
                 })
                 .build();
             println!("triangles\n{:#?}", triangles);
@@ -154,6 +162,7 @@ impl ModelAccelerationStructure {
                 .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
                 .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
                 .geometries(&geo)
+                .scratch_data(get_addr(&base.device, &scratch_buffer))
                 .dst_acceleration_structure(acceleration_structure)
                 .build()];
             record_submit_commandbuffer(
@@ -165,6 +174,37 @@ impl ModelAccelerationStructure {
                 &[],
                 &[],
                 |device, command_buffer| {
+                    println!("{:#?}", build_type);
+                    unsafe {
+                        println!("{:#?}", *build_type[0].p_geometries);
+                        println!("{:#?}", (*build_type[0].p_geometries).geometry.triangles);
+                        println!(
+                            "{:#?}",
+                            (*build_type[0].p_geometries)
+                                .geometry
+                                .triangles
+                                .vertex_data
+                                .device_address
+                        );
+                        println!(
+                            "index device address \n{:#?}\n",
+                            (*build_type[0].p_geometries)
+                                .geometry
+                                .triangles
+                                .index_data
+                                .device_address
+                        );
+                        println!(
+                            "transform device address: \n{:#?}\n",
+                            (*build_type[0].p_geometries)
+                                .geometry
+                                .triangles
+                                .transform_data
+                                .device_address
+                        );
+                    }
+
+                    println!("range arr: \n{:#?}\n", range_arr);
                     raytracing_state
                         .acceleration_structure
                         .cmd_build_acceleration_structures(command_buffer, &build_type, &range_arr);
@@ -191,11 +231,11 @@ impl ModelAccelerationStructure {
                 .expect("failed to build bottom level accceleration structure");
 
              */
-            Self {
+            Ok(Self {
                 buffer,
                 allocation: Some(allocation),
                 acceleration_structure,
-            }
+            })
         }
     }
     fn free(&mut self, base: &PassBase) {
@@ -223,7 +263,7 @@ pub struct RtPass {
     model_acceleration_structures: HashMap<ArenaIndex, ModelAccelerationStructure>,
 }
 impl RtPass {
-    pub fn new(pass_base: &PassBase) -> Self {
+    pub fn new(pass_base: &PassBase) -> Result<Self, vk::Result> {
         const ALLOC_SIZE: usize = 20 * 256;
 
         unsafe {
@@ -240,7 +280,8 @@ impl RtPass {
                             pass_base.allocator.clone(),
                             &pass_base.raytracing_state,
                             model,
-                        ),
+                        )
+                        .expect("failed to build acceleration structure"),
                     )
                 })
                 .collect();
@@ -284,12 +325,12 @@ impl RtPass {
                 .create_acceleration_structure(&info, None)
                 .expect("failed to create structure");
 
-            Self {
+            Ok(Self {
                 allocation: Some(allocation),
                 buffer,
                 acceleration_structure,
                 model_acceleration_structures,
-            }
+            })
         }
     }
 }
