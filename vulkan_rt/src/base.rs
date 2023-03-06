@@ -5,6 +5,7 @@ use ash::{
     extensions::{
         ext::DebugUtils,
         khr::{Surface, Swapchain},
+        nv::DeviceDiagnosticCheckpoints,
     },
     vk, Device, Entry, Instance,
 };
@@ -61,6 +62,7 @@ pub struct Base {
     pub surface: vk::SurfaceKHR,
     pub surface_format: vk::SurfaceFormatKHR,
     pub surface_resolution: vk::Extent2D,
+    pub checkpoints: DeviceDiagnosticCheckpoints,
 
     pub swapchain: vk::SwapchainKHR,
     pub present_images: Vec<vk::Image>,
@@ -227,6 +229,8 @@ impl Base {
                 .add_extension(b"VK_KHR_deferred_host_operations\0".as_ptr() as *const i8);
             device_extension_manager
                 .add_extension(b"VK_KHR_acceleration_structure\0".as_ptr() as *const i8);
+            device_extension_manager
+                .add_extension(b"VK_NV_device_diagnostic_checkpoints\0".as_ptr() as *const i8);
 
             device_extension_manager.add_extension(Swapchain::name().as_ptr());
         }
@@ -293,6 +297,7 @@ impl Base {
                 .create_device(p_device, &device_create_info, None)
                 .expect("failed to create device")
         };
+        let checkpoints = DeviceDiagnosticCheckpoints::new(&instance, &device);
         let present_queue = unsafe { device.get_device_queue(queue_family_index as u32, 0) };
         let surface_format = unsafe {
             surface_loader
@@ -506,6 +511,7 @@ impl Base {
                 .create_semaphore(&semaphore_create_info, None)
                 .expect("failed to create semaphore")
         };
+
         Base {
             event_loop: RefCell::new(event_loop),
             entry,
@@ -536,7 +542,7 @@ impl Base {
             debug_callback,
             debug_utils_loader,
             depth_image_memory,
-
+            checkpoints,
             window_width,
             window_height,
             instance_extension_manager,

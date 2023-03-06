@@ -3,8 +3,8 @@ pub mod lambertian;
 pub mod metalic_demo;
 
 use super::{
-    Camera, DiffuseLight, Lambertian, Metal, Object, RenderBox, Sky, SolidColor, Sphere, Transform,
-    WorldInfo, XZRect,
+    Camera, CubeWorld, DiffuseLight, Lambertian, Metal, Object, RenderBox, Sky, SolidColor, Sphere,
+    Transform, WorldInfo, XZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};

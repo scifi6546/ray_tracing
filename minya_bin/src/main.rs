@@ -9,7 +9,7 @@ use lib_minya::{
 };
 use miniquad::{
     conf, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline, Shader,
-    UserData, VertexAttribute, VertexFormat,
+    VertexAttribute, VertexFormat,
 };
 
 use log::info;
@@ -220,7 +220,7 @@ fn main() {
             window_height: 800,
             ..Default::default()
         },
-        |mut ctx| UserData::owning(Handler::new(&mut ctx), ctx),
+        |mut ctx| Box::new(Handler::new(&mut ctx)),
     );
 }
 mod shader {

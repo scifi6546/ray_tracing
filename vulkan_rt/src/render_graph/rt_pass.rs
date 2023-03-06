@@ -33,6 +33,33 @@ unsafe fn get_addr(device: &ash::Device, buffer: &vk::Buffer) -> vk::DeviceOrHos
         device_address: get_device_address(device, buffer),
     }
 }
+/// implements helpers for vk::Result
+trait VkResultHelperFuncs {
+    fn get_err(&self) -> Option<&vk::Result>;
+    fn check_error(self, queue: vk::Queue, base: &Base) -> Self
+    where
+        Self: Sized,
+    {
+        if let Some(e) = self.get_err() {
+            println!("error: {:#?}", e);
+            if *e == vk::Result::ERROR_DEVICE_LOST {
+                /// getting len of checkpoints will be used to fill in checkpoint array
+                let len = unsafe { base.checkpoints.get_queue_checkpoint_data_len(queue) };
+                println!("num checkpoints: {}", len);
+            }
+        }
+        self
+    }
+}
+impl<T> VkResultHelperFuncs for Result<T, vk::Result> {
+    fn get_err(&self) -> Option<&vk::Result> {
+        if self.is_err() {
+            self.as_ref().err()
+        } else {
+            None
+        }
+    }
+}
 static TRANSFORM_MAT: [[f32; 4]; 3] = [
     [1.0, 0.0, 0.0, 0.0],
     [0.0, 1.0, 0.0, 0.0],
@@ -43,6 +70,7 @@ struct ModelAccelerationStructure {
     allocation: Option<Allocation>,
     acceleration_structure: vk::AccelerationStructureKHR,
 }
+
 impl ModelAccelerationStructure {
     fn new(
         base: &Base,
@@ -165,6 +193,13 @@ impl ModelAccelerationStructure {
                 .scratch_data(get_addr(&base.device, &scratch_buffer))
                 .dst_acceleration_structure(acceleration_structure)
                 .build()];
+            base.device.device_wait_idle().expect("failed to wait??");
+            let info = vk::SemaphoreCreateInfo::builder().flags(vk::SemaphoreCreateFlags::empty());
+            let dep_semaphore_semaphore = base
+                .device
+                .create_semaphore(&info, None)
+                .expect("failed to create semaphore");
+            // todo incorporate vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR
             record_submit_commandbuffer(
                 &base.device,
                 base.setup_command_buffer,
@@ -210,7 +245,10 @@ impl ModelAccelerationStructure {
                         .cmd_build_acceleration_structures(command_buffer, &build_type, &range_arr);
                 },
             );
-            base.device.device_wait_idle().expect("failed to wait idle");
+            base.device
+                .device_wait_idle()
+                .check_error(base.present_queue, base)
+                .expect("failed to wait idle");
             base.device
                 .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
                 .expect("failed to wait for fence");

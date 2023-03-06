@@ -2,6 +2,7 @@ mod cornell_smoke;
 mod demo;
 mod dielectric;
 
+mod cube_world;
 mod easy_cornell_box;
 mod easy_scene;
 mod light_demo;
@@ -282,6 +283,10 @@ pub fn get_scenarios() -> Scenarios {
         Box::new(ScenarioFn {
             name: "Cube Field".to_string(),
             f: demo::cube_field::build_field,
+        }),
+        Box::new(ScenarioFn {
+            name: "Cube World".to_string(),
+            f: cube_world::cube_world,
         }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes

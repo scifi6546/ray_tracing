@@ -1,4 +1,5 @@
 mod constant_medium;
+mod cubeworld;
 mod flip_normals;
 mod rect;
 mod render_box;
@@ -9,6 +10,7 @@ use super::{Aabb, Material, Ray};
 use cgmath::{InnerSpace, Matrix3, Matrix4, Point2, Point3, SquareMatrix, Vector3, Vector4};
 
 pub use constant_medium::ConstantMedium;
+pub use cubeworld::CubeWorld;
 use dyn_clone::{clone_box, DynClone};
 pub use flip_normals::FlipNormals;
 pub use rect::{XYRect, XZRect, YZRect};
