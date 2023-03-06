@@ -302,6 +302,6 @@ pub fn get_scenarios() -> Scenarios {
     }
     Scenarios {
         items: map,
-        default: "Cornell Smoke".to_string(),
+        default: "Cube World".to_string(),
     }
 }

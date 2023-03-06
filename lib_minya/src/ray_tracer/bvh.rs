@@ -43,6 +43,14 @@ impl Aabb {
             },
         }
     }
+    pub fn contains_point(&self, point: Point3<f32>) -> bool {
+        self.minimum.x <= point.x
+            && self.minimum.y <= point.y
+            && self.minimum.z <= point.z
+            && self.maximum.x >= point.x
+            && self.maximum.y >= point.y
+            && self.maximum.z >= point.z
+    }
 }
 pub struct BvhTree {
     objects: Vec<Object>,
