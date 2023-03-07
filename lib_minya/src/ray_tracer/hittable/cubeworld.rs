@@ -164,11 +164,12 @@ pub struct CubeWorld {
     z: i32,
 }
 impl CubeWorld {
-    const OFFSET: f32 = 0.1;
+    const OFFSET: f32 = 0.0;
     pub fn new(material: Box<dyn Material>, x: i32, y: i32, z: i32) -> Self {
         let mut voxels = Voxels::new(x as usize, y as usize, z as usize);
         let center = Vector3::new(x as f32 / 2.0, y as f32 / 2.0, z as f32 / 2.0);
         let radius = 3.0;
+        /*
         for i in 0..x as isize {
             for j in 0..y as isize {
                 for k in 0..z as isize {
@@ -176,6 +177,15 @@ impl CubeWorld {
                     let p_val = (pos - center).magnitude() < radius;
 
                     voxels.update(i, j, k, p_val);
+                }
+            }
+        }
+
+         */
+        for i in 3..6 {
+            for j in 3..6 {
+                for k in 3..6 {
+                    voxels.update(i, j, k, true);
                 }
             }
         }
