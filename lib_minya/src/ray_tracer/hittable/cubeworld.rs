@@ -77,6 +77,34 @@ impl Voxels {
         }
     }
     pub fn trace_voxels(&self, origin: Vector3<f32>, direction: Vector3<f32>) -> HitResult {
+        if origin.x >= 0.0
+            && origin.x <= self.x_dim as f32
+            && origin.y >= 0.0
+            && origin.y <= self.y_dim as f32
+            && origin.z >= 0.0
+            && origin.z <= self.z_dim as f32
+        {
+            let fract = origin.map(|e| e.fract());
+            let t: [f32; 3] = fract.into();
+            let (min_val, idx) =
+                t.iter()
+                    .enumerate()
+                    .fold((4, f32::MAX), |(acc_idx, acc_val), (idx, val)| {
+                        if val < &acc_val {
+                            (val, idx)
+                        } else {
+                            (acc_val, acc_idx)
+                        }
+                    });
+            let voxel_pos = origin.map(|e| e.floor());
+            let pos = voxel_pos.map(|e| e as usize);
+            if self.get(pos.x, pos.y, pos.z) {
+                return HitResult::Hit {
+                    position: voxel_pos,
+                    normal: Vector3::new(1.0, 0.0, 0.0),
+                };
+            }
+        }
         let step_size = 1.0 / direction.map(|e| e.abs());
         let mut step_dir = Vector3::new(0.0, 0.0, 0.0);
         let mut next_dist = Vector3::new(0.0, 0.0, 0.0);
@@ -164,7 +192,7 @@ pub struct CubeWorld {
     z: i32,
 }
 impl CubeWorld {
-    const OFFSET: f32 = 0.0;
+    const OFFSET: f32 = 0.000000;
     pub fn new(material: Box<dyn Material>, x: i32, y: i32, z: i32) -> Self {
         let mut voxels = Voxels::new(x as usize, y as usize, z as usize);
         let center = Vector3::new(x as f32 / 2.0, y as f32 / 2.0, z as f32 / 2.0);
@@ -211,8 +239,11 @@ impl CubeWorld {
     ) -> Option<CheckRes> {
         let t = (x - ray.origin.x) / ray.direction.x;
         if t > t_min && t < t_max {
-            let pos = ray.at(t) - Self::OFFSET * ray.direction.normalize();
-
+            let pos = ray.at(t - Self::OFFSET);
+            let r = rand_u32(0, u32::MAX);
+            if r % 1000000 == 0 {
+                info!("pos: {:?}", pos);
+            }
             if pos.y > 0.0 && pos.y < self.y as f32 && pos.z > 0.0 && pos.z < self.z as f32 {
                 Some(CheckRes {
                     direction: ray.direction,
@@ -236,7 +267,7 @@ impl CubeWorld {
     ) -> Option<CheckRes> {
         let t = (y - ray.origin.y) / ray.direction.y;
         if t > t_min && t < t_max {
-            let pos = ray.at(t) - Self::OFFSET * ray.direction.normalize();
+            let pos = ray.at(t);
 
             if pos.x > 0.0 && pos.x < self.x as f32 && pos.z > 0.0 && pos.z < self.z as f32 {
                 Some(CheckRes {
@@ -261,7 +292,7 @@ impl CubeWorld {
     ) -> Option<CheckRes> {
         let t = (z - ray.origin.z) / ray.direction.z;
         if t > t_min && t < t_max {
-            let pos = ray.at(t) - Self::OFFSET * ray.direction.normalize();
+            let pos = ray.at(t);
 
             if pos.x > 0.0 && pos.x < self.x as f32 && pos.y > 0.0 && pos.y < self.y as f32 {
                 Some(CheckRes {
@@ -288,7 +319,7 @@ impl CubeWorld {
                 let dist = ray.origin - position;
                 let t =
                     Vector3::new(dist.x, dist.y, dist.z).magnitude() / ray.direction.magnitude();
-                if t > t_min && t < t_max {
+                if (t > t_min && t < t_max) || true {
                     Some(HitRecord::new(
                         ray,
                         Point3::new(position.x, position.y, position.z),

@@ -1,7 +1,7 @@
 pub use base_lib::{clamp, RgbColor};
 pub use cgmath;
 use cgmath::{num_traits::*, prelude::*, Point2, Point3, Vector3};
-use log::info;
+pub use log::info;
 use std::{cmp::PartialOrd, fmt::*, ops::Div, path::Path};
 use to_numpy::NumpyArray3D;
 
