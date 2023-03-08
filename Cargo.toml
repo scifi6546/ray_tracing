@@ -1,2 +1,2 @@
 [workspace]
-members = ["cpu_raytracer","base_lib","vulkan_rt"]
+members = ["minya_bin","base_lib","vulkan_rt","choose_vulkan","lib_minya"]

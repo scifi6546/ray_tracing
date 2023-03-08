@@ -1,9 +1,11 @@
 mod extension_manager;
 use super::{find_memory_type_index, record_submit_commandbuffer};
+use ash::vk::{PhysicalDevice, PhysicalDeviceFeatures2};
 use ash::{
     extensions::{
         ext::DebugUtils,
         khr::{Surface, Swapchain},
+        nv::DeviceDiagnosticCheckpoints,
     },
     vk, Device, Entry, Instance,
 };
@@ -60,6 +62,7 @@ pub struct Base {
     pub surface: vk::SurfaceKHR,
     pub surface_format: vk::SurfaceFormatKHR,
     pub surface_resolution: vk::Extent2D,
+    pub checkpoints: DeviceDiagnosticCheckpoints,
 
     pub swapchain: vk::SwapchainKHR,
     pub present_images: Vec<vk::Image>,
@@ -81,9 +84,52 @@ pub struct Base {
 
     pub window_width: u32,
     pub window_height: u32,
-    pub extension_manager: ExtensionManager,
+    pub instance_extension_manager: ExtensionManager,
+    pub device_extension_manager: ExtensionManager,
 }
 impl Base {
+    unsafe fn is_device_suitable(
+        instance: &Instance,
+        dev: &vk::PhysicalDevice,
+        required_extensions: &ExtensionManager,
+    ) -> bool {
+        let extensions = instance
+            .enumerate_device_extension_properties(*dev)
+            .expect("failed to get extensions")
+            .iter()
+            .map(|ext| {
+                CStr::from_ptr(ext.extension_name.as_ptr())
+                    .to_str()
+                    .expect("failed to get extension name")
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+        required_extensions.contains(&extensions)
+    }
+    unsafe fn get_queue_family_index(
+        instance: &Instance,
+        surface_loader: &Surface,
+        surface: &vk::SurfaceKHR,
+        dev: &vk::PhysicalDevice,
+    ) -> Option<usize> {
+        let queue_properties = instance.get_physical_device_queue_family_properties(*dev);
+        let queue_family_index = queue_properties
+            .iter()
+            .enumerate()
+            .find_map(|(index, info)| {
+                let supports_graphic_and_surface =
+                    info.queue_flags.contains(vk::QueueFlags::GRAPHICS)
+                        && surface_loader
+                            .get_physical_device_surface_support(*dev, index as u32, *surface)
+                            .expect("failed to get device_support");
+                if supports_graphic_and_surface {
+                    Some(index)
+                } else {
+                    None
+                }
+            });
+        queue_family_index
+    }
     pub fn new(window_width: u32, window_height: u32) -> Self {
         let event_loop = EventLoop::new();
         let window = WindowBuilder::new()
@@ -107,11 +153,15 @@ impl Base {
             .iter()
             .map(|raw_name| raw_name.as_ptr())
             .collect();
-        let mut extension_manager = ExtensionManager::new();
+        let mut instance_extension_manager = ExtensionManager::new();
+        unsafe {
+            instance_extension_manager
+                .add_extension(b"VK_KHR_get_physical_device_properties2\0".as_ptr() as *const i8);
+        }
 
         for name in ash_window::enumerate_required_extensions(&window).unwrap() {
             unsafe {
-                extension_manager.add_extension(*name);
+                instance_extension_manager.add_extension(*name);
             }
         }
         unsafe {
@@ -127,8 +177,9 @@ impl Base {
         for name in base_extensions {
             unsafe { extension_manager.add_extension(name.as_ptr()) }
         }
+
         unsafe {
-            extension_manager.print();
+            instance_extension_manager.print();
         }
         for name in layer_names_raw.iter() {
             let name_cstr = unsafe { CStr::from_ptr(*name) };
@@ -139,7 +190,7 @@ impl Base {
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
             .enabled_layer_names(&layer_names_raw)
-            .enabled_extension_names(extension_manager.extensions());
+            .enabled_extension_names(instance_extension_manager.extensions());
         println!("create info: {:#?}", *create_info);
         let entry = unsafe { Entry::load() }.expect("failed to load");
         for ext in get_extension_names(&entry) {
@@ -177,45 +228,86 @@ impl Base {
                 .enumerate_physical_devices()
                 .expect("Error getting physical devices")
         };
-        let (p_device, queue_family_index) = p_devices
-            .iter()
-            .map(|dev| unsafe {
-                instance
-                    .get_physical_device_queue_family_properties(*dev)
-                    .iter()
-                    .enumerate()
-                    .find_map(|(index, info)| {
-                        let supports_graphic_and_surface = info
-                            .queue_flags
-                            .contains(vk::QueueFlags::GRAPHICS)
-                            && surface_loader
-                                .get_physical_device_surface_support(*dev, index as u32, surface)
-                                .expect("failed to get device_support");
-                        if supports_graphic_and_surface {
-                            Some((*dev, index))
-                        } else {
-                            None
-                        }
-                    })
-            })
-            .find_map(|i| i)
-            .expect("no sutible device");
-        let device_extension_names_raw = [Swapchain::name().as_ptr()];
+        let mut device_extension_manager = ExtensionManager::new();
+        unsafe {
+            device_extension_manager.add_extension(b"VK_KHR_maintenance3\0".as_ptr() as *const i8);
+            device_extension_manager
+                .add_extension(b"VK_EXT_descriptor_indexing\0".as_ptr() as *const i8);
+            device_extension_manager
+                .add_extension(b"VK_KHR_buffer_device_address\0".as_ptr() as *const i8);
+            device_extension_manager
+                .add_extension(b"VK_KHR_deferred_host_operations\0".as_ptr() as *const i8);
+            device_extension_manager
+                .add_extension(b"VK_KHR_acceleration_structure\0".as_ptr() as *const i8);
+            device_extension_manager
+                .add_extension(b"VK_NV_device_diagnostic_checkpoints\0".as_ptr() as *const i8);
+
+            device_extension_manager.add_extension(Swapchain::name().as_ptr());
+        }
+
+        let (p_device, queue_family_index) = unsafe {
+            p_devices
+                .iter()
+                .filter(|dev| Self::is_device_suitable(&instance, dev, &device_extension_manager))
+                .find_map(|dev| {
+                    Self::get_queue_family_index(&instance, &surface_loader, &surface, dev)
+                        .map(|idx| (*dev, idx))
+                })
+                .expect("failed to find device")
+        };
+
         let queue_family_index = queue_family_index as u32;
+        unsafe {
+            let mut rt_pipeline = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder();
+            let mut accel = vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder();
+            let mut vk_13_features = vk::PhysicalDeviceVulkan13Features::builder();
+            let mut f = vk::PhysicalDeviceFeatures2::builder()
+                .push_next(&mut rt_pipeline)
+                .push_next(&mut accel)
+                .push_next(&mut vk_13_features)
+                .build();
+            instance.get_physical_device_features2(p_device, &mut f);
+
+            println!("Available features:\n{:#?}", f);
+            println!("{:#?}", vk_13_features.build());
+            println!("{:#?}", rt_pipeline.build());
+            println!("{:#?}", accel.build());
+        }
+
         let features = vk::PhysicalDeviceFeatures::builder().shader_clip_distance(true);
         let priorities = [1.0];
         let queue_info = vk::DeviceQueueCreateInfo::builder()
             .queue_family_index(queue_family_index)
             .queue_priorities(&priorities);
+        let mut acceleration_feature =
+            vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
+                .acceleration_structure(true)
+                .acceleration_structure_host_commands(false);
+        let mut rt_pipeline_feature =
+            vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder().ray_tracing_pipeline(true);
+        let mut vulkan_12_features = vk::PhysicalDeviceVulkan12Features::builder()
+            .buffer_device_address(true)
+            .descriptor_indexing(true);
+        let mut vulkan_13_features =
+            vk::PhysicalDeviceVulkan13Features::builder().synchronization2(true);
+        let mut features_next = vk::PhysicalDeviceFeatures2::builder()
+            .features(*features)
+            .push_next(&mut acceleration_feature)
+            .push_next(&mut rt_pipeline_feature)
+            .push_next(&mut vulkan_12_features)
+            .push_next(&mut vulkan_13_features);
+
         let device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(std::slice::from_ref(&queue_info))
-            .enabled_extension_names(&device_extension_names_raw)
-            .enabled_features(&features);
+            .enabled_extension_names(device_extension_manager.extensions())
+            //.enabled_features(&features)
+            .push_next(&mut features_next);
         let device = unsafe {
             instance
                 .create_device(p_device, &device_create_info, None)
                 .expect("failed to create device")
         };
+        let checkpoints = DeviceDiagnosticCheckpoints::new(&instance, &device);
         let present_queue = unsafe { device.get_device_queue(queue_family_index as u32, 0) };
         let surface_format = unsafe {
             surface_loader
@@ -429,6 +521,7 @@ impl Base {
                 .create_semaphore(&semaphore_create_info, None)
                 .expect("failed to create semaphore")
         };
+
         Base {
             event_loop: RefCell::new(event_loop),
             entry,
@@ -459,10 +552,11 @@ impl Base {
             debug_callback,
             debug_utils_loader,
             depth_image_memory,
-
+            checkpoints,
             window_width,
             window_height,
-            extension_manager,
+            instance_extension_manager,
+            device_extension_manager,
         }
     }
     pub fn num_swapchain_images(&self) -> usize {

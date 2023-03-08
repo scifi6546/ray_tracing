@@ -2,14 +2,17 @@ mod diffuse_pass;
 mod graph;
 mod mesh_descriptors;
 mod output_pass;
+mod rt_pass;
 mod solid_texture;
+
 use super::{prelude::*, Base, GraphicsApp};
 use crate::render_graph::mesh_descriptors::MeshDescriptors;
-use ash::vk;
+use ash::{extensions::khr::AccelerationStructure, vk};
 use diffuse_pass::DiffusePass;
 use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
 use graph::{RenderGraph, RenderPass};
 use output_pass::OutputPass;
+use rt_pass::RtPass;
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -83,9 +86,21 @@ impl RenderPass for Box<dyn VulkanPass> {
         VulkanPass::free(self.as_mut(), base)
     }
 }
+pub struct RayTracingState {
+    pub acceleration_structure: AccelerationStructure,
+}
+impl RayTracingState {
+    pub fn new(base: Rc<Base>) -> Self {
+        let acceleration_structure = AccelerationStructure::new(&base.instance, &base.device);
+        Self {
+            acceleration_structure,
+        }
+    }
+}
 #[derive(Clone)]
 pub struct PassBase {
     pub base: Rc<Base>,
+    pub raytracing_state: Rc<RayTracingState>,
     pub allocator: Arc<Mutex<Allocator>>,
     pub scene_state: Rc<RefCell<SceneState>>,
     pub engine_entities: Rc<RefCell<EngineEntities>>,
@@ -98,17 +113,7 @@ impl SceneState {
     pub fn new(base: Rc<Base>, allocator: Arc<Mutex<Allocator>>) -> (Self, EngineEntities) {
         let mut imgui_context = imgui::Context::create();
         imgui_context.set_ini_filename(None);
-        /*
-        let mut imgui_platform = imgui_winit_support::WinitPlatform::init(&mut imgui_context);
-        let hidipi_factor = imgui_platform.hidpi_factor();
-        imgui_platform.attach_window(
-            imgui_context.io_mut(),
-            &base.window,
-            imgui_winit_support::HiDpiMode::Rounded,
-        );
 
-        imgui_context.io_mut().font_global_scale = 1.0 / hidipi_factor as f32;
-         */
         let mesh_descriptors = MeshDescriptors::new(base.clone());
         let engine_entities = EngineEntities::new(
             base.as_ref(),
@@ -130,6 +135,7 @@ pub struct RenderPassApp {
     graph: RenderGraph<Box<dyn VulkanPass>>,
     allocator: Arc<Mutex<Allocator>>,
     scene_state: Rc<RefCell<SceneState>>,
+    raytracing_state: Rc<RayTracingState>,
     engine_entities: Rc<RefCell<EngineEntities>>,
 }
 impl RenderPassApp {
@@ -141,28 +147,39 @@ impl RenderPassApp {
                 device: base.device.clone(),
                 physical_device: base.p_device.clone(),
                 debug_settings: AllocatorDebugSettings::default(),
-                buffer_device_address: false,
+                buffer_device_address: true,
             })
             .expect("created allocator"),
         ));
         let (scene_state, engine_entities) = SceneState::new(base.clone(), allocator.clone());
         let scene_state = Rc::new(RefCell::new(scene_state));
         let engine_entities = Rc::new(RefCell::new(engine_entities));
+        let raytracing_state = Rc::new(RayTracingState::new(base.clone()));
         let mut pass_base = PassBase {
             base,
             allocator: allocator.clone(),
             scene_state: scene_state.clone(),
             engine_entities: engine_entities.clone(),
+            raytracing_state: raytracing_state.clone(),
         };
         let solid_texture: Box<dyn VulkanPass> =
             Box::new(solid_texture::SolidTexturePass::new(&pass_base));
+
         let (_solid_pass_id, solid_pass_output) = graph.insert_pass(solid_texture, Vec::new());
         let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base));
         let diffuse_pass: Box<dyn VulkanPass> = Box::new(DiffusePass::new(pass_base.clone()));
+        let (_pass_id, rt_output) = graph.insert_pass(
+            Box::new(RtPass::new(&pass_base).expect("failed to build renderpass")),
+            Vec::new(),
+        );
         let (_diffuse_pass_id, diffuse_pass_deps) = graph.insert_pass(diffuse_pass, vec![]);
         graph.insert_output_pass(
             pass,
-            vec![solid_pass_output[0].clone(), diffuse_pass_deps[0].clone()],
+            vec![
+                solid_pass_output[0].clone(),
+                diffuse_pass_deps[0].clone(),
+                rt_output[0].clone(),
+            ],
         );
 
         Self {
@@ -170,6 +187,7 @@ impl RenderPassApp {
             allocator,
             scene_state,
             engine_entities,
+            raytracing_state,
         }
     }
 }
@@ -181,6 +199,7 @@ impl GraphicsApp for RenderPassApp {
                 allocator: self.allocator.clone(),
                 scene_state: self.scene_state.clone(),
                 engine_entities: self.engine_entities.clone(),
+                raytracing_state: self.raytracing_state.clone(),
             };
             for pass in self.graph.iter_mut() {
                 pass.prepare_render(&pass_base);
@@ -192,6 +211,7 @@ impl GraphicsApp for RenderPassApp {
             allocator: self.allocator.clone(),
             scene_state: self.scene_state.clone(),
             engine_entities: self.engine_entities.clone(),
+            raytracing_state: self.raytracing_state.clone(),
         };
         self.graph.run_graph(&pass_base);
     }
@@ -214,6 +234,7 @@ impl GraphicsApp for RenderPassApp {
             allocator: self.allocator.clone(),
             scene_state: self.scene_state.clone(),
             engine_entities: self.engine_entities.clone(),
+            raytracing_state: self.raytracing_state.clone(),
         };
         for pass in self.graph.iter_mut() {
             pass.handle_event(&pass_base, event)
@@ -227,6 +248,7 @@ impl GraphicsApp for RenderPassApp {
                 allocator: self.allocator.clone(),
                 scene_state: self.scene_state.clone(),
                 engine_entities: self.engine_entities.clone(),
+                raytracing_state: self.raytracing_state.clone(),
             };
             self.graph.free_passes(&pass_base);
         }
