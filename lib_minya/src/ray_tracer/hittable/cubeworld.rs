@@ -77,31 +77,53 @@ impl Voxels {
         }
     }
     pub fn trace_voxels(&self, origin: Vector3<f32>, direction: Vector3<f32>) -> HitResult {
-        if origin.x >= 0.0
-            && origin.x <= self.x_dim as f32
-            && origin.y >= 0.0
-            && origin.y <= self.y_dim as f32
-            && origin.z >= 0.0
-            && origin.z <= self.z_dim as f32
+        if origin.x <= 0.0
+            || origin.x >= self.x_dim as f32
+            || origin.y <= 0.0
+            || origin.y >= self.y_dim as f32
+            || origin.z <= 0.0
+            || origin.z >= self.z_dim as f32
         {
             let fract = origin.map(|e| e.fract());
             let t: [f32; 3] = fract.into();
-            let (min_val, idx) =
-                t.iter()
-                    .enumerate()
-                    .fold((4, f32::MAX), |(acc_idx, acc_val), (idx, val)| {
-                        if val < &acc_val {
-                            (val, idx)
-                        } else {
-                            (acc_val, acc_idx)
-                        }
-                    });
+
             let voxel_pos = origin.map(|e| e.floor());
             let pos = voxel_pos.map(|e| e as usize);
             if self.get(pos.x, pos.y, pos.z) {
+                let (idx, min_val) =
+                    t.iter()
+                        .enumerate()
+                        .fold((4, f32::MAX), |(acc_idx, acc_val), (idx, val)| {
+                            if val < &acc_val {
+                                (idx, *val)
+                            } else {
+                                (acc_idx, acc_val)
+                            }
+                        });
+                let side = origin[idx]
+                    > match idx {
+                        0 => origin.x as f32 / 2.0,
+                        1 => origin.y as f32 / 2.0,
+                        2 => origin.z as f32 / 2.0,
+                        _ => panic!("invalid idx"),
+                    };
+                let normal = match side {
+                    true => match idx {
+                        0 => Vector3::new(1.0, 0.0, 0.0),
+                        1 => Vector3::new(0.0, 1.0, 0.0),
+                        2 => Vector3::new(0.0, 0.0, 1.0),
+                        _ => panic!(),
+                    },
+                    false => match idx {
+                        0 => Vector3::new(-1.0, 0.0, 0.0),
+                        1 => Vector3::new(0.0, -1.0, 0.0),
+                        2 => Vector3::new(0.0, 0.0, -1.0),
+                        _ => panic!(),
+                    },
+                };
                 return HitResult::Hit {
                     position: voxel_pos,
-                    normal: Vector3::new(1.0, 0.0, 0.0),
+                    normal,
                 };
             }
         }

@@ -34,7 +34,7 @@ pub fn cube_world() -> WorldInfo {
         albedo: Box::new(SolidColor {
             color: RgbColor::new(0.65, 0.05, 0.05),
         }),
-        fuzz: 0.0,
+        fuzz: 0.1,
     });
     let light = Box::new(DiffuseLight {
         emit: Box::new(SolidColor {
@@ -59,7 +59,7 @@ pub fn cube_world() -> WorldInfo {
     WorldInfo {
         objects: vec![
             Object::new(
-                Box::new(CubeWorld::new(red, 10, 10, 10)),
+                Box::new(CubeWorld::new(red_metal, 10, 10, 10)),
                 Transform::identity(),
             ),
             light.clone(),
