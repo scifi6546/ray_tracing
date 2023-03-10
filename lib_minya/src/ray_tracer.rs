@@ -22,8 +22,8 @@ use camera::Camera;
 use cgmath::{InnerSpace, Vector3};
 #[allow(unused_imports)]
 use hittable::{
-    ConstantMedium, FlipNormals, HitRecord, Hittable, MovingSphere, Object, RayAreaInfo, RenderBox,
-    Sphere, Transform, XYRect, XZRect, YZRect,
+    ConstantMedium, FlipNormals, HitRay, HitRecord, Hittable, MaterialEffect, MovingSphere, Object,
+    RayAreaInfo, RenderBox, Sphere, Transform, XYRect, XZRect, YZRect,
 };
 #[allow(unused_imports)]
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
@@ -105,17 +105,10 @@ impl Shader for DiffuseShader {
             };
         }
         if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
-            if let Some(emitted) = record.material.emmit(&record) {
-                if emitted.is_nan() {
-                    error!("emmited color is nan");
-                }
-                return emitted;
-            };
-            if let Some(scatter_record) = record.material.scatter(ray, &record) {
-                return scatter_record.attenuation;
-            } else {
-                // emitted
-                RgbColor::BLACK
+            match record.material_effect {
+                MaterialEffect::Emmit(color) => color,
+                MaterialEffect::Scatter(record) => record.attenuation,
+                MaterialEffect::NoEmmit => RgbColor::BLACK,
             }
         } else {
             world.background.color(ray)
@@ -133,56 +126,58 @@ impl Shader for RayTracingShader {
             };
         }
         if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
-            if let Some(emitted) = record.material.emmit(&record) {
-                if emitted.is_nan() {
-                    error!("emmited color is nan");
+            match record.material_effect.clone() {
+                MaterialEffect::Emmit(emitted) => {
+                    if emitted.is_nan() {
+                        error!("emmitted color is nan");
+                    }
+                    emitted
                 }
-                return emitted;
-            };
-            if let Some(scatter_record) = record.material.scatter(ray, &record) {
-                if let Some(specular_ray) = scatter_record.specular_ray {
-                    scatter_record.attenuation * self.ray_color(specular_ray, world, depth - 1)
-                } else if let Some((pdf_direction, value)) = scatter_record
-                    .pdf
-                    .expect("if material is not specular there should be a pdf")
-                    .generate(ray, record.position, world)
-                {
-                    let scattering_pdf = record.material.scattering_pdf(
-                        ray,
-                        &record,
-                        Ray {
-                            origin: record.position,
-                            direction: pdf_direction,
-                            time: record.t,
-                        },
-                    );
-                    if let Some(scattering_pdf) = scattering_pdf {
-                        if scattering_pdf == 0.0 {
-                            return RgbColor::BLACK;
+                MaterialEffect::Scatter(scatter_record) => {
+                    if let Some(specular_ray) = scatter_record.specular_ray {
+                        scatter_record.attenuation * self.ray_color(specular_ray, world, depth - 1)
+                    } else if let Some((pdf_direction, value)) = scatter_record
+                        .pdf
+                        .expect("if material is not specular there should be a pdf")
+                        .generate(ray, record.position, world)
+                    {
+                        let scattering_pdf_fn = scatter_record.scattering_pdf;
+                        let scattering_pdf = scattering_pdf_fn(
+                            ray,
+                            &record,
+                            Ray {
+                                origin: record.position,
+                                direction: pdf_direction,
+                                time: record.t,
+                            },
+                        );
+
+                        if let Some(scattering_pdf) = scattering_pdf {
+                            if scattering_pdf == 0.0 {
+                                return RgbColor::BLACK;
+                            }
+
+                            let value = value / scattering_pdf;
+
+                            scatter_record.attenuation
+                                * self.ray_color(
+                                    Ray {
+                                        origin: record.position,
+                                        direction: pdf_direction,
+                                        time: record.t,
+                                    },
+                                    world,
+                                    depth - 1,
+                                )
+                                / value
+                        } else {
+                            RgbColor::BLACK
                         }
-
-                        let value = value / scattering_pdf;
-
-                        scatter_record.attenuation
-                            * self.ray_color(
-                                Ray {
-                                    origin: record.position,
-                                    direction: pdf_direction,
-                                    time: record.t,
-                                },
-                                world,
-                                depth - 1,
-                            )
-                            / value
                     } else {
                         RgbColor::BLACK
                     }
-                } else {
-                    RgbColor::BLACK
                 }
-            } else {
-                // emitted
-                RgbColor::BLACK
+                MaterialEffect::NoEmmit => RgbColor::BLACK,
             }
         } else {
             world.background.color(ray)

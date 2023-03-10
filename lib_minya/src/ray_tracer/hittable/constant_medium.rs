@@ -66,14 +66,14 @@ impl Hittable for ConstantMedium {
         }
         let t = hit1.t + hit_distance / ray_length;
         let position = ray.at(t);
-
+        let material_effect = todo!();
         Some(HitRecord {
             position,
             normal: Vector3::new(1.0, 0.0, 0.0),
             t,
             front_face: false,
             uv: Point2::new(0.0, 0.0),
-            material: clone_box(self.phase_function.deref()),
+            material_effect,
         })
     }
 

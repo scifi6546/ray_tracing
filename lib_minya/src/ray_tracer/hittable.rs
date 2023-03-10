@@ -9,6 +9,9 @@ use super::{Aabb, Material, Ray};
 
 use cgmath::{InnerSpace, Matrix3, Matrix4, Point2, Point3, SquareMatrix, Vector3, Vector4};
 
+use crate::ray_tracer::hittable::MaterialEffect::NoEmmit;
+use crate::ray_tracer::pdf::ScatterRecord;
+use base_lib::RgbColor;
 pub use constant_medium::ConstantMedium;
 pub use cubeworld::CubeWorld;
 use dyn_clone::{clone_box, DynClone};
@@ -192,7 +195,7 @@ impl Hittable for Object {
                 t: hit.t,
                 front_face: hit.front_face,
                 uv: hit.uv,
-                material: hit.material,
+                material_effect: hit.material_effect,
             });
 
             h
@@ -276,27 +279,30 @@ impl Hittable for Object {
         }
     }
 }
-
+#[derive(Clone)]
+pub struct HitRay {
+    pub position: Point3<f32>,
+    pub normal: Vector3<f32>,
+    pub t: f32,
+    pub front_face: bool,
+    pub uv: Point2<f32>,
+}
+#[derive(Clone)]
 pub struct HitRecord {
     pub position: Point3<f32>,
     pub normal: Vector3<f32>,
     pub t: f32,
     pub front_face: bool,
     pub uv: Point2<f32>,
-    pub material: Box<dyn Material>,
+    pub material_effect: MaterialEffect,
 }
-impl Clone for HitRecord {
-    fn clone(&self) -> Self {
-        Self {
-            position: self.position,
-            normal: self.normal,
-            t: self.t,
-            front_face: self.front_face,
-            uv: self.uv,
-            material: clone_box(self.material.deref()),
-        }
-    }
+#[derive(Clone)]
+pub enum MaterialEffect {
+    Scatter(ScatterRecord),
+    Emmit(RgbColor),
+    NoEmmit,
 }
+
 impl HitRecord {
     pub fn new(
         ray: &Ray,
@@ -307,13 +313,28 @@ impl HitRecord {
         material: Box<dyn Material>,
     ) -> Self {
         let front_face = ray.direction.dot(normal) < 0.0;
-        Self {
+        let hit_ray = HitRay {
             position,
             normal: if front_face { normal } else { -1.0 * normal },
             t,
             front_face,
             uv,
-            material,
+        };
+        let emit_option = material.emmit(&hit_ray);
+        let material_effect = if emit_option.is_some() {
+            MaterialEffect::Emmit(emit_option.unwrap())
+        } else if let Some(scatter) = material.scatter(ray.clone(), &hit_ray) {
+            MaterialEffect::Scatter(scatter)
+        } else {
+            NoEmmit
+        };
+        Self {
+            position,
+            normal: hit_ray.normal,
+            t,
+            front_face,
+            uv,
+            material_effect,
         }
     }
 }

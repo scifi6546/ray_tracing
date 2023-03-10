@@ -1,25 +1,36 @@
 use super::{
-    rand_unit_vec, reflect, CosinePdf, HitRecord, LightPdf, PdfList, Ray, RgbColor, ScatterRecord,
-    Texture,
+    rand_unit_vec, reflect, CosinePdf, HitRay, HitRecord, LightPdf, PdfList, Ray, RgbColor,
+    ScatterRecord, Texture,
 };
 use cgmath::{num_traits::*, InnerSpace, Vector3};
 use dyn_clone::{clone_box, DynClone};
 use std::ops::Deref;
 
 use std::rc::Rc;
+
 //pub type PDF = f32;
 pub trait Material: Send + DynClone {
     fn name(&self) -> &'static str;
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord>;
+    fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord>;
     fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray)
         -> Option<f32>;
-    fn emmit(&self, _record: &HitRecord) -> Option<RgbColor> {
+    fn emmit(&self, _record: &HitRay) -> Option<RgbColor> {
         None
     }
 }
 
 pub struct Lambertian {
     pub albedo: Box<dyn Texture>,
+}
+impl Lambertian {
+    fn scattering_pdf_fn(_ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> Option<f32> {
+        let cosine = record_in.normal.dot(scattered_ray.direction.normalize());
+        if cosine < 0.0 {
+            None
+        } else {
+            Some(cosine / f32::PI())
+        }
+    }
 }
 impl Clone for Lambertian {
     fn clone(&self) -> Self {
@@ -32,7 +43,7 @@ impl Material for Lambertian {
     fn name(&self) -> &'static str {
         "Lambertian"
     }
-    fn scatter(&self, _ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
+    fn scatter(&self, _ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
         let attenuation = self.albedo.color(record_in.uv, record_in.position);
 
         let scatter_record = ScatterRecord {
@@ -42,6 +53,7 @@ impl Material for Lambertian {
                 Box::new(CosinePdf::new(record_in.normal)),
                 Box::new(LightPdf {}),
             ]))),
+            scattering_pdf: Self::scattering_pdf_fn,
         };
         Some(scatter_record)
     }
@@ -64,6 +76,11 @@ pub struct Metal {
     pub albedo: Box<dyn Texture>,
     pub fuzz: f32,
 }
+impl Metal {
+    fn scattering_pdf_fn(_ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> Option<f32> {
+        panic!("material is specular")
+    }
+}
 impl Clone for Metal {
     fn clone(&self) -> Self {
         Self {
@@ -76,7 +93,7 @@ impl Material for Metal {
     fn name(&self) -> &'static str {
         "Metal"
     }
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
         let reflected = reflect(ray_in.direction.normalize(), record_in.normal);
 
         if reflected.dot(record_in.normal) > 0.0 {
@@ -90,6 +107,7 @@ impl Material for Metal {
                 specular_ray: Some(out_ray),
                 attenuation: self.albedo.color(record_in.uv, record_in.position),
                 pdf: None,
+                scattering_pdf: Self::scattering_pdf_fn,
             })
         } else {
             None
@@ -122,12 +140,15 @@ impl Dielectric {
         let r0 = ((1.0 - ref_idx) / (1.0 + ref_idx)).powi(2);
         r0 + (1.0 - r0) * ((1.0 - cosine).powi(5))
     }
+    fn scattering_pdf_fn(_ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> Option<f32> {
+        panic!("material is specular should not have scattering")
+    }
 }
 impl Material for Dielectric {
     fn name(&self) -> &'static str {
         "Dielectric"
     }
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
         let refraction_ratio = if record_in.front_face {
             1.0 / self.index_refraction
         } else {
@@ -153,6 +174,7 @@ impl Material for Dielectric {
             }),
             attenuation: self.color,
             pdf: None,
+            scattering_pdf: Self::scattering_pdf_fn,
         })
     }
 
@@ -169,6 +191,7 @@ impl Material for Dielectric {
 pub struct DiffuseLight {
     pub emit: Box<dyn Texture>,
 }
+impl DiffuseLight {}
 impl Clone for DiffuseLight {
     fn clone(&self) -> Self {
         Self {
@@ -180,7 +203,7 @@ impl Material for DiffuseLight {
     fn name(&self) -> &'static str {
         "Diffuse Light"
     }
-    fn scatter(&self, _ray_in: Ray, _record_in: &HitRecord) -> Option<ScatterRecord> {
+    fn scatter(&self, _ray_in: Ray, _record_in: &HitRay) -> Option<ScatterRecord> {
         None
     }
 
@@ -193,7 +216,7 @@ impl Material for DiffuseLight {
         panic!("should not have scattering")
     }
 
-    fn emmit(&self, record: &HitRecord) -> Option<RgbColor> {
+    fn emmit(&self, record: &HitRay) -> Option<RgbColor> {
         if record.front_face {
             Some(self.emit.color(record.uv, record.position))
         } else {
@@ -204,6 +227,11 @@ impl Material for DiffuseLight {
 
 pub struct Isotropic {
     pub albedo: Box<dyn Texture>,
+}
+impl Isotropic {
+    fn scattering_pdf_fn(_ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> Option<f32> {
+        panic!("should not have scattering")
+    }
 }
 impl Clone for Isotropic {
     fn clone(&self) -> Self {
@@ -216,7 +244,7 @@ impl Material for Isotropic {
     fn name(&self) -> &'static str {
         "Isotropic"
     }
-    fn scatter(&self, ray_in: Ray, record_in: &HitRecord) -> Option<ScatterRecord> {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
         Some(ScatterRecord {
             specular_ray: Some(Ray {
                 origin: record_in.position,
@@ -225,6 +253,7 @@ impl Material for Isotropic {
             }),
             attenuation: self.albedo.color(record_in.uv, record_in.position),
             pdf: None,
+            scattering_pdf: Self::scattering_pdf_fn,
         })
     }
 

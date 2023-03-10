@@ -1,6 +1,7 @@
 use super::{hittable::Hittable, World};
 use crate::prelude::*;
 
+use crate::ray_tracer::hittable::HitRecord;
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
 use std::rc::Rc;
 
@@ -164,8 +165,10 @@ impl Pdf for PdfList {
         }
     }
 }
+#[derive(Clone)]
 pub struct ScatterRecord {
     pub specular_ray: Option<Ray>,
     pub attenuation: RgbColor,
     pub pdf: Option<Rc<dyn Pdf>>,
+    pub scattering_pdf: fn(Ray, &HitRecord, Ray) -> Option<f32>,
 }
