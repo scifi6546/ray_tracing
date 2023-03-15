@@ -279,15 +279,36 @@ impl Hittable for Object {
         }
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HitRay {
-    pub position: Point3<f32>,
-    pub normal: Vector3<f32>,
-    pub t: f32,
-    pub front_face: bool,
-    pub uv: Point2<f32>,
+    position: Point3<f32>,
+    direction: Vector3<f32>,
+    normal: Vector3<f32>,
+    t: f32,
+    front_face: bool,
+    uv: Point2<f32>,
 }
-#[derive(Clone)]
+impl HitRay {
+    pub(crate) fn position(&self) -> Point3<f32> {
+        self.position
+    }
+    pub(crate) fn direction(&self) -> Vector3<f32> {
+        self.direction
+    }
+    pub(crate) fn normal(&self) -> Vector3<f32> {
+        self.normal
+    }
+    pub(crate) fn t(&self) -> f32 {
+        self.t
+    }
+    pub(crate) fn front_face(&self) -> bool {
+        self.front_face
+    }
+    pub(crate) fn uv(&self) -> Point2<f32> {
+        self.uv
+    }
+}
+#[derive(Clone, Debug)]
 pub struct HitRecord {
     pub position: Point3<f32>,
     pub normal: Vector3<f32>,
@@ -296,7 +317,7 @@ pub struct HitRecord {
     pub uv: Point2<f32>,
     pub material_effect: MaterialEffect,
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum MaterialEffect {
     Scatter(ScatterRecord),
     Emmit(RgbColor),
@@ -312,10 +333,12 @@ impl HitRecord {
         uv: Point2<f32>,
         material: Box<dyn Material>,
     ) -> Self {
-        let front_face = ray.direction.dot(normal) < 0.0;
+        let front_face = ray.direction.dot(normal) <= 0.0;
+
         let hit_ray = HitRay {
             position,
-            normal: if front_face { normal } else { -1.0 * normal },
+            direction: ray.direction,
+            normal: if front_face { normal } else { -normal },
             t,
             front_face,
             uv,

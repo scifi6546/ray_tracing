@@ -41,12 +41,24 @@ pub fn easy_cornell_box() -> WorldInfo {
                 z0: 227.0,
                 z1: 332.0,
                 k: 554.0,
-                material: light,
+                material: light.clone(),
             }),
         }),
         Transform::identity(),
     );
-
+    /*
+        let top_light = Object::new(
+            Box::new(XZRect {
+                x0: 213.0,
+                x1: 343.0,
+                z0: 227.0,
+                z1: 332.0,
+                k: 554.0,
+                material: light,
+            }),
+            Transform::identity(),
+        );
+    */
     WorldInfo {
         objects: vec![
             Object::new(

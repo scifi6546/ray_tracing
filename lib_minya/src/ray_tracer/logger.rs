@@ -57,6 +57,7 @@ impl log::Log for Logger {
                 log::set_max_level(log::LevelFilter::Debug);
                 *log_result = Some(vec![]);
             }
+            println!("");
             let mut log_messages = log_result.as_mut().unwrap();
             let message = match record.level() {
                 LogLevel::Trace => LogMessage::Trace(record.args().to_string()),
@@ -67,9 +68,18 @@ impl log::Log for Logger {
                         return;
                     }
                 }
-                LogLevel::Info => LogMessage::Info(record.args().to_string()),
-                LogLevel::Warn => LogMessage::Warn(record.args().to_string()),
-                LogLevel::Error => LogMessage::Error(record.args().to_string()),
+                LogLevel::Info => {
+                    println!("info:\t{}", record.args().to_string());
+                    LogMessage::Info(record.args().to_string())
+                }
+                LogLevel::Warn => {
+                    println!("warn:\t{}", record.args().to_string());
+                    LogMessage::Warn(record.args().to_string())
+                }
+                LogLevel::Error => {
+                    println!("error:\t{}", record.args().to_string());
+                    LogMessage::Error(record.args().to_string())
+                }
             };
 
             log_messages.push(message);

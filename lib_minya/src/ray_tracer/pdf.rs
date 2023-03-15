@@ -3,7 +3,7 @@ use crate::prelude::*;
 
 use crate::ray_tracer::hittable::HitRecord;
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
-use std::rc::Rc;
+use std::{fmt, rc::Rc};
 
 pub trait Pdf {
     fn value(&self, direction: &Ray, world: &World) -> f32;
@@ -171,4 +171,13 @@ pub struct ScatterRecord {
     pub attenuation: RgbColor,
     pub pdf: Option<Rc<dyn Pdf>>,
     pub scattering_pdf: fn(Ray, &HitRecord, Ray) -> Option<f32>,
+}
+impl fmt::Debug for ScatterRecord {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Scatter Record")
+            .field("specular_ray", &self.specular_ray)
+            .field("attenuation", &self.attenuation)
+            .field("pdf", if self.pdf.is_some() { &"Some" } else { &"None" })
+            .finish()
+    }
 }

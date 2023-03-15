@@ -19,7 +19,7 @@ use logger::Logger;
 use background::{Background, ConstantColor, Sky};
 use bvh::Aabb;
 use camera::Camera;
-use cgmath::{InnerSpace, Vector3};
+use cgmath::{InnerSpace, Point3, Vector3};
 #[allow(unused_imports)]
 use hittable::{
     ConstantMedium, FlipNormals, HitRay, HitRecord, Hittable, MaterialEffect, MovingSphere, Object,
@@ -55,28 +55,40 @@ pub fn rand_vec() -> Vector3<f32> {
         z: rand::random(),
     }
 }
-pub trait Shader {
-    fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RgbColor;
+#[derive(Clone, Debug)]
+pub(crate) struct DebugRayTraceStep {
+    position: Point3<f32>,
+    front_face: bool,
+}
+#[derive(Clone, Debug)]
+/// Color Output for shader. if tracing feature is enabled also traces old rays
+pub(crate) struct RayColorOutput {
+    pub(crate) color: RgbColor,
+    #[cfg(feature = "debug_tracing")]
+    pub(crate) steps: Vec<DebugRayTraceStep>,
+}
+pub(crate) trait Shader {
+    fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RayColorOutput;
 }
 pub struct LightMapShader {}
 impl Shader for LightMapShader {
-    fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RgbColor {
+    fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RayColorOutput {
         if depth == 0 {
-            return RgbColor {
-                red: 0.0,
-                green: 0.0,
-                blue: 0.0,
+            return RayColorOutput {
+                color: RgbColor::BLACK,
+                #[cfg(feature = "debug_tracing")]
+                steps: vec![],
             };
         }
         if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
-            world
+            let color = world
                 .lights
                 .iter()
                 .map(|l| {
                     let area = l.generate_ray_in_area(record.position, record.t);
                     if let Some(r) = world.nearest_hit(&area.to_area, 0.001, f32::MAX) {
                         let at = area.end_point;
-                        let t = (at - r.position);
+                        let t = at - r.position;
                         let m = t.magnitude();
                         let o = m * RgbColor::WHITE;
                         if o.is_nan() {
@@ -88,54 +100,130 @@ impl Shader for LightMapShader {
                         RgbColor::BLACK
                     }
                 })
-                .fold(RgbColor::BLACK, |acc, x| acc + x)
+                .fold(RgbColor::BLACK, |acc, x| acc + x);
+
+            RayColorOutput {
+                color,
+                #[cfg(feature = "debug_tracing")]
+                steps: vec![DebugRayTraceStep {
+                    position: record.position,
+                    front_face: true,
+                }],
+            }
         } else {
-            RgbColor::BLACK
+            RayColorOutput {
+                color: RgbColor::BLACK,
+                #[cfg(feature = "debug_tracing")]
+                steps: vec![],
+            }
         }
     }
 }
 pub struct DiffuseShader {}
 impl Shader for DiffuseShader {
-    fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RgbColor {
+    fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RayColorOutput {
         if depth == 0 {
-            return RgbColor {
-                red: 0.0,
-                green: 0.0,
-                blue: 0.0,
+            return RayColorOutput {
+                color: RgbColor::BLACK,
+                #[cfg(feature = "debug_tracing")]
+                steps: vec![],
             };
         }
+        #[cfg(feature = "debug_tracing")]
+        let steps = vec![];
         if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
             match record.material_effect {
-                MaterialEffect::Emmit(color) => color,
-                MaterialEffect::Scatter(record) => record.attenuation,
-                MaterialEffect::NoEmmit => RgbColor::BLACK,
+                MaterialEffect::Emmit(color) => RayColorOutput {
+                    color,
+                    #[cfg(feature = "debug_tracing")]
+                    steps,
+                },
+                MaterialEffect::Scatter(record) => RayColorOutput {
+                    color: record.attenuation,
+                    #[cfg(feature = "debug_tracing")]
+                    steps,
+                },
+                MaterialEffect::NoEmmit => RayColorOutput {
+                    color: RgbColor::BLACK,
+                    #[cfg(feature = "debug_tracing")]
+                    steps,
+                },
             }
         } else {
-            world.background.color(ray)
+            RayColorOutput {
+                color: world.background.color(ray),
+                #[cfg(feature = "debug_tracing")]
+                steps,
+            }
         }
     }
 }
 pub struct RayTracingShader {}
 impl Shader for RayTracingShader {
-    fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RgbColor {
+    fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RayColorOutput {
+        #[cfg(feature = "debug_tracing")]
+        fn has_false_front_face(steps: &[DebugRayTraceStep]) -> bool {
+            steps.iter().fold(true, |acc, x| acc == x.front_face)
+        }
         if depth == 0 {
-            return RgbColor {
-                red: 0.0,
-                green: 0.0,
-                blue: 0.0,
+            return RayColorOutput {
+                color: RgbColor::BLACK,
+                #[cfg(feature = "debug_tracing")]
+                steps: vec![],
             };
         }
-        if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
+        let output = if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
+            let front_face = if (record.normal.dot(ray.direction) <= 0.0) != record.front_face {
+                if rand_u32(0, 1_000_000) == 0 {
+                    error!("not front face!",)
+                    //error!("not front face?")
+                }
+                false
+            } else {
+                true
+            };
+            #[cfg(feature = "debug_tracing")]
+            let step = DebugRayTraceStep {
+                position: record.position,
+                front_face,
+            };
             match record.material_effect.clone() {
                 MaterialEffect::Emmit(emitted) => {
                     if emitted.is_nan() {
                         error!("emmitted color is nan");
                     }
-                    emitted
+                    RayColorOutput {
+                        color: emitted,
+                        #[cfg(feature = "debug_tracing")]
+                        steps: vec![step],
+                    }
                 }
                 MaterialEffect::Scatter(scatter_record) => {
                     if let Some(specular_ray) = scatter_record.specular_ray {
-                        scatter_record.attenuation * self.ray_color(specular_ray, world, depth - 1)
+                        let mut ray_color = self.ray_color(specular_ray, world, depth - 1);
+                        let color = scatter_record.attenuation * ray_color.color;
+                        #[cfg(feature = "debug_tracing")]
+                        let mut steps = {
+                            let mut out = vec![step];
+                            out.append(&mut ray_color.steps);
+                            out
+                        };
+                        #[cfg(feature = "debug_tracing")]
+                        {
+                            if has_false_front_face(&ray_color.steps) {
+                                if rand_u32(0, 1_000) == 0 {
+                                    error!(
+                                        "{:#?}\nrecord: {:#?}\nray:{:#?}",
+                                        ray_color, record, ray
+                                    )
+                                }
+                            }
+                        }
+                        RayColorOutput {
+                            color,
+                            #[cfg(feature = "debug_tracing")]
+                            steps,
+                        }
                     } else if let Some((pdf_direction, value)) = scatter_record
                         .pdf
                         .expect("if material is not specular there should be a pdf")
@@ -154,34 +242,80 @@ impl Shader for RayTracingShader {
 
                         if let Some(scattering_pdf) = scattering_pdf {
                             if scattering_pdf == 0.0 {
-                                return RgbColor::BLACK;
+                                return RayColorOutput {
+                                    color: RgbColor::BLACK,
+                                    #[cfg(feature = "debug_tracing")]
+                                    steps: vec![step],
+                                };
                             }
 
                             let value = value / scattering_pdf;
 
-                            scatter_record.attenuation
-                                * self.ray_color(
-                                    Ray {
-                                        origin: record.position,
-                                        direction: pdf_direction,
-                                        time: record.t,
-                                    },
-                                    world,
-                                    depth - 1,
-                                )
-                                / value
+                            let mut ray_color = self.ray_color(
+                                Ray {
+                                    origin: record.position,
+                                    direction: pdf_direction,
+                                    time: record.t,
+                                },
+                                world,
+                                depth - 1,
+                            );
+                            #[cfg(feature = "debug_tracing")]
+                            {
+                                if has_false_front_face(&ray_color.steps) {
+                                    if rand_u32(0, 1_000) == 0 {
+                                        error!(
+                                            "{:#?}\nrecord: {:#?}\nray:{:#?}",
+                                            ray_color, record, ray
+                                        )
+                                    }
+                                }
+                            }
+                            #[cfg(feature = "debug_tracing")]
+                            let mut steps = {
+                                let mut out = vec![step];
+                                out.append(&mut ray_color.steps);
+                                out
+                            };
+                            let color = scatter_record.attenuation * ray_color.color / value;
+                            RayColorOutput {
+                                color,
+                                #[cfg(feature = "debug_tracing")]
+                                steps,
+                            }
                         } else {
-                            RgbColor::BLACK
+                            RayColorOutput {
+                                color: RgbColor::BLACK,
+                                #[cfg(feature = "debug_tracing")]
+                                steps: vec![step],
+                            }
                         }
                     } else {
-                        RgbColor::BLACK
+                        RayColorOutput {
+                            color: RgbColor::BLACK,
+                            #[cfg(feature = "debug_tracing")]
+                            steps: vec![],
+                        }
                     }
                 }
-                MaterialEffect::NoEmmit => RgbColor::BLACK,
+                MaterialEffect::NoEmmit => RayColorOutput {
+                    color: RgbColor::BLACK,
+                    #[cfg(feature = "debug_tracing")]
+                    steps: vec![],
+                },
             }
         } else {
-            world.background.color(ray)
+            RayColorOutput {
+                color: world.background.color(ray),
+                #[cfg(feature = "debug_tracing")]
+                steps: vec![],
+            }
+        };
+        #[cfg(feature = "debug_tracing")]
+        if rand_u32(0, 1_000_000) == 0 {
+            info!("{:#?}", output);
         }
+        output
     }
 }
 #[derive(Clone, Copy, Debug)]
@@ -283,10 +417,10 @@ impl RayTracer {
                     CurrentShader::LightMap => self.light_map_shader.ray_color(r, &self.world, 50),
                 };
 
-                if c.is_nan() {
+                if c.color.is_nan() {
                     error!("ray color retuned NaN");
                 }
-                rgb_img.add_xy(x, y, c);
+                rgb_img.add_xy(x, y, c.color);
             }
         }
     }

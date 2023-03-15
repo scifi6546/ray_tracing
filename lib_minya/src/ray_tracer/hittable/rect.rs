@@ -242,7 +242,7 @@ impl Hittable for YZRect {
         Some(HitRecord::new(
             ray,
             ray.at(t),
-            Vector3::new(1.0, 0.0, 0.0),
+            Self::NORMAL,
             t,
             Point2::new(
                 (y - self.y0) / (self.y1 - self.y0),

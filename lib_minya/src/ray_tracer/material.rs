@@ -6,6 +6,7 @@ use cgmath::{num_traits::*, InnerSpace, Vector3};
 use dyn_clone::{clone_box, DynClone};
 use std::ops::Deref;
 
+use crate::prelude::*;
 use std::rc::Rc;
 
 //pub type PDF = f32;
@@ -44,13 +45,13 @@ impl Material for Lambertian {
         "Lambertian"
     }
     fn scatter(&self, _ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
-        let attenuation = self.albedo.color(record_in.uv, record_in.position);
+        let attenuation = self.albedo.color(record_in.uv(), record_in.position());
 
         let scatter_record = ScatterRecord {
             specular_ray: None,
             attenuation,
             pdf: Some(Rc::new(PdfList::new(vec![
-                Box::new(CosinePdf::new(record_in.normal)),
+                Box::new(CosinePdf::new(record_in.normal())),
                 Box::new(LightPdf {}),
             ]))),
             scattering_pdf: Self::scattering_pdf_fn,
@@ -94,18 +95,18 @@ impl Material for Metal {
         "Metal"
     }
     fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
-        let reflected = reflect(ray_in.direction.normalize(), record_in.normal);
+        let reflected = reflect(ray_in.direction.normalize(), record_in.normal());
 
-        if reflected.dot(record_in.normal) > 0.0 {
+        if reflected.dot(record_in.normal()) > 0.0 {
             let out_ray = Ray {
-                origin: record_in.position,
+                origin: record_in.position(),
                 direction: reflected + self.fuzz * rand_unit_vec(),
                 time: ray_in.time,
             };
 
             Some(ScatterRecord {
                 specular_ray: Some(out_ray),
-                attenuation: self.albedo.color(record_in.uv, record_in.position),
+                attenuation: self.albedo.color(record_in.uv(), record_in.position()),
                 pdf: None,
                 scattering_pdf: Self::scattering_pdf_fn,
             })
@@ -149,26 +150,26 @@ impl Material for Dielectric {
         "Dielectric"
     }
     fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
-        let refraction_ratio = if record_in.front_face {
+        let refraction_ratio = if record_in.front_face() {
             1.0 / self.index_refraction
         } else {
             self.index_refraction
         };
         let unit_direction = ray_in.direction.normalize();
-        let cos_theta = record_in.normal.dot(-1.0 * unit_direction).min(1.0);
+        let cos_theta = record_in.normal().dot(-1.0 * unit_direction).min(1.0);
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
         let can_not_refract = (refraction_ratio * sin_theta) > 1.0;
         let direction = if can_not_refract
             || Self::reflectance(cos_theta, refraction_ratio) > rand::random::<f32>()
         {
-            reflect(unit_direction, record_in.normal)
+            reflect(unit_direction, record_in.normal())
         } else {
-            Self::refract(unit_direction, record_in.normal, refraction_ratio)
+            Self::refract(unit_direction, record_in.normal(), refraction_ratio)
         };
 
         Some(ScatterRecord {
             specular_ray: Some(Ray {
-                origin: record_in.position,
+                origin: record_in.position(),
                 direction,
                 time: ray_in.time,
             }),
@@ -217,10 +218,15 @@ impl Material for DiffuseLight {
     }
 
     fn emmit(&self, record: &HitRay) -> Option<RgbColor> {
-        if record.front_face {
-            Some(self.emit.color(record.uv, record.position))
+        if rand_u32(0, 1_000_000) == 0 {
+            info!("record: {:?}", record);
+        }
+
+        // return Some(self.emit.color(record.uv, record.position));
+        if record.front_face() {
+            Some(self.emit.color(record.uv(), record.position()))
         } else {
-            Some(RgbColor::new(0.0, 0.0, 0.0))
+            Some(RgbColor::new(0.0, 0.0, 100.0))
         }
     }
 }
@@ -247,11 +253,11 @@ impl Material for Isotropic {
     fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
         Some(ScatterRecord {
             specular_ray: Some(Ray {
-                origin: record_in.position,
+                origin: record_in.position(),
                 direction: rand_unit_vec(),
                 time: ray_in.time,
             }),
-            attenuation: self.albedo.color(record_in.uv, record_in.position),
+            attenuation: self.albedo.color(record_in.uv(), record_in.position()),
             pdf: None,
             scattering_pdf: Self::scattering_pdf_fn,
         })

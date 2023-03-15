@@ -222,6 +222,7 @@ impl Display for Ray {
         )
     }
 }
+
 #[cfg(test)]
 mod test {
     use super::*;

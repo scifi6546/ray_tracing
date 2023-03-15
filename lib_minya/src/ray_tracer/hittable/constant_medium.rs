@@ -1,6 +1,6 @@
-use super::{Aabb, HitRecord, Hittable, Material, RayAreaInfo};
+use super::{Aabb, HitRay, HitRecord, Hittable, Material, MaterialEffect, RayAreaInfo};
 use crate::prelude::*;
-use cgmath::{Point2, Point3, Vector3};
+use cgmath::{prelude::*, Point2, Point3, Vector2, Vector3};
 use dyn_clone::clone_box;
 use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
@@ -66,7 +66,26 @@ impl Hittable for ConstantMedium {
         }
         let t = hit1.t + hit_distance / ray_length;
         let position = ray.at(t);
-        let material_effect = todo!();
+        let hit_ray = HitRay {
+            position,
+            direction: ray.direction,
+            normal: Vector3::unit_x(),
+            t,
+            front_face: true,
+            uv: Point2::origin(),
+        };
+        let lighting = self.phase_function.emmit(&hit_ray);
+        let material_effect = if lighting.is_some() {
+            MaterialEffect::Emmit(lighting.unwrap())
+        } else {
+            let diffuse = self.phase_function.scatter(ray.clone(), &hit_ray);
+            if diffuse.is_some() {
+                MaterialEffect::Scatter(diffuse.unwrap())
+            } else {
+                MaterialEffect::NoEmmit
+            }
+        };
+
         Some(HitRecord {
             position,
             normal: Vector3::new(1.0, 0.0, 0.0),
