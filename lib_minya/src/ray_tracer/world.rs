@@ -12,7 +12,7 @@ mod two_spheres;
 
 use super::{
     bvh::BvhTree, hittable::*, material::*, texture::*, Background, Camera, ConstantColor,
-    FlipNormals, HitRecord, Hittable, Sky,
+    HitRecord, Hittable, Sky,
 };
 use crate::prelude::*;
 use cgmath::Point3;
@@ -83,42 +83,47 @@ impl World {
                         origin,
                         material,
                     }),
+
                     base_lib::Shape::XYRect {
                         center,
                         size_x,
                         size_y,
-                    } => Box::new(XYRect {
+                    } => Box::new(XYRect::new(
+                        center.x - size_x,
+                        center.x + size_x,
+                        center.y - size_y,
+                        center.y + size_y,
+                        center.z,
                         material,
-                        x0: center.x - size_x,
-                        x1: center.x + size_x,
-                        y0: center.y - size_y,
-                        y1: center.y + size_y,
-                        k: center.z,
-                    }),
+                        false,
+                    )),
+
                     base_lib::Shape::YZRect {
                         center,
                         size_y,
                         size_z,
-                    } => Box::new(YZRect {
+                    } => Box::new(YZRect::new(
+                        center.y - size_y,
+                        center.y + size_y,
+                        center.z - size_z,
+                        center.z + size_z,
+                        center.x,
                         material,
-                        y0: center.y - size_y,
-                        y1: center.y + size_y,
-                        z0: center.z - size_z,
-                        z1: center.z + size_z,
-                        k: center.x,
-                    }),
+                        false,
+                    )),
                     base_lib::Shape::XZRect {
                         center,
                         size_x,
                         size_z,
-                    } => Box::new(XZRect {
+                    } => Box::new(XZRect::new(
+                        center.x - size_x,
+                        center.x + size_x,
+                        center.z - size_z,
+                        center.z + size_z,
+                        center.y,
                         material,
-                        x0: center.x - size_x,
-                        x1: center.x + size_x,
-                        z0: center.z - size_z,
-                        z1: center.z + size_z,
-                        k: center.y,
-                    }),
+                        false,
+                    )),
                     base_lib::Shape::RenderBox {
                         center,
                         size_x,
@@ -134,7 +139,7 @@ impl World {
                 for modifier in obj.modifiers.iter() {
                     match modifier {
                         base_lib::Modifiers::FlipNormals => {
-                            obj_out = Box::new(FlipNormals { item: obj_out });
+                            obj_out = todo!();
                         }
                     }
                 }
@@ -302,6 +307,6 @@ pub fn get_scenarios() -> Scenarios {
     }
     Scenarios {
         items: map,
-        default: "Cube World".to_string(),
+        default: "Easy Cornell Box".to_string(),
     }
 }

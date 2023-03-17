@@ -1,6 +1,6 @@
 use super::{
-    Camera, ConstantColor, ConstantMedium, DiffuseLight, FlipNormals, Isotropic, Lambertian,
-    Object, RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
+    Camera, ConstantColor, ConstantMedium, DiffuseLight, Isotropic, Lambertian, Object, RenderBox,
+    SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -36,76 +36,64 @@ pub fn cornell_smoke() -> WorldInfo {
             color: RgbColor::new(0.73, 0.73, 0.73),
         }),
     });
+
     let top_light = Object::new(
-        Box::new(FlipNormals {
-            item: Box::new(XZRect {
-                x0: 113.0,
-                x1: 443.0,
-                z0: 127.0,
-                z1: 423.0,
-                k: 554.0,
-                material: clone_box(light.deref()),
-            }),
-        }),
+        Box::new(XZRect::new(
+            113.0,
+            443.0,
+            127.0,
+            423.0,
+            554.0,
+            clone_box(light.deref()),
+            true,
+        )),
         Transform::identity(),
     );
-
     WorldInfo {
         objects: vec![
             Object::new(
-                Box::new(YZRect {
-                    y0: 0.0,
-                    y1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 555.0,
-                    material: green,
-                }),
+                Box::new(YZRect::new(0.0, 555.0, 0.0, 555.0, 555.0, green, false)),
                 Transform::identity(),
             ),
             Object::new(
-                Box::new(YZRect {
-                    y0: 0.0,
-                    y1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 0.0,
-                    material: red,
-                }),
+                Box::new(YZRect::new(0.0, 555.0, 0.0, 555.0, 0.0, red, false)),
                 Transform::identity(),
             ),
             top_light.clone(),
             Object::new(
-                Box::new(XZRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 0.0,
-                    material: white.clone(),
-                }),
+                Box::new(XZRect::new(
+                    0.0,
+                    555.0,
+                    0.0,
+                    555.0,
+                    0.0,
+                    white.clone(),
+                    false,
+                )),
                 Transform::identity(),
             ),
             Object::new(
-                Box::new(XZRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 555.0,
-                    material: white.clone(),
-                }),
+                Box::new(XZRect::new(
+                    0.0,
+                    555.0,
+                    0.0,
+                    555.0,
+                    555.0,
+                    white.clone(),
+                    false,
+                )),
                 Transform::identity(),
             ),
             Object::new(
-                Box::new(XYRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    y0: 0.0,
-                    y1: 555.0,
-                    k: 555.0,
-                    material: white.clone(),
-                }),
+                Box::new(XYRect::new(
+                    0.0,
+                    555.0,
+                    0.0,
+                    555.0,
+                    555.0,
+                    white.clone(),
+                    false,
+                )),
                 Transform::identity(),
             ),
             Object::new(

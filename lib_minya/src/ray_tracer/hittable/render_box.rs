@@ -1,4 +1,4 @@
-use super::{Aabb, FlipNormals, HitRecord, Hittable, Material, XYRect, XZRect, YZRect};
+use super::{Aabb, HitRecord, Hittable, Material, XYRect, XZRect, YZRect};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::RayAreaInfo;
 use cgmath::Point3;
@@ -11,71 +11,71 @@ pub struct RenderBox {
     box_max: Point3<f32>,
 
     xyp: XYRect,
-    xym: FlipNormals,
+    xym: XYRect,
     xzp: XZRect,
-    xzm: FlipNormals,
+    xzm: XZRect,
     yzp: YZRect,
-    yzm: FlipNormals,
+    yzm: YZRect,
 }
 impl RenderBox {
     pub fn new(box_min: Point3<f32>, box_max: Point3<f32>, material: Box<dyn Material>) -> Self {
-        let xyp = XYRect {
-            material: clone_box(material.deref()),
-            x0: box_min.x,
-            x1: box_max.x,
-            y0: box_min.y,
-            y1: box_max.y,
-            k: box_max.z,
-        };
+        let xyp = XYRect::new(
+            box_min.x,
+            box_max.x,
+            box_min.y,
+            box_max.y,
+            box_max.z,
+            clone_box(material.deref()),
+            false,
+        );
 
-        let xym = FlipNormals {
-            item: Box::new(XYRect {
-                material: clone_box(material.deref()),
-                x0: box_min.x,
-                x1: box_max.x,
-                y0: box_min.y,
-                y1: box_max.y,
-                k: box_min.z,
-            }),
-        };
-        let xzp = XZRect {
-            x0: box_min.x,
-            x1: box_max.x,
-            z0: box_min.z,
-            z1: box_max.z,
-            k: box_max.y,
-            material: clone_box(material.deref()),
-        };
-        let xzm = FlipNormals {
-            item: Box::new(XZRect {
-                x0: box_min.x,
-                x1: box_max.x,
-                z0: box_min.z,
-                z1: box_max.z,
-                k: box_min.y,
-                material: clone_box(material.deref()),
-            }),
-        };
+        let xym = XYRect::new(
+            box_min.x,
+            box_max.x,
+            box_min.y,
+            box_max.y,
+            box_min.z,
+            clone_box(material.deref()),
+            true,
+        );
+        let xzp = XZRect::new(
+            box_min.x,
+            box_max.x,
+            box_min.z,
+            box_max.z,
+            box_max.y,
+            clone_box(material.deref()),
+            false,
+        );
+        let xzm = XZRect::new(
+            box_min.x,
+            box_max.x,
+            box_min.z,
+            box_max.z,
+            box_min.y,
+            clone_box(material.deref()),
+            true,
+        );
 
-        let yzp = YZRect {
-            y0: box_min.y,
-            y1: box_max.y,
-            z0: box_min.z,
-            z1: box_max.z,
-            k: box_max.x,
-            material: clone_box(material.deref()),
-        };
+        let yzp = YZRect::new(
+            box_min.y,
+            box_max.y,
+            box_min.z,
+            box_max.z,
+            box_max.x,
+            clone_box(material.deref()),
+            false,
+        );
 
-        let yzm = FlipNormals {
-            item: Box::new(YZRect {
-                y0: box_min.y,
-                y1: box_max.y,
-                z0: box_min.z,
-                z1: box_max.z,
-                k: box_min.x,
-                material: clone_box(material.deref()),
-            }),
-        };
+        let yzm = YZRect::new(
+            box_min.y,
+            box_max.y,
+            box_min.z,
+            box_max.z,
+            box_min.x,
+            clone_box(material.deref()),
+            true,
+        );
         Self {
             box_min,
             box_max,

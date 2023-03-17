@@ -15,34 +15,38 @@ pub fn easy_scene() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
+
     let light = Object::new(
-        Box::new(XYRect {
-            x0: -0.5,
-            x1: 0.5,
-            y0: -0.5 + 1.0,
-            y1: 0.5 + 1.0,
-            k: -2.3,
-            material: Box::new(DiffuseLight {
+        Box::new(XYRect::new(
+            -0.5,
+            0.5,
+            -0.5 + 1.0,
+            0.5 + 1.0,
+            -2.3,
+            Box::new(DiffuseLight {
                 emit: Box::new(SolidColor {
                     color: 0.5 * RgbColor::new(0.0, 0.0, 1.0),
                 }),
             }),
-        }),
+            false,
+        )),
         Transform::identity(),
     );
+
     let yz_light = Object::new(
-        Box::new(YZRect {
-            y0: -0.5,
-            y1: 0.5,
-            z0: -0.5,
-            z1: 0.5,
-            k: -3.0,
-            material: Box::new(DiffuseLight {
+        Box::new(YZRect::new(
+            -0.5,
+            0.5,
+            -0.5,
+            0.5,
+            -3.0,
+            Box::new(DiffuseLight {
                 emit: Box::new(SolidColor {
                     color: 0.5 * RgbColor::new(0.0, 1.0, 0.0),
                 }),
             }),
-        }),
+            false,
+        )),
         Transform::identity(),
     );
     let box_light = Object::new(

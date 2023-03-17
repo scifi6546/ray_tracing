@@ -1,9 +1,10 @@
 use super::{
-    Camera, ConstantColor, DiffuseLight, FlipNormals, Lambertian, Object, SolidColor, Transform,
-    WorldInfo, XYRect, XZRect, YZRect,
+    Camera, ConstantColor, DiffuseLight, Lambertian, Object, SolidColor, Transform, WorldInfo,
+    XYRect, XZRect, YZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
+use dyn_clone::clone;
 use std::{cell::RefCell, rc::Rc};
 
 pub fn easy_cornell_box() -> WorldInfo {
@@ -33,92 +34,62 @@ pub fn easy_cornell_box() -> WorldInfo {
             color: RgbColor::new(0.73, 0.73, 0.73),
         }),
     });
+
     let top_light = Object::new(
-        Box::new(FlipNormals {
-            item: Box::new(XZRect {
-                x0: 213.0,
-                x1: 343.0,
-                z0: 227.0,
-                z1: 332.0,
-                k: 554.0,
-                material: light.clone(),
-            }),
-        }),
+        Box::new(XZRect::new(
+            213.0,
+            343.0,
+            227.0,
+            332.0,
+            554.0,
+            light.clone(),
+            true,
+        )),
         Transform::identity(),
     );
-    /*
-        let top_light = Object::new(
-            Box::new(XZRect {
-                x0: 213.0,
-                x1: 343.0,
-                z0: 227.0,
-                z1: 332.0,
-                k: 554.0,
-                material: light,
-            }),
-            Transform::identity(),
-        );
-    */
+
     WorldInfo {
         objects: vec![
             Object::new(
-                Box::new(YZRect {
-                    y0: 0.0,
-                    y1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 555.0,
-                    material: green,
-                }),
+                Box::new(YZRect::new(0.0, 555.0, 0.0, 555.0, 555.0, green, true)),
                 Transform::identity(),
             ),
             Object::new(
-                Box::new(YZRect {
-                    y0: 0.0,
-                    y1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 0.0,
-                    material: red,
-                }),
+                Box::new(YZRect::new(0.0, 555.0, 0.0, 555.0, 0.0, red, false)),
                 Transform::identity(),
             ),
             Object::new(
-                Box::new(XZRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 0.0,
-                    material: white.clone(),
-                }),
+                Box::new(XZRect::new(
+                    0.0,
+                    555.0,
+                    0.0,
+                    555.0,
+                    0.0,
+                    white.clone(),
+                    false,
+                )),
                 Transform::identity(),
             ),
             Object::new(
-                Box::new(XZRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    z0: 0.0,
-                    z1: 555.0,
-                    k: 555.0,
-                    material: white.clone(),
-                }),
+                Box::new(XZRect::new(
+                    0.0,
+                    555.0,
+                    0.0,
+                    555.0,
+                    555.0,
+                    white.clone(),
+                    true,
+                )),
                 Transform::identity(),
             ),
             Object::new(
-                Box::new(XYRect {
-                    x0: 0.0,
-                    x1: 555.0,
-                    y0: 0.0,
-                    y1: 555.0,
-                    k: 555.0,
-                    material: white,
-                }),
+                Box::new(XYRect::new(0.0, 555.0, 0.0, 555.0, 555.0, white, true)),
                 Transform::identity(),
             ),
             top_light.clone(),
         ],
         lights: vec![top_light],
+
         background: Box::new(ConstantColor {
             color: RgbColor::new(0.0, 0.0, 0.0),
         }),

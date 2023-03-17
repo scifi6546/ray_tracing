@@ -1,4 +1,4 @@
-use super::{Aabb, FlipNormals, HitRecord, Hittable, Material, XYRect, XZRect, YZRect};
+use super::{Aabb, HitRecord, Hittable, Material, XYRect, XZRect, YZRect};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::RayAreaInfo;
 use cgmath::{InnerSpace, MetricSpace, Point2, Point3, Vector2, Vector3};

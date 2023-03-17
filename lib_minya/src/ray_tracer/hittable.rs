@@ -1,6 +1,5 @@
 mod constant_medium;
 mod cubeworld;
-mod flip_normals;
 mod rect;
 mod render_box;
 mod sphere;
@@ -15,7 +14,6 @@ use base_lib::RgbColor;
 pub use constant_medium::ConstantMedium;
 pub use cubeworld::CubeWorld;
 use dyn_clone::{clone_box, DynClone};
-pub use flip_normals::FlipNormals;
 pub use rect::{XYRect, XZRect, YZRect};
 pub use render_box::RenderBox;
 pub use sphere::{MovingSphere, Sphere};
@@ -186,6 +184,8 @@ impl Hittable for Object {
             let world_position = inv * hit.position;
 
             let normal_world = three_inv * hit.normal;
+            let normal_world = hit.normal;
+            let front_face = ray.direction.dot(normal_world) <= 0.0;
             //let normal_world = inv * Vector4::new(hit.normal.x, hit.normal.y, hit.normal.z, 0.0);
             //let normal_world = Vector3::new(normal_world.x, normal_world.y, normal_world.z);
             //let normal_world = hit.normal;
@@ -193,7 +193,7 @@ impl Hittable for Object {
                 position: world_position,
                 normal: normal_world,
                 t: hit.t,
-                front_face: hit.front_face,
+                front_face,
                 uv: hit.uv,
                 material_effect: hit.material_effect,
             });
@@ -338,7 +338,8 @@ impl HitRecord {
         let hit_ray = HitRay {
             position,
             direction: ray.direction,
-            normal: if front_face { normal } else { -normal },
+            //normal: if front_face { normal } else { -normal },
+            normal,
             t,
             front_face,
             uv,

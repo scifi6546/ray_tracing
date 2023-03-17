@@ -22,8 +22,8 @@ use camera::Camera;
 use cgmath::{InnerSpace, Point3, Vector3};
 #[allow(unused_imports)]
 use hittable::{
-    ConstantMedium, FlipNormals, HitRay, HitRecord, Hittable, MaterialEffect, MovingSphere, Object,
-    RayAreaInfo, RenderBox, Sphere, Transform, XYRect, XZRect, YZRect,
+    ConstantMedium, HitRay, HitRecord, Hittable, MaterialEffect, MovingSphere, Object, RayAreaInfo,
+    RenderBox, Sphere, Transform, XYRect, XZRect, YZRect,
 };
 #[allow(unused_imports)]
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
@@ -212,10 +212,14 @@ impl Shader for RayTracingShader {
                         {
                             if has_false_front_face(&ray_color.steps) {
                                 if rand_u32(0, 1_000) == 0 {
+                                    /*
                                     error!(
                                         "{:#?}\nrecord: {:#?}\nray:{:#?}",
                                         ray_color, record, ray
-                                    )
+                                    );
+
+                                     */
+                                    //panic!()
                                 }
                             }
                         }
@@ -264,10 +268,14 @@ impl Shader for RayTracingShader {
                             {
                                 if has_false_front_face(&ray_color.steps) {
                                     if rand_u32(0, 1_000) == 0 {
+                                        /*
                                         error!(
                                             "{:#?}\nrecord: {:#?}\nray:{:#?}",
                                             ray_color, record, ray
-                                        )
+                                        );
+
+                                         */
+                                        //panic!()
                                     }
                                 }
                             }

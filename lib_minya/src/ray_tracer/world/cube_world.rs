@@ -1,7 +1,6 @@
 use super::{
-    Camera, ConstantColor, ConstantMedium, CubeWorld, DiffuseLight, FlipNormals, Isotropic,
-    Lambertian, Metal, Object, RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect,
-    YZRect,
+    Camera, ConstantColor, ConstantMedium, CubeWorld, DiffuseLight, Isotropic, Lambertian, Metal,
+    Object, RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};

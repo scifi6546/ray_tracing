@@ -12,6 +12,7 @@ pub struct XYRect {
     pub y0: f32,
     pub y1: f32,
     pub k: f32,
+    normal_flip: f32,
 }
 
 impl Clone for XYRect {
@@ -23,6 +24,7 @@ impl Clone for XYRect {
             y0: self.y0,
             y1: self.y1,
             k: self.k,
+            normal_flip: self.normal_flip,
         }
     }
 }
@@ -32,6 +34,28 @@ impl XYRect {
         y: 0.0,
         z: 1.0,
     };
+    pub fn new(
+        x0: f32,
+        x1: f32,
+        y0: f32,
+        y1: f32,
+        z: f32,
+        material: Box<dyn Material>,
+        flip_normals: bool,
+    ) -> Self {
+        Self {
+            x0,
+            x1,
+            y0,
+            y1,
+            k: z,
+            material,
+            normal_flip: match flip_normals {
+                true => -1.0,
+                false => 1.0,
+            },
+        }
+    }
     fn area(&self) -> f32 {
         (self.x1 - self.x0) * (self.y1 - self.y0)
     }
@@ -55,7 +79,7 @@ impl Hittable for XYRect {
         Some(HitRecord::new(
             ray,
             ray.at(t),
-            Self::NORMAL,
+            self.normal_flip * Self::NORMAL,
             t,
             uv,
             clone_box(self.material.deref()),
@@ -95,7 +119,7 @@ impl Hittable for XYRect {
                 direction,
                 time,
             },
-            normal: Self::NORMAL,
+            normal: self.normal_flip * Self::NORMAL,
             area: self.area(),
             direction: end_point - origin,
             end_point,
@@ -109,8 +133,10 @@ pub struct XZRect {
     pub z0: f32,
     pub z1: f32,
     pub k: f32,
+    normal_flip: f32,
     pub material: Box<dyn Material>,
 }
+
 impl Clone for XZRect {
     fn clone(&self) -> Self {
         Self {
@@ -119,6 +145,7 @@ impl Clone for XZRect {
             z0: self.z0,
             z1: self.z1,
             k: self.k,
+            normal_flip: self.normal_flip,
             material: clone_box(self.material.deref()),
         }
     }
@@ -129,6 +156,28 @@ impl XZRect {
         y: 1.0,
         z: 0.0,
     };
+    pub fn new(
+        x0: f32,
+        x1: f32,
+        z0: f32,
+        z1: f32,
+        y: f32,
+        material: Box<dyn Material>,
+        flip_normals: bool,
+    ) -> Self {
+        Self {
+            x0,
+            x1,
+            z0,
+            z1,
+            k: y,
+            normal_flip: match flip_normals {
+                true => -1.0,
+                false => 1.0,
+            },
+            material,
+        }
+    }
 }
 impl Hittable for XZRect {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
@@ -144,7 +193,7 @@ impl Hittable for XZRect {
         Some(HitRecord::new(
             ray,
             ray.at(t),
-            Vector3::new(0.0, 1.0, 0.0),
+            self.normal_flip * Self::NORMAL,
             t,
             Point2::new(
                 (x - self.x0) / (self.x1 - self.x0),
@@ -188,7 +237,7 @@ impl Hittable for XZRect {
                 direction,
                 time,
             },
-            normal: Self::NORMAL,
+            normal: self.normal_flip * Self::NORMAL,
             area: (self.x1 - self.x0) * (self.z1 - self.z0),
             direction: end_point - origin,
             end_point,
@@ -203,6 +252,7 @@ pub struct YZRect {
     pub z1: f32,
     pub k: f32,
     pub material: Box<dyn Material>,
+    normal_flip: f32,
 }
 
 impl Clone for YZRect {
@@ -214,6 +264,7 @@ impl Clone for YZRect {
             z1: self.z1,
             k: self.k,
             material: clone_box(self.material.deref()),
+            normal_flip: self.normal_flip,
         }
     }
 }
@@ -223,6 +274,28 @@ impl YZRect {
         y: 0.0,
         z: 0.0,
     };
+    pub fn new(
+        y0: f32,
+        y1: f32,
+        z0: f32,
+        z1: f32,
+        x: f32,
+        material: Box<dyn Material>,
+        flip_normals: bool,
+    ) -> Self {
+        Self {
+            y0,
+            y1,
+            z0,
+            z1,
+            k: x,
+            material,
+            normal_flip: match flip_normals {
+                true => -1.0,
+                false => 1.0,
+            },
+        }
+    }
     fn area(&self) -> f32 {
         (self.y1 - self.y0) * (self.z1 - self.z0)
     }
@@ -242,7 +315,7 @@ impl Hittable for YZRect {
         Some(HitRecord::new(
             ray,
             ray.at(t),
-            Self::NORMAL,
+            self.normal_flip * Self::NORMAL,
             t,
             Point2::new(
                 (y - self.y0) / (self.y1 - self.y0),
@@ -285,7 +358,7 @@ impl Hittable for YZRect {
                 direction,
                 time,
             },
-            normal: Self::NORMAL,
+            normal: self.normal_flip * Self::NORMAL,
             area: self.area(),
             direction: end_point - origin,
             end_point,

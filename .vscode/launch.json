@@ -1,0 +1,176 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'minya_bin'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=minya_bin",
+                    "--package=minya_bin"
+                ],
+                "filter": {
+                    "name": "minya_bin",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'minya_bin'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=minya_bin",
+                    "--package=minya_bin"
+                ],
+                "filter": {
+                    "name": "minya_bin",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'base_lib'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=base_lib"
+                ],
+                "filter": {
+                    "name": "base_lib",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'lib_minya'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=lib_minya"
+                ],
+                "filter": {
+                    "name": "lib_minya",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'to_numpy'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=to_numpy"
+                ],
+                "filter": {
+                    "name": "to_numpy",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'vulkan_rt'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=vulkan_rt",
+                    "--package=vulkan_rt"
+                ],
+                "filter": {
+                    "name": "vulkan_rt",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'vulkan_rt'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=vulkan_rt",
+                    "--package=vulkan_rt"
+                ],
+                "filter": {
+                    "name": "vulkan_rt",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'choose_vulkan'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=choose_vulkan",
+                    "--package=choose_vulkan"
+                ],
+                "filter": {
+                    "name": "choose_vulkan",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'choose_vulkan'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=choose_vulkan",
+                    "--package=choose_vulkan"
+                ],
+                "filter": {
+                    "name": "choose_vulkan",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

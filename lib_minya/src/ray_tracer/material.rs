@@ -218,15 +218,16 @@ impl Material for DiffuseLight {
     }
 
     fn emmit(&self, record: &HitRay) -> Option<RgbColor> {
-        if rand_u32(0, 1_000_000) == 0 {
-            info!("record: {:?}", record);
+        if (record.direction().dot(record.normal()) <= 0.0) != record.front_face() {
+            error!("light dir not equal");
         }
 
         // return Some(self.emit.color(record.uv, record.position));
         if record.front_face() {
             Some(self.emit.color(record.uv(), record.position()))
         } else {
-            Some(RgbColor::new(0.0, 0.0, 100.0))
+            None
+            //Some(RgbColor::new(0.0, 0.0, 100.0))
         }
     }
 }

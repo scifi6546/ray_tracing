@@ -14,22 +14,23 @@ pub fn light_demo() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
+
     let floor = Object::new(
-        Box::new(XZRect {
-            x0: -5.0,
-            x1: 5.0,
-            z0: -5.0,
-            z1: 5.0,
-            k: 0.0,
-            material: Box::new(Lambertian {
+        Box::new(XZRect::new(
+            -5.0,
+            5.0,
+            -5.0,
+            5.0,
+            0.0,
+            Box::new(Lambertian {
                 albedo: Box::new(SolidColor {
                     color: RgbColor::new(0.5, 0.5, 0.5),
                 }),
             }),
-        }),
+            false,
+        )),
         Transform::identity(),
     );
-
     let l_sphere = Object::new(
         Box::new(Sphere {
             radius: 1.0,
