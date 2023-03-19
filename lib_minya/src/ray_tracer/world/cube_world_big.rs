@@ -1,12 +1,9 @@
 use super::{
-    Camera, ConstantColor, ConstantMedium, CubeWorld, DiffuseLight, Isotropic, Lambertian, Metal,
-    Object, RenderBox, Sky, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
+    Camera, CubeWorld, DiffuseLight, Lambertian, Object, Sky, SolidColor, Sphere, Transform,
+    WorldInfo, XZRect,
 };
 use crate::prelude::*;
-use cgmath::{prelude::*, Point2, Point3, Vector2, Vector3};
-use dyn_clone::clone_box;
-use std::ops::Deref;
-use std::{cell::RefCell, rc::Rc};
+use cgmath::{prelude::*, Point2, Point3, Vector3};
 
 pub fn cube_world_big() -> WorldInfo {
     let look_at = Point3::new(50.0f32, 10.0, 50.0);
@@ -26,22 +23,26 @@ pub fn cube_world_big() -> WorldInfo {
     });
     let light = Box::new(DiffuseLight {
         emit: Box::new(SolidColor {
-            color: 20000.0 * RgbColor::WHITE,
+            color: 20000.0 * RgbColor::new(252.0 / 255.0, 79.0 / 255.0, 5.0 / 255.0),
         }),
     });
-
-    let rect = Object::new(
-        Box::new(XZRect::new(0.0, 5.0, 0.0, 5.0, 20.0, light.clone(), true)),
+    let lava_light = Object::new(
+        Box::new(Sphere {
+            radius: 3.0,
+            origin: Point3::new(50.0, 28.0, 50.0),
+            material: light.clone(),
+        }),
         Transform::identity(),
     );
 
+    const MAX_Y: i32 = 20;
     fn height(x: isize, z: isize) -> isize {
         let center = Point2::new(50.0, 50.0);
         let radius = center.distance(Point2::new(x as f32, z as f32));
         let h = (radius / 10.0).cos() * 10.0 + 15.0;
-        h.max(0.0).min(11.0) as isize
+        h.max(0.0).min((MAX_Y - 1) as f32) as isize
     }
-    let mut world = CubeWorld::new(red, 100, 12, 100);
+    let mut world = CubeWorld::new(red, 100, MAX_Y, 100);
     //world.update(0, 0, 0, true);
     for x in 0..100 {
         for z in 0..100 {
@@ -51,26 +52,13 @@ pub fn cube_world_big() -> WorldInfo {
             }
         }
     }
-    world.update(3, 6, 3, true);
 
-    world.update(0, 0, 0, false);
-    world.update(0, 1, 0, false);
-    /*
-    for x in 0..100 {
-        for y in 0..5 {
-            for z in 0..100 {
-                world.update(x, y, z, true)
-            }
-        }
-    }
-
-     */
     WorldInfo {
         objects: vec![
             Object::new(Box::new(world), Transform::identity()),
-            rect.clone(),
+            lava_light.clone(),
         ],
-        lights: vec![rect],
+        lights: vec![lava_light],
         background: Box::new(Sky { intensity: 0.1 }),
         camera: Camera::new(
             1.0,

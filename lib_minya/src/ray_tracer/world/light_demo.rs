@@ -5,7 +5,6 @@ use super::{
 
 use base_lib::RgbColor;
 use cgmath::{prelude::*, Point3, Vector3};
-use std::{cell::RefCell, rc::Rc};
 
 pub fn light_demo() -> WorldInfo {
     let look_at = Point3::new(0.0f32, 1.0, 0.0);

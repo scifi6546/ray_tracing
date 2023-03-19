@@ -1,7 +1,7 @@
 use super::{Camera, Lambertian, Metal, Object, Sky, SolidColor, Sphere, Transform, WorldInfo};
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
-use std::{cell::RefCell, rc::Rc};
+
 #[allow(dead_code)]
 pub fn two_spheres() -> WorldInfo {
     let look_at = Point3::new(0.0f32, 0.0, -1.0);

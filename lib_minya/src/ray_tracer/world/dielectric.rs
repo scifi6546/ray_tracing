@@ -5,7 +5,7 @@ use super::{
 
 use base_lib::RgbColor;
 use cgmath::{prelude::*, Point3, Vector3};
-use std::{cell::RefCell, rc::Rc};
+
 pub fn dielectric_no_refraction() -> WorldInfo {
     dielectric_demo(1.0)
 }

@@ -26,8 +26,7 @@ pub use easy_scene::easy_scene;
 pub use one_sphere::one_sphere;
 pub use random_scene::random_scene;
 
-use std::ops::Deref;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, ops::Deref};
 
 pub use two_spheres::two_spheres;
 

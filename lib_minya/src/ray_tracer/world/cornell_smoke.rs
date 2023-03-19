@@ -6,7 +6,7 @@ use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 use dyn_clone::clone_box;
 use std::ops::Deref;
-use std::{cell::RefCell, rc::Rc};
+
 #[allow(dead_code)]
 pub fn cornell_smoke() -> WorldInfo {
     let look_at = Point3::new(278.0f32, 278.0, 0.0);

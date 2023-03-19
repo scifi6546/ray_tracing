@@ -5,7 +5,6 @@ use crate::ray_tracer::rand_unit_vec;
 use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
 use dyn_clone::clone_box;
 use std::ops::Deref;
-use std::{cell::RefCell, rc::Rc};
 
 pub struct Sphere {
     pub radius: f32,

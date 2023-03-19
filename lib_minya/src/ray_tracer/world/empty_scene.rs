@@ -1,12 +1,7 @@
-use super::{
-    Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, ImageTexture,
-    Lambertian, Metal, Object, Perlin, RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect,
-    YZRect,
-};
+use super::{Camera, ConstantColor, WorldInfo};
 use crate::prelude::*;
 
 use cgmath::{prelude::*, Point3, Vector3};
-use std::{cell::RefCell, rc::Rc};
 
 pub fn empty_scene() -> WorldInfo {
     let look_at = Point3::new(0.0f32, 0.0, -1.0);

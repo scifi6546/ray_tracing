@@ -3,7 +3,6 @@ use crate::prelude::*;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 use dyn_clone::clone_box;
 use std::ops::Deref;
-use std::{cell::RefCell, rc::Rc};
 
 pub struct XYRect {
     pub material: Box<dyn Material>,

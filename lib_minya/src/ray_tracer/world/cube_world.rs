@@ -1,12 +1,9 @@
 use super::{
-    Camera, ConstantColor, ConstantMedium, CubeWorld, DiffuseLight, Isotropic, Lambertian, Metal,
-    Object, RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
+    Camera, ConstantColor, CubeWorld, DiffuseLight, Metal, Object, SolidColor, Sphere, Transform,
+    WorldInfo,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
-use dyn_clone::clone_box;
-use std::ops::Deref;
-use std::{cell::RefCell, rc::Rc};
 
 pub fn cube_world() -> WorldInfo {
     let look_at = Point3::new(0.0f32, 5.0, 5.0);

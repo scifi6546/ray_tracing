@@ -1,9 +1,8 @@
 use super::{Aabb, HitRay, HitRecord, Hittable, Material, MaterialEffect, RayAreaInfo};
 use crate::prelude::*;
-use cgmath::{prelude::*, Point2, Point3, Vector2, Vector3};
+use cgmath::{prelude::*, Point2, Point3, Vector3};
 use dyn_clone::clone_box;
 use std::ops::Deref;
-use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 pub struct ConstantMedium {
     boundary: Box<dyn Hittable>,

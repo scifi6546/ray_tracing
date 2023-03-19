@@ -4,8 +4,7 @@ use super::{
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
-use std::{cell::RefCell, rc::Rc};
-#[allow(dead_code)]
+
 pub fn random_scene() -> WorldInfo {
     let big: [Object; 4] = [
         Object::new(

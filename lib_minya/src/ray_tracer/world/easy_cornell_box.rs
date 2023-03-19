@@ -4,8 +4,6 @@ use super::{
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
-use dyn_clone::clone;
-use std::{cell::RefCell, rc::Rc};
 
 pub fn easy_cornell_box() -> WorldInfo {
     let look_at = Point3::new(278.0f32, 278.0, 0.0);

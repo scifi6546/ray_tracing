@@ -18,7 +18,6 @@ pub use rect::{XYRect, XZRect, YZRect};
 pub use render_box::RenderBox;
 pub use sphere::{MovingSphere, Sphere};
 use std::ops::Deref;
-use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 pub trait Hittable: Send + DynClone {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;

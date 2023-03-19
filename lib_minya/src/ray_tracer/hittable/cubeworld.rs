@@ -20,8 +20,7 @@ fn min_idx_vec(v: Vector3<f32>) -> usize {
         min_idx = 1;
     }
     if min_val > v.z {
-        min_val = v.z;
-        min_idx = 2;
+        return 2;
     }
     return min_idx;
 }
@@ -375,11 +374,11 @@ impl Hittable for CubeWorld {
         })
     }
 
-    fn prob(&self, ray: Ray) -> f32 {
+    fn prob(&self, _ray: Ray) -> f32 {
         todo!()
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, _origin: Point3<f32>, _time: f32) -> RayAreaInfo {
         todo!()
     }
 }

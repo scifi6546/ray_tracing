@@ -8,11 +8,10 @@ pub mod material;
 mod pdf;
 pub mod texture;
 pub mod world;
-use super::{prelude::*, Image};
+use super::prelude::*;
 use crate::reflect;
 use bloom::bloom;
 
-use log::{debug, error, info, trace, warn};
 pub use logger::LogMessage;
 use logger::Logger;
 
@@ -33,11 +32,6 @@ use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, Sol
 pub use world::{ScenarioCtor, World};
 
 use std::collections::HashMap;
-use std::{
-    sync::mpsc::{channel, Receiver, Sender},
-    thread,
-    time::Instant,
-};
 
 pub fn rand_unit_vec() -> Vector3<f32> {
     loop {

@@ -2,7 +2,7 @@ use super::{new_demo, Lambertian, Object, SolidColor, Sphere, Transform, WorldIn
 
 use base_lib::RgbColor;
 use cgmath::Point3;
-use std::{cell::RefCell, rc::Rc};
+
 pub fn demo() -> WorldInfo {
     new_demo(vec![Object::new(
         Box::new(Sphere {

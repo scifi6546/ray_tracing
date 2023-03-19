@@ -3,12 +3,11 @@ pub mod lambertian;
 pub mod metalic_demo;
 
 use super::{
-    Camera, CubeWorld, DiffuseLight, Lambertian, Metal, Object, RenderBox, Sky, SolidColor, Sphere,
-    Transform, WorldInfo, XZRect,
+    Camera, DiffuseLight, Lambertian, Metal, Object, RenderBox, Sky, SolidColor, Sphere, Transform,
+    WorldInfo, XZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
-use std::{cell::RefCell, rc::Rc};
 
 pub fn new_demo(mut special_item: Vec<Object>) -> WorldInfo {
     let look_at = Point3::new(0.0f32, 1.0, 0.0);

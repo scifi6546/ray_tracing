@@ -1,9 +1,6 @@
 use crate::prelude::*;
 use log::{Level as LogLevel, Level, Metadata, Record};
-use std::sync::{
-    mpsc::{channel, Receiver, Sender},
-    Mutex,
-};
+use std::sync::Mutex;
 fn print_debug() -> bool {
     const DEBUG: bool = true;
     rand_u32(0, 1_000) == 0 && DEBUG

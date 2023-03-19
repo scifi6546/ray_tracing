@@ -1,7 +1,7 @@
 use super::{new_demo, Lambertian, Object, RenderBox, SolidColor, Transform, WorldInfo};
 use crate::prelude::*;
 use cgmath::{Point3, Vector3};
-use std::{cell::RefCell, rc::Rc};
+
 pub fn build_field() -> WorldInfo {
     struct CubeInfo {
         x: f32,

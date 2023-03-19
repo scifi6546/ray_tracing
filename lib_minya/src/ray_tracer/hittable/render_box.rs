@@ -4,7 +4,7 @@ use crate::ray_tracer::hittable::RayAreaInfo;
 use cgmath::Point3;
 use dyn_clone::clone_box;
 use std::ops::Deref;
-use std::{cell::RefCell, rc::Rc};
+
 #[derive(Clone)]
 pub struct RenderBox {
     box_min: Point3<f32>,
