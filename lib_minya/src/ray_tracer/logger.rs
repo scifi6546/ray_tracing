@@ -8,13 +8,29 @@ fn print_debug() -> bool {
     const DEBUG: bool = true;
     rand_u32(0, 1_000) == 0 && DEBUG
 }
+#[derive(Debug, Clone, PartialEq)]
+pub struct MessageData {
+    pub data: String,
+    pub module_path: Option<String>,
+}
 #[derive(Debug, Clone)]
 pub enum LogMessage {
-    Trace(String),
-    Debug(String),
-    Info(String),
-    Warn(String),
-    Error(String),
+    Trace(MessageData),
+    Debug(MessageData),
+    Info(MessageData),
+    Warn(MessageData),
+    Error(MessageData),
+}
+impl LogMessage {
+    pub fn get_data(&self) -> &MessageData {
+        match self {
+            Self::Trace(d) => d,
+            Self::Debug(d) => d,
+            Self::Info(d) => d,
+            Self::Warn(d) => d,
+            Self::Error(d) => d,
+        }
+    }
 }
 static mut LOG_MESSAGES: Mutex<Option<Vec<LogMessage>>> = Mutex::new(None);
 static mut LOG_SETUP: Mutex<bool> = Mutex::new(false);
@@ -57,28 +73,32 @@ impl log::Log for Logger {
                 log::set_max_level(log::LevelFilter::Debug);
                 *log_result = Some(vec![]);
             }
-            println!("");
+
             let mut log_messages = log_result.as_mut().unwrap();
+            let data = MessageData {
+                data: record.args().to_string(),
+                module_path: record.module_path().map(|p| p.to_string()),
+            };
             let message = match record.level() {
-                LogLevel::Trace => LogMessage::Trace(record.args().to_string()),
+                LogLevel::Trace => LogMessage::Trace(data),
                 LogLevel::Debug => {
                     if print_debug() {
-                        LogMessage::Debug(record.args().to_string())
+                        LogMessage::Debug(data)
                     } else {
                         return;
                     }
                 }
                 LogLevel::Info => {
-                    println!("info:\t{}", record.args().to_string());
-                    LogMessage::Info(record.args().to_string())
+                    println!("info:\t{:?}", data);
+                    LogMessage::Info(data)
                 }
                 LogLevel::Warn => {
-                    println!("warn:\t{}", record.args().to_string());
-                    LogMessage::Warn(record.args().to_string())
+                    println!("warn:\t{:?}", data);
+                    LogMessage::Warn(data)
                 }
                 LogLevel::Error => {
-                    println!("error:\t{}", record.args().to_string());
-                    LogMessage::Error(record.args().to_string())
+                    println!("error:\t{:?}", data);
+                    LogMessage::Error(data)
                 }
             };
 

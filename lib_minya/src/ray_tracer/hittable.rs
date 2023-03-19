@@ -331,7 +331,7 @@ impl HitRecord {
         normal: Vector3<f32>,
         t: f32,
         uv: Point2<f32>,
-        material: Box<dyn Material>,
+        material: &dyn Material,
     ) -> Self {
         let front_face = ray.direction.dot(normal) <= 0.0;
 

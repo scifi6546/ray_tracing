@@ -1,6 +1,6 @@
 use super::{
     Camera, ConstantColor, ConstantMedium, CubeWorld, DiffuseLight, Isotropic, Lambertian, Metal,
-    Object, RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
+    Object, RenderBox, Sky, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -8,38 +8,32 @@ use dyn_clone::clone_box;
 use std::ops::Deref;
 use std::{cell::RefCell, rc::Rc};
 
-pub fn cube_world() -> WorldInfo {
+pub fn cube_world_big() -> WorldInfo {
     let look_at = Point3::new(0.0f32, 5.0, 5.0);
-    let origin = Point3::new(-100.0f32, 100.0, 50.0);
-    let origin = Point3::new(-50.0f32, 0.0, 00.0);
-    let origin = Point3::new(-20.0f32, 5.0, -20.0);
-    let fov = 40.0;
+
+    let origin = Point3::new(-20.0f32, 20.0, -20.0);
+
     let fov = 40.0;
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-    let green = Box::new(Lambertian {
-        albedo: Box::new(SolidColor {
-            color: RgbColor::new(0.12, 0.45, 0.15),
-        }),
-    });
+
     let red = Box::new(Lambertian {
         albedo: Box::new(SolidColor {
             color: RgbColor::new(0.65, 0.05, 0.05),
         }),
-    });
-    let red_metal = Box::new(Metal {
-        albedo: Box::new(SolidColor {
-            color: RgbColor::new(0.65, 0.05, 0.05),
-        }),
-        fuzz: 0.1,
     });
     let light = Box::new(DiffuseLight {
         emit: Box::new(SolidColor {
             color: 20000.0 * RgbColor::WHITE,
         }),
     });
+
+    let rect = Object::new(
+        Box::new(XZRect::new(0.0, 5.0, 0.0, 5.0, 10.0, light.clone(), true)),
+        Transform::identity(),
+    );
 
     let white = Box::new(Lambertian {
         albedo: Box::new(SolidColor {
@@ -54,27 +48,33 @@ pub fn cube_world() -> WorldInfo {
         }),
         Transform::identity(),
     );
-
-    let mut world = CubeWorld::new(red_metal, 10, 10, 10);
-    for i in 3..6 {
-        for j in 3..6 {
-            for k in 3..6 {
-                world.update(i, j, k, true);
+    let mut world = CubeWorld::new(red, 100, 10, 100);
+    //world.update(0, 0, 0, true);
+    for x in 0..6 {
+        for y in 0..2 {
+            for z in 0..6 {
+                world.update(x, y, z, true);
             }
         }
     }
-    world.update(0, 0, 0, true);
-    world.update(0, 1, 0, true);
-    world.update(5, 5, 5, true);
+    world.update(3, 6, 3, true);
+    /*
+    for x in 0..100 {
+        for y in 0..5 {
+            for z in 0..100 {
+                world.update(x, y, z, true)
+            }
+        }
+    }
+
+     */
     WorldInfo {
         objects: vec![
             Object::new(Box::new(world), Transform::identity()),
-            light.clone(),
+            rect.clone(),
         ],
-        lights: vec![light],
-        background: Box::new(ConstantColor {
-            color: 0.1 * RgbColor::new(1.0, 1.0, 1.0),
-        }),
+        lights: vec![rect],
+        background: Box::new(Sky { intensity: 0.1 }),
         camera: Camera::new(
             1.0,
             fov,

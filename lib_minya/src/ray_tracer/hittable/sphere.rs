@@ -48,7 +48,7 @@ impl Hittable for Sphere {
             (position - self.origin) / self.radius,
             root,
             uv,
-            clone_box(self.material.deref()),
+            self.material.as_ref(),
         ))
     }
     fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
@@ -148,7 +148,7 @@ impl Hittable for MovingSphere {
             normal,
             root,
             Sphere::get_sphere_uv(normal),
-            clone_box(self.material.deref()),
+            self.material.as_ref(),
         ))
     }
 

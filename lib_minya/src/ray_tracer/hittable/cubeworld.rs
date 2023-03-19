@@ -77,6 +77,7 @@ impl Voxels {
         }
     }
     pub fn trace_voxels(&self, origin: Vector3<f32>, direction: Vector3<f32>) -> HitResult {
+        /*
         if origin.x <= 0.0
             || origin.x >= self.x_dim as f32
             || origin.y <= 0.0
@@ -127,6 +128,8 @@ impl Voxels {
                 };
             }
         }
+
+         */
         let step_size = 1.0 / direction.map(|e| e.abs());
         let mut step_dir = Vector3::new(0.0, 0.0, 0.0);
         let mut next_dist = Vector3::new(0.0, 0.0, 0.0);
@@ -204,6 +207,7 @@ impl Voxels {
 struct CheckRes {
     direction: Vector3<f32>,
     origin: Vector3<f32>,
+    normal: Vector3<f32>,
     t: f32,
 }
 pub struct CubeWorld {
@@ -214,42 +218,18 @@ pub struct CubeWorld {
     z: i32,
 }
 impl CubeWorld {
-    const OFFSET: f32 = 0.000000;
+    const dep_OFFSET: f32 = 0.000000;
     pub fn new(material: Box<dyn Material>, x: i32, y: i32, z: i32) -> Self {
-        let mut voxels = Voxels::new(x as usize, y as usize, z as usize);
-        let center = Vector3::new(x as f32 / 2.0, y as f32 / 2.0, z as f32 / 2.0);
-        let radius = 3.0;
-        /*
-        for i in 0..x as isize {
-            for j in 0..y as isize {
-                for k in 0..z as isize {
-                    let pos = Vector3::new(i as f32, j as f32, k as f32);
-                    let p_val = (pos - center).magnitude() < radius;
-
-                    voxels.update(i, j, k, p_val);
-                }
-            }
-        }
-
-         */
-        for i in 3..6 {
-            for j in 3..6 {
-                for k in 3..6 {
-                    voxels.update(i, j, k, true);
-                }
-            }
-        }
-        voxels.update(0, 0, 0, true);
-        voxels.update(0, 1, 0, true);
-        voxels.update(5, 5, 5, true);
-        voxels.save_images();
         Self {
             material,
-            voxels,
+            voxels: Voxels::new(x as usize, y as usize, z as usize),
             x,
             y,
             z,
         }
+    }
+    pub fn update(&mut self, x: isize, y: isize, z: isize, val: bool) {
+        self.voxels.update(x, y, z, val)
     }
     fn check_x(
         &self,
@@ -261,15 +241,14 @@ impl CubeWorld {
     ) -> Option<CheckRes> {
         let t = (x - ray.origin.x) / ray.direction.x;
         if t > t_min && t < t_max {
-            let pos = ray.at(t - Self::OFFSET);
+            let pos = ray.at(t);
             let r = rand_u32(0, u32::MAX);
-            if r % 1000000 == 0 {
-                info!("pos: {:?}", pos);
-            }
+
             if pos.y > 0.0 && pos.y < self.y as f32 && pos.z > 0.0 && pos.z < self.z as f32 {
                 Some(CheckRes {
                     direction: ray.direction,
                     origin: Vector3::new(pos.x, pos.y, pos.z),
+                    normal,
                     t,
                 })
             } else {
@@ -289,12 +268,14 @@ impl CubeWorld {
     ) -> Option<CheckRes> {
         let t = (y - ray.origin.y) / ray.direction.y;
         if t > t_min && t < t_max {
-            let pos = ray.at(t);
+            let pos = ray.at(t - Self::dep_OFFSET);
+            let r = rand_u32(0, u32::MAX);
 
             if pos.x > 0.0 && pos.x < self.x as f32 && pos.z > 0.0 && pos.z < self.z as f32 {
                 Some(CheckRes {
                     direction: ray.direction,
                     origin: Vector3::new(pos.x, pos.y, pos.z),
+                    normal,
                     t,
                 })
             } else {
@@ -314,12 +295,13 @@ impl CubeWorld {
     ) -> Option<CheckRes> {
         let t = (z - ray.origin.z) / ray.direction.z;
         if t > t_min && t < t_max {
-            let pos = ray.at(t);
+            let pos = ray.at(t - Self::dep_OFFSET);
 
             if pos.x > 0.0 && pos.x < self.x as f32 && pos.y > 0.0 && pos.y < self.y as f32 {
                 Some(CheckRes {
                     direction: ray.direction,
                     origin: Vector3::new(pos.x, pos.y, pos.z),
+                    normal,
                     t,
                 })
             } else {
@@ -348,7 +330,7 @@ impl CubeWorld {
                         normal,
                         t,
                         Point2::new(0.0, 0.0),
-                        clone_box(self.material.as_ref()),
+                        self.material.as_ref(),
                     ))
                 } else {
                     None
@@ -423,6 +405,29 @@ impl Hittable for CubeWorld {
         }
         if min_index != usize::MAX {
             let s = solutions[min_index].clone().unwrap();
+            let idx = s.origin.map(|v| v.floor() as usize);
+            let pos = Point3::new(s.origin.x, s.origin.y, s.origin.z);
+            let v = self.voxels.get(idx.x, idx.y, idx.z);
+
+            if v {
+                return Some(HitRecord::new(
+                    ray,
+                    pos,
+                    s.normal,
+                    s.t,
+                    Point2::new(0.0, 0.0),
+                    self.material.as_ref(),
+                ));
+                return self.manage_hit_res(
+                    ray,
+                    HitResult::Hit {
+                        position: s.origin.map(|v| v.round()),
+                        normal: Vector3::new(-1.0, 0.0, 0.0),
+                    },
+                    t_min,
+                    t_max,
+                );
+            }
             let hit_res = self.voxels.trace_voxels(s.origin, s.direction);
             return self.manage_hit_res(ray, hit_res, t_min, t_max);
         } else {

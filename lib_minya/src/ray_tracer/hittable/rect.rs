@@ -82,7 +82,7 @@ impl Hittable for XYRect {
             self.normal_flip * Self::NORMAL,
             t,
             uv,
-            clone_box(self.material.deref()),
+            self.material.as_ref(),
         ))
     }
 
@@ -199,7 +199,7 @@ impl Hittable for XZRect {
                 (x - self.x0) / (self.x1 - self.x0),
                 (z - self.z0) / (self.z1 - self.z0),
             ),
-            clone_box(self.material.deref()),
+            self.material.as_ref(),
         ))
     }
 
@@ -321,7 +321,7 @@ impl Hittable for YZRect {
                 (y - self.y0) / (self.y1 - self.y0),
                 (z - self.z0) / (self.z1 - self.z0),
             ),
-            clone_box(self.material.deref()),
+            self.material.as_ref(),
         ))
     }
 
