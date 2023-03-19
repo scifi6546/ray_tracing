@@ -324,6 +324,15 @@ pub enum MaterialEffect {
 }
 
 impl HitRecord {
+    pub fn new_ref<M: Material>(
+        ray: &Ray,
+        position: Point3<f32>,
+        normal: Vector3<f32>,
+        t: f32,
+        uv: Point2<f32>,
+        material: &M,
+    ) {
+    }
     pub fn new(
         ray: &Ray,
         position: Point3<f32>,

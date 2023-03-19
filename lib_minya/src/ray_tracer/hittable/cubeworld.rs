@@ -1,4 +1,4 @@
-use super::{Aabb, HitRecord, Hittable, Material};
+use super::{super::Lambertian, Aabb, HitRecord, Hittable, Material};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::RayAreaInfo;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
@@ -24,18 +24,26 @@ fn min_idx_vec(v: Vector3<f32>) -> usize {
     }
     return min_idx;
 }
+trait Solid {
+    fn solid(&self) -> bool;
+}
+impl Solid for bool {
+    fn solid(&self) -> bool {
+        *self
+    }
+}
 #[derive(Clone)]
-struct Voxels {
-    data: Vec<bool>,
+struct Voxels<T: Clone + Solid> {
+    data: Vec<T>,
     x_dim: usize,
     y_dim: usize,
     z_dim: usize,
 }
 
-impl Voxels {
-    pub fn new(x_dim: usize, y_dim: usize, z_dim: usize) -> Self {
+impl<T: Clone + Solid> Voxels<T> {
+    pub fn new(x_dim: usize, y_dim: usize, z_dim: usize, default_value: T) -> Self {
         Self {
-            data: vec![false; x_dim * y_dim * z_dim],
+            data: vec![default_value; x_dim * y_dim * z_dim],
             x_dim,
             y_dim,
             z_dim,
@@ -52,10 +60,10 @@ impl Voxels {
             && y < self.y_dim as isize
             && z < self.z_dim as isize
     }
-    pub fn get(&self, x: usize, y: usize, z: usize) -> bool {
-        self.data[self.get_idx(x, y, z)]
+    pub fn get(&self, x: usize, y: usize, z: usize) -> T {
+        self.data[self.get_idx(x, y, z)].clone()
     }
-    pub fn update(&mut self, x: isize, y: isize, z: isize, val: bool) {
+    pub fn update(&mut self, x: isize, y: isize, z: isize, val: T) {
         if self.in_range(x, y, z) {
             let idx = self.get_idx(x as usize, y as usize, z as usize);
             self.data[idx] = val;
@@ -123,7 +131,7 @@ impl Voxels {
             let z_pos = voxel_pos.z as isize;
             if self.in_range(x_pos, y_pos, z_pos) {
                 let r = self.get(x_pos as usize, y_pos as usize, z_pos as usize);
-                if r {
+                if r.solid() {
                     return HitResult::Hit {
                         position: current_pos,
                         normal,
@@ -144,9 +152,35 @@ struct CheckRes {
     normal: Vector3<f32>,
     t: f32,
 }
+type MATERIAL_INDEX = u16;
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct CubeMaterialIndex {
+    index: MATERIAL_INDEX,
+}
+pub struct CubeMaterial {
+    material: Lambertian,
+}
+impl CubeMaterialIndex {
+    pub fn new_idx(index: MATERIAL_INDEX) -> Self {
+        Self { index }
+    }
+    pub fn new_air() -> Self {
+        Self {
+            index: MATERIAL_INDEX::MAX,
+        }
+    }
+    pub fn is_solid(&self) -> bool {
+        self.index != MATERIAL_INDEX::MAX
+    }
+}
+impl Solid for CubeMaterialIndex {
+    fn solid(&self) -> bool {
+        self.is_solid()
+    }
+}
 pub struct CubeWorld {
     material: Box<dyn Material>,
-    voxels: Voxels,
+    voxels: Voxels<CubeMaterialIndex>,
     x: i32,
     y: i32,
     z: i32,
@@ -155,14 +189,27 @@ impl CubeWorld {
     pub fn new(material: Box<dyn Material>, x: i32, y: i32, z: i32) -> Self {
         Self {
             material,
-            voxels: Voxels::new(x as usize, y as usize, z as usize),
+            voxels: Voxels::new(
+                x as usize,
+                y as usize,
+                z as usize,
+                CubeMaterialIndex::new_air(),
+            ),
             x,
             y,
             z,
         }
     }
     pub fn update(&mut self, x: isize, y: isize, z: isize, val: bool) {
-        self.voxels.update(x, y, z, val)
+        self.voxels.update(
+            x,
+            y,
+            z,
+            match val {
+                true => CubeMaterialIndex::new_idx(0),
+                false => CubeMaterialIndex::new_air(),
+            },
+        )
     }
     fn check_x(
         &self,
@@ -347,7 +394,7 @@ impl Hittable for CubeWorld {
                 idx.z -= 1;
             }
 
-            let v = self.voxels.get(idx.x, idx.y, idx.z);
+            let v = self.voxels.get(idx.x, idx.y, idx.z).is_solid();
 
             if v {
                 Some(HitRecord::new(
