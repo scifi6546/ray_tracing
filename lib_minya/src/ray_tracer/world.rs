@@ -316,6 +316,6 @@ pub fn get_scenarios() -> Scenarios {
     }
     Scenarios {
         items: map,
-        default: "Cube World Big".to_string(),
+        default: "Empty Scene".to_string(),
     }
 }

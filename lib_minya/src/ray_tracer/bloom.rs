@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use to_numpy::NumpyArray3D;
 trait PostProcessingStage {
     fn process(&self, texture_in: &RgbImage) -> RgbImage;
 }
@@ -40,10 +41,20 @@ impl GaussianBlur {
 impl PostProcessingStage for GaussianBlur {
     fn process(&self, texture_in: &RgbImage) -> RgbImage {
         let mut mod_texture = texture_in.clone();
+
+        let mut down_sampled = vec![Self::blur(mod_texture.clone())];
         for _ in 0..self.amount {
-            mod_texture = Self::blur(mod_texture);
+            down_sampled.push(Self::blur(down_sampled.last().unwrap().down_sample()));
         }
-        return mod_texture;
+
+        for i in (0..self.amount).rev() {
+            down_sampled[i] = down_sampled[i].clone() + &down_sampled[i + 1];
+        }
+
+        //for _ in 0..self.amount {
+        //    mod_texture = Self::blur(mod_texture);
+        //}
+        return down_sampled[0].clone();
     }
 }
 struct SelectMinMag {
@@ -70,14 +81,14 @@ pub fn bloom(texture: &mut RgbImage) {
     let select = SelectMinMag { min_mag: 1.0 };
     let bright_texture = select.process(texture);
 
-    let blur = GaussianBlur { amount: 5 };
+    let blur = GaussianBlur { amount: 6 };
     let bloom_texture = blur.process(&bright_texture);
 
     let gamma = 2.2;
     for x in 0..texture.width() {
         for y in 0..texture.height() {
             let hdr_color = original_texture.get_xy(x, y).clamp();
-            let bloom_color = bloom_texture.get_xy(x, y).clamp() + hdr_color;
+            let bloom_color = bloom_texture.get_xy(x, y) + hdr_color;
             let set_color = RgbColor::WHITE - (-1.0 * hdr_color * bloom_color).exp();
             let set_color = set_color.pow(1.0 / gamma);
             texture.set_xy(x, y, set_color);

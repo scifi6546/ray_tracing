@@ -73,6 +73,7 @@ pub trait NumpyArray3D {
 
         return out_data;
     }
+    /// saves image as numpy
     fn save<P: AsRef<Path>>(&self, path: P) -> std::io::Result<()> {
         let mut file = File::create(path)?;
         file.write_all(&self.get_numpy_data())
