@@ -59,6 +59,8 @@ impl Voxels {
         if self.in_range(x, y, z) {
             let idx = self.get_idx(x as usize, y as usize, z as usize);
             self.data[idx] = val;
+        } else {
+            error!("out of range ({}, {}, {})", x, y, z)
         }
     }
     pub fn save_images(&self) {
@@ -168,21 +170,21 @@ impl Voxels {
                 current_pos += direction * next_dist.x;
                 next_dist = next_dist.map(|f| f - next_dist.x);
                 next_dist.x += step_size.x;
-                normal = Vector3::new(step_dir.x.neg(), 0.0, 0.0);
+                normal = Vector3::new(step_dir.x.neg(), 0.0, 0.0).normalize();
             } else if min_idx == 1 {
                 //min_idx = 1
                 voxel_pos.y += step_dir.y;
                 current_pos += direction * next_dist.y;
                 next_dist = next_dist.map(|f| f - next_dist.y);
                 next_dist.y += step_size.y;
-                normal = Vector3::new(0.0, step_dir.y.neg(), 0.0);
+                normal = Vector3::new(0.0, step_dir.y.neg(), 0.0).normalize();
             } else {
                 //min_idx = 2
                 voxel_pos.z += step_dir.z;
                 current_pos += direction * next_dist.z;
                 next_dist = next_dist.map(|f| f - next_dist.z);
                 next_dist.z += step_size.z;
-                normal = Vector3::new(0.0, 0.0, step_dir.z.neg());
+                normal = Vector3::new(0.0, 0.0, step_dir.z.neg()).normalize();
             }
             let x_pos = voxel_pos.x as isize;
             let y_pos = voxel_pos.y as isize;
@@ -203,7 +205,7 @@ impl Voxels {
         }
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct CheckRes {
     direction: Vector3<f32>,
     origin: Vector3<f32>,
@@ -242,7 +244,6 @@ impl CubeWorld {
         let t = (x - ray.origin.x) / ray.direction.x;
         if t > t_min && t < t_max {
             let pos = ray.at(t);
-            let r = rand_u32(0, u32::MAX);
 
             if pos.y > 0.0 && pos.y < self.y as f32 && pos.z > 0.0 && pos.z < self.z as f32 {
                 Some(CheckRes {
@@ -268,8 +269,7 @@ impl CubeWorld {
     ) -> Option<CheckRes> {
         let t = (y - ray.origin.y) / ray.direction.y;
         if t > t_min && t < t_max {
-            let pos = ray.at(t - Self::dep_OFFSET);
-            let r = rand_u32(0, u32::MAX);
+            let pos = ray.at(t);
 
             if pos.x > 0.0 && pos.x < self.x as f32 && pos.z > 0.0 && pos.z < self.z as f32 {
                 Some(CheckRes {
@@ -295,7 +295,7 @@ impl CubeWorld {
     ) -> Option<CheckRes> {
         let t = (z - ray.origin.z) / ray.direction.z;
         if t > t_min && t < t_max {
-            let pos = ray.at(t - Self::dep_OFFSET);
+            let pos = ray.at(t);
 
             if pos.x > 0.0 && pos.x < self.x as f32 && pos.y > 0.0 && pos.y < self.y as f32 {
                 Some(CheckRes {
@@ -405,14 +405,23 @@ impl Hittable for CubeWorld {
         }
         if min_index != usize::MAX {
             let s = solutions[min_index].clone().unwrap();
-            let idx = s.origin.map(|v| v.floor() as usize);
-            let pos = Point3::new(s.origin.x, s.origin.y, s.origin.z);
+            let mut idx = s.origin.map(|v| v.floor() as usize);
+            if idx.x == self.x as usize {
+                idx.x -= 1;
+            }
+            if idx.y == self.y as usize {
+                idx.y -= 1;
+            }
+            if idx.z == self.z as usize {
+                idx.z -= 1;
+            }
+
             let v = self.voxels.get(idx.x, idx.y, idx.z);
 
             if v {
                 return Some(HitRecord::new(
                     ray,
-                    pos,
+                    Point3::new(s.origin.x, s.origin.y, s.origin.z),
                     s.normal,
                     s.t,
                     Point2::new(0.0, 0.0),

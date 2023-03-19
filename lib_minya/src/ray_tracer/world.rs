@@ -6,6 +6,7 @@ mod cube_world;
 mod cube_world_big;
 mod easy_cornell_box;
 mod easy_scene;
+mod empty_scene;
 mod light_demo;
 mod one_sphere;
 mod random_scene;
@@ -297,6 +298,10 @@ pub fn get_scenarios() -> Scenarios {
         Box::new(ScenarioFn {
             name: "Cube World Big".to_string(),
             f: cube_world_big::cube_world_big,
+        }),
+        Box::new(ScenarioFn {
+            name: "Empty Scene".to_string(),
+            f: empty_scene::empty_scene,
         }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
