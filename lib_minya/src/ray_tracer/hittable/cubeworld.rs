@@ -191,7 +191,7 @@ impl Voxels {
                 let r = self.get(x_pos as usize, y_pos as usize, z_pos as usize);
                 if r {
                     return HitResult::Hit {
-                        position: voxel_pos,
+                        position: current_pos,
                         normal,
                     };
                 } else {
