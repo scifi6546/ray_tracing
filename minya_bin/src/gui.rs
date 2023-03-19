@@ -2,7 +2,7 @@ use super::{LogMessage, Message, RayTracerInfo};
 use egui_miniquad as egui_mq;
 use lib_minya::ray_tracer::CurrentShader;
 use log::{error, info};
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::Sender;
 pub struct GuiCtx {
     egui_mq: egui_mq::EguiMq,
 

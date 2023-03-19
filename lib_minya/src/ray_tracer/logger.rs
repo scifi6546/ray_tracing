@@ -74,7 +74,7 @@ impl log::Log for Logger {
                 *log_result = Some(vec![]);
             }
 
-            let mut log_messages = log_result.as_mut().unwrap();
+            let log_messages = log_result.as_mut().unwrap();
             let data = MessageData {
                 data: record.args().to_string(),
                 module_path: record.module_path().map(|p| p.to_string()),

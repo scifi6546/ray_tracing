@@ -78,7 +78,7 @@ pub struct Metal {
     pub fuzz: f32,
 }
 impl Metal {
-    fn scattering_pdf_fn(_ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> Option<f32> {
+    fn scattering_pdf_fn(_ray_in: Ray, _record_in: &HitRecord, _scattered_ray: Ray) -> Option<f32> {
         panic!("material is specular")
     }
 }

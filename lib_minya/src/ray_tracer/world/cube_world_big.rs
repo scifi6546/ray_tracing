@@ -35,19 +35,6 @@ pub fn cube_world_big() -> WorldInfo {
         Transform::identity(),
     );
 
-    let white = Box::new(Lambertian {
-        albedo: Box::new(SolidColor {
-            color: RgbColor::new(0.73, 0.73, 0.73),
-        }),
-    });
-    let light = Object::new(
-        Box::new(Sphere {
-            radius: 1.0,
-            origin: Point3::new(10.0, 10.0, -10.0),
-            material: light,
-        }),
-        Transform::identity(),
-    );
     fn height(x: isize, z: isize) -> isize {
         let center = Point2::new(50.0, 50.0);
         let radius = center.distance(Point2::new(x as f32, z as f32));

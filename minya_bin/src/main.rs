@@ -94,7 +94,7 @@ impl Handler {
         let info = ray_tracer.get_info();
         thread::spawn(move || {
             let mut rgb_img = RgbImage::new_black(1000, 1000);
-            let mut total_time = Instant::now();
+            let total_time = Instant::now();
             let mut num_samples = 1usize;
             loop {
                 if let Ok(message) = message_reciever.try_recv() {

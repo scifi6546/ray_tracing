@@ -1,19 +1,12 @@
-use super::{Aabb, HitRecord, Hittable, Material, XYRect, XZRect, YZRect};
+use super::{Aabb, HitRecord, Hittable, Material};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::RayAreaInfo;
-use cgmath::{InnerSpace, MetricSpace, Point2, Point3, Vector2, Vector3};
+use cgmath::{prelude::*, Point2, Point3, Vector3};
 use dyn_clone::clone_box;
 use std::ops::{Deref, Neg};
-#[derive(Clone)]
-struct Voxels {
-    data: Vec<bool>,
-    x_dim: usize,
-    y_dim: usize,
-    z_dim: usize,
-}
 enum HitResult {
     Hit {
-        position: Vector3<f32>,
+        position: Point3<f32>,
         normal: Vector3<f32>,
     },
     DidNotHit,
@@ -32,6 +25,14 @@ fn min_idx_vec(v: Vector3<f32>) -> usize {
     }
     return min_idx;
 }
+#[derive(Clone)]
+struct Voxels {
+    data: Vec<bool>,
+    x_dim: usize,
+    y_dim: usize,
+    z_dim: usize,
+}
+
 impl Voxels {
     pub fn new(x_dim: usize, y_dim: usize, z_dim: usize) -> Self {
         Self {
@@ -63,75 +64,8 @@ impl Voxels {
             error!("out of range ({}, {}, {})", x, y, z)
         }
     }
-    pub fn save_images(&self) {
-        for i in 0..self.z_dim {
-            let save_img =
-                image::RgbaImage::from_fn(self.x_dim as u32, self.y_dim as u32, |x, y| {
-                    if self.get(x as usize, y as usize, i) {
-                        [255, 255, 255, 255].into()
-                    } else {
-                        [0, 0, 0, 255].into()
-                    }
-                });
-            save_img
-                .save(format!("test/{}.png", i))
-                .expect("failed to save layer");
-        }
-    }
-    pub fn trace_voxels(&self, origin: Vector3<f32>, direction: Vector3<f32>) -> HitResult {
-        /*
-        if origin.x <= 0.0
-            || origin.x >= self.x_dim as f32
-            || origin.y <= 0.0
-            || origin.y >= self.y_dim as f32
-            || origin.z <= 0.0
-            || origin.z >= self.z_dim as f32
-        {
-            let fract = origin.map(|e| e.fract());
-            let t: [f32; 3] = fract.into();
 
-            let voxel_pos = origin.map(|e| e.floor());
-            let pos = voxel_pos.map(|e| e as usize);
-            if self.get(pos.x, pos.y, pos.z) {
-                let (idx, min_val) =
-                    t.iter()
-                        .enumerate()
-                        .fold((4, f32::MAX), |(acc_idx, acc_val), (idx, val)| {
-                            if val < &acc_val {
-                                (idx, *val)
-                            } else {
-                                (acc_idx, acc_val)
-                            }
-                        });
-                let side = origin[idx]
-                    > match idx {
-                        0 => origin.x as f32 / 2.0,
-                        1 => origin.y as f32 / 2.0,
-                        2 => origin.z as f32 / 2.0,
-                        _ => panic!("invalid idx"),
-                    };
-                let normal = match side {
-                    true => match idx {
-                        0 => Vector3::new(1.0, 0.0, 0.0),
-                        1 => Vector3::new(0.0, 1.0, 0.0),
-                        2 => Vector3::new(0.0, 0.0, 1.0),
-                        _ => panic!(),
-                    },
-                    false => match idx {
-                        0 => Vector3::new(-1.0, 0.0, 0.0),
-                        1 => Vector3::new(0.0, -1.0, 0.0),
-                        2 => Vector3::new(0.0, 0.0, -1.0),
-                        _ => panic!(),
-                    },
-                };
-                return HitResult::Hit {
-                    position: voxel_pos,
-                    normal,
-                };
-            }
-        }
-
-         */
+    pub fn trace_voxels(&self, origin: Point3<f32>, direction: Vector3<f32>) -> HitResult {
         let step_size = 1.0 / direction.map(|e| e.abs());
         let mut step_dir = Vector3::new(0.0, 0.0, 0.0);
         let mut next_dist = Vector3::new(0.0, 0.0, 0.0);
@@ -162,30 +96,29 @@ impl Voxels {
         let mut current_pos = origin;
 
         loop {
-            let mut normal = Vector3::new(0.0, 0.0, 0.0);
             let min_idx = min_idx_vec(next_dist);
-            if min_idx == 0 {
+            let normal = if min_idx == 0 {
                 //min_idx = 0
                 voxel_pos.x += step_dir.x;
                 current_pos += direction * next_dist.x;
                 next_dist = next_dist.map(|f| f - next_dist.x);
                 next_dist.x += step_size.x;
-                normal = Vector3::new(step_dir.x.neg(), 0.0, 0.0).normalize();
+                Vector3::new(step_dir.x.neg(), 0.0, 0.0).normalize()
             } else if min_idx == 1 {
                 //min_idx = 1
                 voxel_pos.y += step_dir.y;
                 current_pos += direction * next_dist.y;
                 next_dist = next_dist.map(|f| f - next_dist.y);
                 next_dist.y += step_size.y;
-                normal = Vector3::new(0.0, step_dir.y.neg(), 0.0).normalize();
+                Vector3::new(0.0, step_dir.y.neg(), 0.0).normalize()
             } else {
                 //min_idx = 2
                 voxel_pos.z += step_dir.z;
                 current_pos += direction * next_dist.z;
                 next_dist = next_dist.map(|f| f - next_dist.z);
                 next_dist.z += step_size.z;
-                normal = Vector3::new(0.0, 0.0, step_dir.z.neg()).normalize();
-            }
+                Vector3::new(0.0, 0.0, step_dir.z.neg()).normalize()
+            };
             let x_pos = voxel_pos.x as isize;
             let y_pos = voxel_pos.y as isize;
             let z_pos = voxel_pos.z as isize;
@@ -208,7 +141,7 @@ impl Voxels {
 #[derive(Clone, Debug)]
 struct CheckRes {
     direction: Vector3<f32>,
-    origin: Vector3<f32>,
+    origin: Point3<f32>,
     normal: Vector3<f32>,
     t: f32,
 }
@@ -220,7 +153,6 @@ pub struct CubeWorld {
     z: i32,
 }
 impl CubeWorld {
-    const dep_OFFSET: f32 = 0.000000;
     pub fn new(material: Box<dyn Material>, x: i32, y: i32, z: i32) -> Self {
         Self {
             material,
@@ -248,7 +180,7 @@ impl CubeWorld {
             if pos.y > 0.0 && pos.y < self.y as f32 && pos.z > 0.0 && pos.z < self.z as f32 {
                 Some(CheckRes {
                     direction: ray.direction,
-                    origin: Vector3::new(pos.x, pos.y, pos.z),
+                    origin: pos,
                     normal,
                     t,
                 })
@@ -274,7 +206,7 @@ impl CubeWorld {
             if pos.x > 0.0 && pos.x < self.x as f32 && pos.z > 0.0 && pos.z < self.z as f32 {
                 Some(CheckRes {
                     direction: ray.direction,
-                    origin: Vector3::new(pos.x, pos.y, pos.z),
+                    origin: pos,
                     normal,
                     t,
                 })
@@ -300,7 +232,7 @@ impl CubeWorld {
             if pos.x > 0.0 && pos.x < self.x as f32 && pos.y > 0.0 && pos.y < self.y as f32 {
                 Some(CheckRes {
                     direction: ray.direction,
-                    origin: Vector3::new(pos.x, pos.y, pos.z),
+                    origin: pos,
                     normal,
                     t,
                 })
@@ -326,7 +258,7 @@ impl CubeWorld {
                 if (t > t_min && t < t_max) || true {
                     Some(HitRecord::new(
                         ray,
-                        Point3::new(position.x, position.y, position.z),
+                        position,
                         normal,
                         t,
                         Point2::new(0.0, 0.0),
@@ -356,7 +288,7 @@ impl Hittable for CubeWorld {
         let aabb = self.bounding_box(t_min, t_max).expect("failed to get aabb");
         if aabb.contains_point(ray.origin) {
             let hit_res = self.voxels.trace_voxels(
-                Vector3::new(ray.origin.x, ray.origin.y, ray.origin.z),
+                Point3::new(ray.origin.x, ray.origin.y, ray.origin.z),
                 ray.direction,
             );
             return self.manage_hit_res(ray, hit_res, t_min, t_max);
@@ -419,92 +351,24 @@ impl Hittable for CubeWorld {
             let v = self.voxels.get(idx.x, idx.y, idx.z);
 
             if v {
-                return Some(HitRecord::new(
+                Some(HitRecord::new(
                     ray,
                     Point3::new(s.origin.x, s.origin.y, s.origin.z),
                     s.normal,
                     s.t,
                     Point2::new(0.0, 0.0),
                     self.material.as_ref(),
-                ));
-                return self.manage_hit_res(
-                    ray,
-                    HitResult::Hit {
-                        position: s.origin.map(|v| v.round()),
-                        normal: Vector3::new(-1.0, 0.0, 0.0),
-                    },
-                    t_min,
-                    t_max,
-                );
+                ))
+            } else {
+                let hit_res = self.voxels.trace_voxels(s.origin, s.direction);
+                self.manage_hit_res(ray, hit_res, t_min, t_max)
             }
-            let hit_res = self.voxels.trace_voxels(s.origin, s.direction);
-            return self.manage_hit_res(ray, hit_res, t_min, t_max);
         } else {
-            return None;
+            None
         }
-        let x0 = self.check_x(ray, t_min, t_max, 0.0, Vector3::new(-1.0, 0.0, 0.0));
-        if x0.is_some() {
-            let x0 = x0.unwrap();
-            let hit_res = self.voxels.trace_voxels(x0.origin, x0.direction);
-            return self.manage_hit_res(ray, hit_res, t_min, t_max);
-        }
-
-        let x_max = self.check_x(
-            ray,
-            t_min,
-            t_max,
-            self.x as f32,
-            Vector3::new(-1.0, 0.0, 0.0),
-        );
-        if x_max.is_some() {
-            let x_max = x_max.unwrap();
-            let hit_res = self.voxels.trace_voxels(x_max.origin, x_max.direction);
-            return self.manage_hit_res(ray, hit_res, t_min, t_max);
-        }
-
-        let y0 = self.check_y(ray, t_min, t_max, 0.0, Vector3::new(0.0, -1.0, 0.0));
-        if y0.is_some() {
-            let y0 = y0.unwrap();
-            let hit_res = self.voxels.trace_voxels(y0.origin, y0.direction);
-            return self.manage_hit_res(ray, hit_res, t_min, t_max);
-        }
-
-        let y_max = self.check_y(
-            ray,
-            t_min,
-            t_max,
-            self.y as f32,
-            Vector3::new(0.0, 1.0, 0.0),
-        );
-        if y_max.is_some() {
-            let y_max = y_max.unwrap();
-            let hit_res = self.voxels.trace_voxels(y_max.origin, y_max.direction);
-            return self.manage_hit_res(ray, hit_res, t_min, t_max);
-        }
-
-        let z0 = self.check_z(ray, t_min, t_max, 0.0, Vector3::new(0.0, 0.0, -1.0));
-        if z0.is_some() {
-            let z0 = z0.unwrap();
-            let hit_res = self.voxels.trace_voxels(z0.origin, z0.direction);
-            return self.manage_hit_res(ray, hit_res, t_min, t_max);
-        }
-
-        let z_max = self.check_z(
-            ray,
-            t_min,
-            t_max,
-            self.z as f32,
-            Vector3::new(0.0, 0.0, 1.0),
-        );
-        if z_max.is_some() {
-            let z_max = z_max.unwrap();
-            let hit_res = self.voxels.trace_voxels(z_max.origin, z_max.direction);
-            return self.manage_hit_res(ray, hit_res, t_min, t_max);
-        }
-        return None;
     }
 
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
         Some(Aabb {
             minimum: Point3::new(0.0, 0.0, 0.0),
             maximum: Point3::new(self.x as f32, self.y as f32, self.z as f32),

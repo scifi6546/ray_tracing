@@ -10,25 +10,15 @@ use std::{cell::RefCell, rc::Rc};
 
 pub fn cube_world() -> WorldInfo {
     let look_at = Point3::new(0.0f32, 5.0, 5.0);
-    let origin = Point3::new(-100.0f32, 100.0, 50.0);
-    let origin = Point3::new(-50.0f32, 0.0, 00.0);
+
     let origin = Point3::new(-20.0f32, 5.0, -20.0);
-    let fov = 40.0;
+
     let fov = 40.0;
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-    let green = Box::new(Lambertian {
-        albedo: Box::new(SolidColor {
-            color: RgbColor::new(0.12, 0.45, 0.15),
-        }),
-    });
-    let red = Box::new(Lambertian {
-        albedo: Box::new(SolidColor {
-            color: RgbColor::new(0.65, 0.05, 0.05),
-        }),
-    });
+
     let red_metal = Box::new(Metal {
         albedo: Box::new(SolidColor {
             color: RgbColor::new(0.65, 0.05, 0.05),
@@ -41,11 +31,6 @@ pub fn cube_world() -> WorldInfo {
         }),
     });
 
-    let white = Box::new(Lambertian {
-        albedo: Box::new(SolidColor {
-            color: RgbColor::new(0.73, 0.73, 0.73),
-        }),
-    });
     let light = Object::new(
         Box::new(Sphere {
             radius: 1.0,

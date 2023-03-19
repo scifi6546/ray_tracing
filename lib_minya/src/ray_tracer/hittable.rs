@@ -184,7 +184,7 @@ impl Hittable for Object {
             let world_position = inv * hit.position;
 
             let normal_world = three_inv * hit.normal;
-            let normal_world = hit.normal;
+            //let normal_world = hit.normal;
             let front_face = ray.direction.dot(normal_world) <= 0.0;
             //let normal_world = inv * Vector4::new(hit.normal.x, hit.normal.y, hit.normal.z, 0.0);
             //let normal_world = Vector3::new(normal_world.x, normal_world.y, normal_world.z);

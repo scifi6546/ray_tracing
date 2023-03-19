@@ -173,6 +173,7 @@ impl Shader for RayTracingShader {
             };
         }
         let output = if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
+            #[cfg(feature = "debug_tracing")]
             let front_face = if (record.normal.dot(ray.direction) <= 0.0) != record.front_face {
                 if rand_u32(0, 1_000_000) == 0 {
                     error!("not front face!",)
@@ -200,12 +201,12 @@ impl Shader for RayTracingShader {
                 }
                 MaterialEffect::Scatter(scatter_record) => {
                     if let Some(specular_ray) = scatter_record.specular_ray {
-                        let mut ray_color = self.ray_color(specular_ray, world, depth - 1);
+                        let ray_color = self.ray_color(specular_ray, world, depth - 1);
                         let color = scatter_record.attenuation * ray_color.color;
                         #[cfg(feature = "debug_tracing")]
                         let mut steps = {
                             let mut out = vec![step];
-                            out.append(&mut ray_color.steps);
+                            out.append(&mut ray_color.steps.clone());
                             out
                         };
                         #[cfg(feature = "debug_tracing")]
@@ -397,7 +398,7 @@ impl RayTracer {
             scenarios: self
                 .scenarios
                 .iter()
-                .map(|(name, scenario)| name.clone())
+                .map(|(name, _scenario)| name.clone())
                 .collect(),
         }
     }

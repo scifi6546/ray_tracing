@@ -70,7 +70,7 @@ pub fn bloom(texture: &mut RgbImage) {
     let select = SelectMinMag { min_mag: 1.0 };
     let bright_texture = select.process(texture);
 
-    let blur = GaussianBlur { amount: 10 };
+    let blur = GaussianBlur { amount: 5 };
     let bloom_texture = blur.process(&bright_texture);
 
     let gamma = 2.2;
