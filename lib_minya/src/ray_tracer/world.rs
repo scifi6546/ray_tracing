@@ -8,14 +8,21 @@ mod easy_cornell_box;
 mod easy_scene;
 mod empty_scene;
 mod light_demo;
+mod load_vox;
 mod one_sphere;
 mod random_scene;
+mod translucent_cubeworld;
 mod two_spheres;
+mod voxel_city;
 
 use super::{
-    bvh::BvhTree, hittable::*, material::*, texture::*, Background, Camera, ConstantColor,
-    HitRecord, Hittable, Sky,
+    bvh::BvhTree, hittable::hittable_objects, hittable::*, material::*, texture::*, Background,
+    Camera, ConstantColor, HitRecord, Hittable, Sky,
 };
+mod world_prelude {
+    pub use super::super::background::{ConstantColor as ConstantColorBackground, Sky, SunSky};
+    pub use super::super::hittable::cubeworld::{CubeMaterial, CubeMaterialIndex};
+}
 use crate::prelude::*;
 use cgmath::Point3;
 use dyn_clone::clone_box;
@@ -302,6 +309,18 @@ pub fn get_scenarios() -> Scenarios {
             name: "Empty Scene".to_string(),
             f: empty_scene::empty_scene,
         }),
+        Box::new(ScenarioFn {
+            name: "Voxel City".to_string(),
+            f: voxel_city::voxel_city,
+        }),
+        Box::new(ScenarioFn {
+            name: "Translucent Cube World".to_string(),
+            f: translucent_cubeworld::translucent_cube_world,
+        }),
+        Box::new(ScenarioFn {
+            name: "Load Voxel".to_string(),
+            f: load_vox::load_vox,
+        }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
         .drain(..)
@@ -316,6 +335,6 @@ pub fn get_scenarios() -> Scenarios {
     }
     Scenarios {
         items: map,
-        default: "Cube World Big".to_string(),
+        default: "Load Voxel".to_string(),
     }
 }

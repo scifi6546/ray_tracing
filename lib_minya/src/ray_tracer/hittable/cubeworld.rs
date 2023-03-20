@@ -1,13 +1,18 @@
-use super::{super::Lambertian, Aabb, HitRecord, Hittable, Material};
-use crate::prelude::*;
-use crate::ray_tracer::hittable::RayAreaInfo;
+use super::{super::Lambertian, Aabb, HitRecord, Hittable};
+use crate::ray_tracer::hittable::{HitRay, RayAreaInfo};
+use crate::ray_tracer::texture::SolidColor;
+use crate::{prelude::*, ray_tracer::Material};
+
+use crate::ray_tracer::pdf::ScatterRecord;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
-use dyn_clone::clone_box;
-use std::ops::{Deref, Neg};
-enum HitResult {
+
+use std::ops::Neg;
+
+enum HitResult<T: Solid> {
     Hit {
         position: Point3<f32>,
         normal: Vector3<f32>,
+        voxel: T,
     },
     DidNotHit,
 }
@@ -24,12 +29,21 @@ fn min_idx_vec(v: Vector3<f32>) -> usize {
     }
     return min_idx;
 }
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum CubeType {
+    Solid,
+    Translucent { density: f32 },
+    Air,
+}
 trait Solid {
-    fn solid(&self) -> bool;
+    fn solid(&self) -> CubeType;
 }
 impl Solid for bool {
-    fn solid(&self) -> bool {
-        *self
+    fn solid(&self) -> CubeType {
+        match self {
+            true => CubeType::Solid,
+            false => CubeType::Air,
+        }
     }
 }
 #[derive(Clone)]
@@ -39,7 +53,33 @@ struct Voxels<T: Clone + Solid> {
     y_dim: usize,
     z_dim: usize,
 }
+fn step_translucent(
+    position: Point3<f32>,
+    direction: Vector3<f32>,
+    density: f32,
+) -> Option<Point3<f32>> {
+    assert!(density <= 1.0);
+    assert!(density >= 0.0);
+    let max_distance = (1.0f32 + 1.0 + 1.0).sqrt();
+    let max_r = 1.0 / density;
+    let r = rand_f32(0.0, max_r);
 
+    if rand_u32(0, 10000000) == 0 {
+        info!("r: {}, max_r: {}", r, max_r)
+    }
+    if r <= 1.0 {
+        let dist = max_distance * r;
+        let next_pos = position + dist * direction.normalize();
+        let next_voxel = next_pos.map(|f| f.floor() as i32);
+        if next_voxel == position.map(|f| f.floor() as i32) {
+            Some(next_pos)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
 impl<T: Clone + Solid> Voxels<T> {
     pub fn new(x_dim: usize, y_dim: usize, z_dim: usize, default_value: T) -> Self {
         Self {
@@ -72,7 +112,7 @@ impl<T: Clone + Solid> Voxels<T> {
         }
     }
 
-    pub fn trace_voxels(&self, origin: Point3<f32>, direction: Vector3<f32>) -> HitResult {
+    pub fn trace_voxels(&self, origin: Point3<f32>, direction: Vector3<f32>) -> HitResult<T> {
         let step_size = 1.0 / direction.map(|e| e.abs());
         let mut step_dir = Vector3::new(0.0, 0.0, 0.0);
         let mut next_dist = Vector3::new(0.0, 0.0, 0.0);
@@ -130,14 +170,27 @@ impl<T: Clone + Solid> Voxels<T> {
             let y_pos = voxel_pos.y as isize;
             let z_pos = voxel_pos.z as isize;
             if self.in_range(x_pos, y_pos, z_pos) {
-                let r = self.get(x_pos as usize, y_pos as usize, z_pos as usize);
-                if r.solid() {
-                    return HitResult::Hit {
-                        position: current_pos,
-                        normal,
-                    };
-                } else {
-                    continue;
+                let voxel = self.get(x_pos as usize, y_pos as usize, z_pos as usize);
+                match voxel.solid() {
+                    CubeType::Translucent { density } => {
+                        if let Some(position) =
+                            step_translucent(current_pos, direction.normalize(), density)
+                        {
+                            return HitResult::Hit {
+                                position,
+                                normal,
+                                voxel,
+                            };
+                        }
+                    }
+                    CubeType::Solid => {
+                        return HitResult::Hit {
+                            position: current_pos,
+                            normal,
+                            voxel,
+                        };
+                    }
+                    CubeType::Air => {}
                 }
             } else {
                 return HitResult::DidNotHit;
@@ -152,43 +205,115 @@ struct CheckRes {
     normal: Vector3<f32>,
     t: f32,
 }
-type MATERIAL_INDEX = u16;
+type MaterialIndex = u16;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct CubeMaterialIndex {
-    index: MATERIAL_INDEX,
-}
-pub struct CubeMaterial {
-    material: Lambertian,
+pub enum CubeMaterialIndex {
+    Solid {
+        index: MaterialIndex,
+    },
+    Translucent {
+        index: MaterialIndex,
+        density: MaterialIndex,
+    },
 }
 impl CubeMaterialIndex {
-    pub fn new_idx(index: MATERIAL_INDEX) -> Self {
-        Self { index }
+    pub fn new_solid(index: MaterialIndex) -> Self {
+        Self::Solid { index }
+    }
+    pub fn new_translucent(index: MaterialIndex, density: f32) -> Self {
+        Self::Translucent {
+            index,
+            density: (density * MaterialIndex::MAX as f32) as MaterialIndex,
+        }
     }
     pub fn new_air() -> Self {
-        Self {
-            index: MATERIAL_INDEX::MAX,
+        Self::Solid {
+            index: MaterialIndex::MAX,
         }
     }
     pub fn is_solid(&self) -> bool {
-        self.index != MATERIAL_INDEX::MAX
+        match self {
+            Self::Translucent { index, .. } => *index != MaterialIndex::MAX,
+            Self::Solid { index } => *index != MaterialIndex::MAX,
+        }
     }
 }
+
 impl Solid for CubeMaterialIndex {
-    fn solid(&self) -> bool {
-        self.is_solid()
+    fn solid(&self) -> CubeType {
+        match self {
+            Self::Solid { index } => {
+                if *index == MaterialIndex::MAX {
+                    CubeType::Air
+                } else {
+                    CubeType::Solid
+                }
+            }
+            Self::Translucent { index, density } => {
+                if *index == MaterialIndex::MAX {
+                    CubeType::Air
+                } else {
+                    CubeType::Translucent {
+                        density: *density as f32 / MaterialIndex::MAX as f32,
+                    }
+                }
+            }
+        }
     }
 }
+#[derive(Clone)]
+pub struct CubeMaterial {
+    material: Lambertian,
+}
+impl Material for CubeMaterial {
+    fn name(&self) -> &'static str {
+        "cube material"
+    }
+
+    fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
+        self.material.scatter(ray_in, record_in)
+    }
+
+    fn scattering_pdf(
+        &self,
+        ray_in: Ray,
+        record_in: &HitRecord,
+        scattered_ray: Ray,
+    ) -> Option<f32> {
+        self.material
+            .scattering_pdf(ray_in, record_in, scattered_ray)
+    }
+}
+impl CubeMaterial {
+    pub fn new(color: RgbColor) -> Self {
+        CubeMaterial {
+            material: Lambertian {
+                albedo: Box::new(SolidColor { color }),
+            },
+        }
+    }
+}
+#[derive(Clone)]
 pub struct CubeWorld {
-    material: Box<dyn Material>,
+    solid_materials: Vec<CubeMaterial>,
+    translucent_materials: Vec<CubeMaterial>,
     voxels: Voxels<CubeMaterialIndex>,
     x: i32,
     y: i32,
     z: i32,
 }
 impl CubeWorld {
-    pub fn new(material: Box<dyn Material>, x: i32, y: i32, z: i32) -> Self {
+    pub fn new(
+        solid_materials: Vec<CubeMaterial>,
+        translucent_materials: Vec<CubeMaterial>,
+        x: i32,
+        y: i32,
+        z: i32,
+    ) -> Self {
         Self {
-            material,
+            solid_materials,
+            translucent_materials,
             voxels: Voxels::new(
                 x as usize,
                 y as usize,
@@ -200,16 +325,25 @@ impl CubeWorld {
             z,
         }
     }
-    pub fn update(&mut self, x: isize, y: isize, z: isize, val: bool) {
-        self.voxels.update(
-            x,
-            y,
-            z,
-            match val {
-                true => CubeMaterialIndex::new_idx(0),
-                false => CubeMaterialIndex::new_air(),
-            },
-        )
+    pub fn update(&mut self, x: isize, y: isize, z: isize, val: CubeMaterialIndex) {
+        match val {
+            CubeMaterialIndex::Solid { index } => {
+                if index == MaterialIndex::MAX || (index as usize) < self.solid_materials.len() {
+                    self.voxels.update(x, y, z, val)
+                } else {
+                    error!("invalid cube material index: {}", index)
+                }
+            }
+            CubeMaterialIndex::Translucent { index, density } => {
+                if index == MaterialIndex::MAX
+                    || (index as usize) < self.translucent_materials.len()
+                {
+                    self.voxels.update(x, y, z, val);
+                } else {
+                    error!("invalid cube material index: {}", index)
+                }
+            }
+        };
     }
     fn check_x(
         &self,
@@ -292,23 +426,34 @@ impl CubeWorld {
     fn manage_hit_res(
         &self,
         ray: &Ray,
-        hit: HitResult,
+        hit: HitResult<CubeMaterialIndex>,
         t_min: f32,
         t_max: f32,
     ) -> Option<HitRecord> {
         match hit {
-            HitResult::Hit { position, normal } => {
+            HitResult::Hit {
+                position,
+                normal,
+                voxel,
+            } => {
                 let dist = ray.origin - position;
                 let t =
                     Vector3::new(dist.x, dist.y, dist.z).magnitude() / ray.direction.magnitude();
                 if (t > t_min && t < t_max) || true {
-                    Some(HitRecord::new(
+                    Some(HitRecord::new_ref(
                         ray,
                         position,
                         normal,
                         t,
                         Point2::new(0.0, 0.0),
-                        self.material.as_ref(),
+                        match voxel {
+                            CubeMaterialIndex::Solid { index } => {
+                                &self.solid_materials[index as usize]
+                            }
+                            CubeMaterialIndex::Translucent { index, density } => {
+                                &self.translucent_materials[index as usize]
+                            }
+                        },
                     ))
                 } else {
                     None
@@ -318,17 +463,7 @@ impl CubeWorld {
         }
     }
 }
-impl Clone for CubeWorld {
-    fn clone(&self) -> Self {
-        Self {
-            material: clone_box(self.material.deref()),
-            voxels: self.voxels.clone(),
-            x: self.x,
-            y: self.y,
-            z: self.y,
-        }
-    }
-}
+
 impl Hittable for CubeWorld {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let aabb = self.bounding_box(t_min, t_max).expect("failed to get aabb");
@@ -393,21 +528,41 @@ impl Hittable for CubeWorld {
             if idx.z == self.z as usize {
                 idx.z -= 1;
             }
-
-            let v = self.voxels.get(idx.x, idx.y, idx.z).is_solid();
-
-            if v {
-                Some(HitRecord::new(
-                    ray,
-                    Point3::new(s.origin.x, s.origin.y, s.origin.z),
-                    s.normal,
-                    s.t,
-                    Point2::new(0.0, 0.0),
-                    self.material.as_ref(),
-                ))
-            } else {
+            let voxel = self.voxels.get(idx.x, idx.y, idx.z);
+            if !voxel.is_solid() {
                 let hit_res = self.voxels.trace_voxels(s.origin, s.direction);
                 self.manage_hit_res(ray, hit_res, t_min, t_max)
+            } else {
+                match voxel {
+                    CubeMaterialIndex::Solid { index } => Some(HitRecord::new_ref(
+                        ray,
+                        s.origin,
+                        s.normal,
+                        s.t,
+                        Point2::new(0.0, 0.0),
+                        &self.solid_materials[index as usize],
+                    )),
+                    CubeMaterialIndex::Translucent { index, density } => {
+                        let n = step_translucent(
+                            s.origin,
+                            s.direction.normalize(),
+                            density as f32 / MaterialIndex::MAX as f32,
+                        );
+                        if let Some(next) = n {
+                            Some(HitRecord::new_ref(
+                                ray,
+                                next,
+                                s.normal,
+                                s.t,
+                                Point2::new(0.0, 0.0),
+                                &self.translucent_materials[index as usize],
+                            ))
+                        } else {
+                            let hit_res = self.voxels.trace_voxels(s.origin, s.direction);
+                            self.manage_hit_res(ray, hit_res, t_min, t_max)
+                        }
+                    }
+                }
             }
         } else {
             None

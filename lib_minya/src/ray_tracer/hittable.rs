@@ -1,8 +1,9 @@
 mod constant_medium;
-mod cubeworld;
+pub mod cubeworld;
 mod rect;
 mod render_box;
 mod sphere;
+mod sun;
 
 use super::{Aabb, Material, Ray};
 
@@ -18,7 +19,11 @@ pub use rect::{XYRect, XZRect, YZRect};
 pub use render_box::RenderBox;
 pub use sphere::{MovingSphere, Sphere};
 use std::ops::Deref;
-
+///Objects that can be hit
+pub mod hittable_objects {
+    pub use super::rect::{XYRect, XZRect, YZRect};
+    pub use super::sun::Sun;
+}
 pub trait Hittable: Send + DynClone {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
     fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb>;
@@ -331,7 +336,34 @@ impl HitRecord {
         t: f32,
         uv: Point2<f32>,
         material: &M,
-    ) {
+    ) -> Self {
+        let front_face = ray.direction.dot(normal) <= 0.0;
+
+        let hit_ray = HitRay {
+            position,
+            direction: ray.direction,
+            //normal: if front_face { normal } else { -normal },
+            normal,
+            t,
+            front_face,
+            uv,
+        };
+        let emit_option = material.emmit(&hit_ray);
+        let material_effect = if emit_option.is_some() {
+            MaterialEffect::Emmit(emit_option.unwrap())
+        } else if let Some(scatter) = material.scatter(ray.clone(), &hit_ray) {
+            MaterialEffect::Scatter(scatter)
+        } else {
+            NoEmmit
+        };
+        Self {
+            position,
+            normal: hit_ray.normal,
+            t,
+            front_face,
+            uv,
+            material_effect,
+        }
     }
     pub fn new(
         ray: &Ray,

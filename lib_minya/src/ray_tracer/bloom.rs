@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use to_numpy::NumpyArray3D;
+
 trait PostProcessingStage {
     fn process(&self, texture_in: &RgbImage) -> RgbImage;
 }

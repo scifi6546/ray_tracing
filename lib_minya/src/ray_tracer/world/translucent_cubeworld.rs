@@ -5,8 +5,8 @@ use super::{
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 
-pub fn cube_world() -> WorldInfo {
-    let look_at = Point3::new(0.0f32, 5.0, 5.0);
+pub fn translucent_cube_world() -> WorldInfo {
+    let look_at = Point3::new(5.0f32, 5.0, 5.0);
 
     let origin = Point3::new(-20.0f32, 5.0, -20.0);
 
@@ -25,20 +25,26 @@ pub fn cube_world() -> WorldInfo {
     let light = Object::new(
         Box::new(Sphere {
             radius: 1.0,
-            origin: Point3::new(10.0, 10.0, -10.0),
+            origin: Point3::new(20.0, 5.0, 20.0),
             material: light,
         }),
         Transform::identity(),
     );
-    //red_metal
 
     let mut world = CubeWorld::new(
         vec![CubeMaterial::new(RgbColor::new(0.65, 0.05, 0.05))],
-        vec![],
+        vec![CubeMaterial::new(RgbColor::new(0.5, 0.05, 0.5))],
         10,
         10,
         10,
     );
+    for x in 0..10 {
+        for y in 1..9 {
+            for z in 0..10 {
+                world.update(x, y, z, CubeMaterialIndex::new_translucent(0, 0.8))
+            }
+        }
+    }
     for i in 3..6 {
         for j in 3..6 {
             for k in 3..6 {
