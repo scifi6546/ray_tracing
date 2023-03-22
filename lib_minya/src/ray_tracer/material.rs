@@ -1,5 +1,5 @@
 use super::{
-    pdf::{CosinePdf, LightPdf, PdfList, SkyPDF},
+    pdf::{CosinePdf, LambertianPDF, LightPdf, PdfList, SkyPdf},
     rand_unit_vec, reflect, HitRay, HitRecord, Ray, RgbColor, ScatterRecord, Texture,
 };
 use cgmath::{num_traits::*, InnerSpace, Vector3};
@@ -50,11 +50,7 @@ impl Material for Lambertian {
         let scatter_record = ScatterRecord {
             specular_ray: None,
             attenuation,
-            pdf: Some(Rc::new(PdfList::new(vec![
-                Box::new(CosinePdf::new(record_in.normal())),
-                Box::new(LightPdf {}),
-                Box::new(SkyPDF {}),
-            ]))),
+            pdf: Some(Rc::new(LambertianPDF::new(record_in.normal()))),
             scattering_pdf: Self::scattering_pdf_fn,
         };
         Some(scatter_record)

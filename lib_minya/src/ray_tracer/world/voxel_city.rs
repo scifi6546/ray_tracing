@@ -56,11 +56,14 @@ pub struct PerlinNoise {
     layers: Vec<PerlinGrid>,
 }
 impl PerlinNoise {
-    pub fn new() -> Self {
+    pub fn new(size: usize) -> Self {
         Self {
-            layers: [256, 128, 64, 32, 16, 8, 4, 2]
-                .iter()
-                .map(|s| PerlinGrid::new(*s, *s))
+            layers: (1..=(size as f32).log2().floor() as usize)
+                .rev()
+                .map(|res| {
+                    info!("res: {}, res pow: {}", res, 2usize.pow(res as u32));
+                    PerlinGrid::new(2usize.pow(res as u32), 2usize.pow(res as u32))
+                })
                 .collect(),
         }
     }
@@ -73,9 +76,9 @@ impl PerlinNoise {
     }
 }
 pub fn voxel_city() -> WorldInfo {
-    const BLOCK_X: i32 = 400;
+    const BLOCK_X: i32 = 200;
     const BLOCK_Y: i32 = 500;
-    const BLOCK_Z: i32 = 400;
+    const BLOCK_Z: i32 = 200;
 
     let look_at = Point3::new(BLOCK_X as f32 / 2.0, 10.0, BLOCK_Z as f32 / 2.0);
 
@@ -127,7 +130,7 @@ pub fn voxel_city() -> WorldInfo {
         BLOCK_Z,
     );
 
-    let noise = PerlinNoise::new();
+    let noise = PerlinNoise::new(BLOCK_X as usize);
     for x in 0..BLOCK_X as isize {
         for z in 0..BLOCK_Z as isize {
             let h = height(x, z);

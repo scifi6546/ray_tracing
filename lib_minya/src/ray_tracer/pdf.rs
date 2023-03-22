@@ -3,6 +3,7 @@ use crate::prelude::*;
 
 use crate::ray_tracer::hittable::HitRecord;
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
+use miniquad::BlendFactor::Value;
 use std::{fmt, rc::Rc};
 
 pub trait Pdf {
@@ -105,9 +106,9 @@ impl Pdf for LightPdf {
         }
     }
 }
-pub struct SkyPDF {}
-impl SkyPDF {}
-impl Pdf for SkyPDF {
+pub struct SkyPdf {}
+impl SkyPdf {}
+impl Pdf for SkyPdf {
     fn value(&self, direction: &Ray, world: &World) -> Option<f32> {
         if world.sun.is_none() {
             None
@@ -218,6 +219,97 @@ impl Pdf for PdfList {
                         sum += value;
                         total += 1;
                     }
+                }
+            }
+            if total != 0 {
+                Some((out_direction, (sum + pdf) / (total + 1) as f32))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+pub(crate) struct LambertianPDF {
+    sin_pdf: CosinePdf,
+    light_pdf: LightPdf,
+    sky_pdf: SkyPdf,
+}
+impl LambertianPDF {
+    pub fn new(normal: Vector3<f32>) -> Self {
+        Self {
+            sin_pdf: CosinePdf::new(normal),
+            light_pdf: LightPdf {},
+            sky_pdf: SkyPdf {},
+        }
+    }
+}
+impl Pdf for LambertianPDF {
+    fn value(&self, direction: &Ray, world: &World) -> Option<f32> {
+        let mut value = 0.0;
+        let mut count = 0;
+        for v in [
+            self.sin_pdf.value(direction, world),
+            self.light_pdf.value(direction, world),
+            self.sky_pdf.value(direction, world),
+        ]
+        .iter()
+        .filter_map(|v| *v)
+        {
+            value += v;
+            count += 1;
+        }
+        Some(value / count as f32)
+    }
+
+    fn is_valid(&self, world: &World) -> bool {
+        self.sin_pdf.is_valid(world)
+            && self.light_pdf.is_valid(world)
+            && self.sky_pdf.is_valid(world)
+    }
+
+    fn generate(
+        &self,
+        incoming_ray: Ray,
+        hit_point: Point3<f32>,
+        world: &World,
+    ) -> Option<(Vector3<f32>, f32)> {
+        let r = rand_u32(0, 3);
+        let v = match r {
+            0 => self.sin_pdf.generate(incoming_ray, hit_point, world),
+            1 => self.light_pdf.generate(incoming_ray, hit_point, world),
+            2 => self.sky_pdf.generate(incoming_ray, hit_point, world),
+            _ => panic!(),
+        };
+        if v.is_some() {
+            let (out_direction, pdf) = v.unwrap();
+            let mut sum = 0.0f32;
+            let mut total = 0;
+            let value_ray = Ray {
+                origin: hit_point,
+                direction: out_direction,
+                time: 0.0,
+            };
+            let values = match r {
+                0 => [
+                    self.light_pdf.value(&value_ray, world),
+                    self.sky_pdf.value(&value_ray, world),
+                ],
+                1 => [
+                    self.sin_pdf.value(&value_ray, world),
+                    self.sky_pdf.value(&value_ray, world),
+                ],
+                2 => [
+                    self.light_pdf.value(&value_ray, world),
+                    self.sin_pdf.value(&value_ray, world),
+                ],
+                _ => panic!(),
+            };
+            for value in values {
+                if let Some(value) = value {
+                    sum += value;
+                    total += 1;
                 }
             }
             if total != 0 {

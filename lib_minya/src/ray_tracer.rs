@@ -34,6 +34,7 @@ use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, Sol
 pub use world::{ScenarioCtor, World};
 
 use std::collections::HashMap;
+use std::thread;
 
 pub fn rand_unit_vec() -> Vector3<f32> {
     loop {
@@ -409,6 +410,7 @@ impl RayTracer {
     pub fn trace_image(&self, rgb_img: &mut RgbImage) {
         let image_width = rgb_img.width();
         let image_height = rgb_img.height();
+
         for x in 0..image_width {
             for y in 0..image_height {
                 let u = (x as f32 + rand_f32(0.0, 1.0)) / (image_width as f32 - 1.0);
