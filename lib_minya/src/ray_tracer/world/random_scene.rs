@@ -137,5 +137,6 @@ pub fn random_scene() -> WorldInfo {
             0.0,
             1.0,
         ),
+        sun: None,
     }
 }

@@ -69,5 +69,6 @@ pub fn cube_world() -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

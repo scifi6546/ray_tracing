@@ -1,6 +1,6 @@
 use super::{
-    rand_unit_vec, reflect, CosinePdf, HitRay, HitRecord, LightPdf, PdfList, Ray, RgbColor,
-    ScatterRecord, Texture,
+    pdf::{CosinePdf, LightPdf, PdfList, SkyPDF},
+    rand_unit_vec, reflect, HitRay, HitRecord, Ray, RgbColor, ScatterRecord, Texture,
 };
 use cgmath::{num_traits::*, InnerSpace, Vector3};
 use dyn_clone::{clone_box, DynClone};
@@ -53,6 +53,7 @@ impl Material for Lambertian {
             pdf: Some(Rc::new(PdfList::new(vec![
                 Box::new(CosinePdf::new(record_in.normal())),
                 Box::new(LightPdf {}),
+                Box::new(SkyPDF {}),
             ]))),
             scattering_pdf: Self::scattering_pdf_fn,
         };

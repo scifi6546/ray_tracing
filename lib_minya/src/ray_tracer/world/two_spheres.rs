@@ -64,5 +64,6 @@ pub fn two_spheres() -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

@@ -14,7 +14,7 @@ mod random_scene;
 mod translucent_cubeworld;
 mod two_spheres;
 mod voxel_city;
-
+use super::sun::Sun;
 use super::{
     bvh::BvhTree, hittable::hittable_objects, hittable::*, material::*, texture::*, Background,
     Camera, ConstantColor, HitRecord, Hittable, Sky,
@@ -22,6 +22,7 @@ use super::{
 mod world_prelude {
     pub use super::super::background::{ConstantColor as ConstantColorBackground, Sky, SunSky};
     pub use super::super::hittable::cubeworld::{CubeMaterial, CubeMaterialIndex};
+    pub use super::super::sun::Sun;
 }
 use crate::prelude::*;
 use cgmath::Point3;
@@ -42,6 +43,7 @@ pub struct WorldInfo {
     pub lights: Vec<Object>,
     pub background: Box<dyn Background>,
     pub camera: Camera,
+    pub sun: Option<Sun>,
 }
 impl WorldInfo {
     pub fn build_world(self) -> World {
@@ -54,6 +56,7 @@ impl WorldInfo {
             lights: self.lights.clone(),
             background: self.background,
             camera: self.camera,
+            sun: self.sun,
         }
     }
 }
@@ -62,6 +65,7 @@ pub struct World {
     pub lights: Vec<Object>,
     pub background: Box<dyn Background>,
     pub camera: Camera,
+    pub sun: Option<Sun>,
 }
 impl World {
     pub fn from_baselib_scene(scene: &base_lib::Scene) -> Self {
@@ -189,6 +193,7 @@ impl World {
                 scene.camera.start_time,
                 scene.camera.end_time,
             ),
+            sun: None,
         }
     }
     pub fn nearest_light_hit(
@@ -335,6 +340,6 @@ pub fn get_scenarios() -> Scenarios {
     }
     Scenarios {
         items: map,
-        default: "Load Voxel".to_string(),
+        default: "Voxel City".to_string(),
     }
 }

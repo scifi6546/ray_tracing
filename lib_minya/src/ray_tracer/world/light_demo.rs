@@ -73,5 +73,6 @@ pub fn light_demo() -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

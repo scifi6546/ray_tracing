@@ -3,7 +3,6 @@ pub mod cubeworld;
 mod rect;
 mod render_box;
 mod sphere;
-mod sun;
 
 use super::{Aabb, Material, Ray};
 
@@ -22,7 +21,6 @@ use std::ops::Deref;
 ///Objects that can be hit
 pub mod hittable_objects {
     pub use super::rect::{XYRect, XZRect, YZRect};
-    pub use super::sun::Sun;
 }
 pub trait Hittable: Send + DynClone {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;

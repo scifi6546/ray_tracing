@@ -56,13 +56,7 @@ pub fn load_vox() -> WorldInfo {
         }
     }
     let sun_radius = 10.0 * f32::PI() / 180.0;
-    let sun = Object::new(Box::new(Sun { radius: 1.0 }), Transform::identity());
-    let sun_sky = SunSky {
-        intensity: 0.0,
-        sun_radius,
-        sun_theta: 3.0 * f32::PI() / 4.0,
-        sun_phi: f32::PI() / 4.0,
-    };
+
     WorldInfo {
         objects: vec![
             Object::new(Box::new(world), Transform::identity()),
@@ -81,5 +75,6 @@ pub fn load_vox() -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

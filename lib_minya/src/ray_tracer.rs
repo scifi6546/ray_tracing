@@ -6,8 +6,10 @@ pub mod hittable;
 pub mod logger;
 pub mod material;
 mod pdf;
+mod sun;
 pub mod texture;
 pub mod world;
+
 use super::prelude::*;
 use crate::reflect;
 use bloom::bloom;
@@ -421,7 +423,7 @@ impl RayTracer {
                 };
 
                 if c.color.is_nan() {
-                    error!("ray color retuned NaN");
+                    //error!("ray color retuned NaN");
                 }
                 rgb_img.add_xy(x, y, c.color);
             }

@@ -154,5 +154,6 @@ pub fn cornell_smoke() -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

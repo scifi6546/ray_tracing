@@ -6,7 +6,7 @@ use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
 use std::{fmt, rc::Rc};
 
 pub trait Pdf {
-    fn value(&self, direction: &Ray, world: &World) -> f32;
+    fn value(&self, direction: &Ray, world: &World) -> Option<f32>;
     /// Checks if the PDF is valid for the given world
     fn is_valid(&self, world: &World) -> bool;
     fn generate(
@@ -27,12 +27,12 @@ impl CosinePdf {
     }
 }
 impl Pdf for CosinePdf {
-    fn value(&self, ray: &Ray, _world: &World) -> f32 {
+    fn value(&self, ray: &Ray, _world: &World) -> Option<f32> {
         let cos = ray.direction.dot(self.uvw.w());
         if cos <= 0.0 {
-            0.0
+            Some(0.0)
         } else {
-            cos / f32::PI()
+            Some(cos / f32::PI())
         }
     }
 
@@ -55,22 +55,22 @@ impl Pdf for CosinePdf {
 }
 pub struct LightPdf {}
 impl Pdf for LightPdf {
-    fn value(&self, ray: &Ray, world: &World) -> f32 {
+    fn value(&self, ray: &Ray, world: &World) -> Option<f32> {
         if let Some((light, hit)) = world.nearest_light_hit(ray, ray.time, f32::MAX) {
             let to_light = hit.position - ray.origin;
             let light_cos = to_light.normalize().dot(hit.normal).abs();
 
             if light_cos >= 0.000001 {
-                light.prob(Ray {
+                Some(light.prob(Ray {
                     origin: ray.origin,
                     direction: to_light.normalize(),
                     time: hit.t,
-                })
+                }))
             } else {
-                0.0
+                Some(0.0)
             }
         } else {
-            0.0
+            None
         }
     }
     fn is_valid(&self, world: &World) -> bool {
@@ -105,6 +105,69 @@ impl Pdf for LightPdf {
         }
     }
 }
+pub struct SkyPDF {}
+impl SkyPDF {}
+impl Pdf for SkyPDF {
+    fn value(&self, direction: &Ray, world: &World) -> Option<f32> {
+        if world.sun.is_none() {
+            None
+        } else {
+            let sun = world.sun.unwrap();
+            let sun_vector = sun.make_direction_vector();
+            let min_cos_distance = sun.radius.cos();
+            if direction.direction.dot(sun_vector) >= min_cos_distance {
+                Some(1.0)
+            } else {
+                Some(0.0)
+            }
+        }
+    }
+
+    fn is_valid(&self, world: &World) -> bool {
+        todo!()
+    }
+
+    fn generate(
+        &self,
+        incoming_ray: Ray,
+        hit_point: Point3<f32>,
+        world: &World,
+    ) -> Option<(Vector3<f32>, f32)> {
+        /// generates theta and r inside of unit circle
+        fn gen_unit_circle() -> (f32, f32) {
+            let rand_r = rand_f32(0.0, 1.0);
+            let rand_theta = rand_f32(0.0, 2.0 * f32::PI());
+            (rand_r.sqrt(), rand_theta)
+        }
+        if world.sun.is_none() {
+            return None;
+        }
+        let sun = world.sun.unwrap();
+
+        let (r, theta) = gen_unit_circle();
+
+        let r = r * sun.radius;
+        let sun_vector = sun.make_direction_vector();
+        let cross_vector = sun_vector.cross(Vector3::new(0.0, 0.0, 1.0));
+        if cross_vector.magnitude() < 0.01 {
+            panic!()
+        }
+        let k = cross_vector.normalize();
+        let v_rot = r.cos() * sun_vector
+            + (k.cross(sun_vector)) * theta.sin()
+            + k * (k.dot(sun_vector)) * (1.0 - theta.cos());
+
+        let area = f32::PI() * sun.radius.powi(2);
+        if rand_u32(0, 1000) == 0 {
+            // info!("area: {}, v_rot: {:#?}, k: {:#?}", area, v_rot, k);
+        }
+        let area_sphere = 4.0 * f32::PI();
+
+        // rotation vector, https://en.wikipedia.org/wiki/Rodrigues'_rotation_formula
+        //
+        Some((v_rot, area / area_sphere))
+    }
+}
 pub struct PdfList {
     items: Vec<Box<dyn Pdf>>,
 }
@@ -115,14 +178,14 @@ impl PdfList {
     }
 }
 impl Pdf for PdfList {
-    fn value(&self, direction: &Ray, world: &World) -> f32 {
+    fn value(&self, direction: &Ray, world: &World) -> Option<f32> {
         let hit = self
             .items
             .iter()
             .filter(|item| item.is_valid(world))
-            .map(|item| item.value(direction, world))
+            .filter_map(|item| item.value(direction, world))
             .collect::<Vec<_>>();
-        hit.iter().sum::<f32>() / hit.len() as f32
+        Some(hit.iter().sum::<f32>() / hit.len() as f32)
     }
 
     fn is_valid(&self, world: &World) -> bool {
@@ -150,9 +213,11 @@ impl Pdf for PdfList {
                 time: 0.0,
             };
             for i in 0..self.items.len() {
-                if i != random_pdf {
-                    sum += self.items[i].value(&value_ray, world);
-                    total += 1;
+                if let Some(value) = self.items[i].value(&value_ray, world) {
+                    if i != random_pdf {
+                        sum += value;
+                        total += 1;
+                    }
                 }
             }
             if total != 0 {

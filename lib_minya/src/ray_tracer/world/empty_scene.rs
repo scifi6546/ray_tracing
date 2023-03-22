@@ -28,5 +28,6 @@ pub fn empty_scene() -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

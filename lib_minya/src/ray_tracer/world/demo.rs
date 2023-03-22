@@ -62,5 +62,6 @@ pub fn new_demo(mut special_item: Vec<Object>) -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

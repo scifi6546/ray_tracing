@@ -102,5 +102,6 @@ pub fn easy_cornell_box() -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

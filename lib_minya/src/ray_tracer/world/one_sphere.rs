@@ -45,5 +45,6 @@ pub fn one_sphere() -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

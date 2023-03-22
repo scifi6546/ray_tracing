@@ -1,7 +1,7 @@
-use super::Ray;
+use super::{sun::Sun, Ray};
 use crate::prelude::*;
-use cgmath::prelude::*;
 use cgmath::Vector3;
+use cgmath::{num_traits::FloatConst, prelude::*};
 
 pub trait Background: Send {
     fn color(&self, ray: Ray) -> RgbColor;
@@ -35,23 +35,35 @@ impl Default for Sky {
 #[derive(Clone)]
 pub struct SunSky {
     pub intensity: f32,
-    pub sun_radius: f32,
-    pub sun_theta: f32,
-    pub sun_phi: f32,
+    sun_radius: f32,
+    sun_theta: f32,
+    sun_phi: f32,
+    sun_brightness: f32,
+}
+impl SunSky {
+    pub fn new(sun: Sun, intensity: f32, sun_brightness: f32) -> Self {
+        Self {
+            intensity,
+            sun_radius: sun.radius,
+            sun_theta: sun.theta,
+            sun_phi: sun.phi,
+            sun_brightness,
+        }
+    }
 }
 impl Background for SunSky {
     fn color(&self, ray: Ray) -> RgbColor {
         let r = self.sun_phi.cos();
+
         let sun_ray = Vector3::new(
             r * self.sun_theta.cos(),
             self.sun_phi.sin(),
             r * self.sun_theta.sin(),
         );
-
         let sun_cos = sun_ray.dot(ray.direction.normalize());
 
         if sun_cos > self.sun_radius.cos() && sun_cos > 0.0 {
-            100.0 * RgbColor::WHITE
+            self.sun_brightness * RgbColor::WHITE
         } else {
             let unit = ray.direction.normalize();
             let t = 0.5 * (unit.y + 1.0);

@@ -76,5 +76,6 @@ pub fn cube_world_big() -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

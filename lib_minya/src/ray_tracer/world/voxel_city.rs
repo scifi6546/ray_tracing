@@ -17,7 +17,7 @@ impl PerlinGrid {
         data.reserve(width * height);
         for _ in 0..width {
             for _ in 0..height {
-                data.push(rng.gen_range(0.0..40.0))
+                data.push(rng.gen_range(0.0..1.0))
             }
         }
         Self {
@@ -52,14 +52,34 @@ impl PerlinGrid {
         }
     }
 }
+pub struct PerlinNoise {
+    layers: Vec<PerlinGrid>,
+}
+impl PerlinNoise {
+    pub fn new() -> Self {
+        Self {
+            layers: [256, 128, 64, 32, 16, 8, 4, 2]
+                .iter()
+                .map(|s| PerlinGrid::new(*s, *s))
+                .collect(),
+        }
+    }
+    pub fn get(&self, x: f32, y: f32) -> f32 {
+        self.layers
+            .iter()
+            .map(|l| l.get(x, y))
+            .enumerate()
+            .fold(0.0, |acc, (idx, x)| acc + (2.0f32).powi(idx as i32) * x)
+    }
+}
 pub fn voxel_city() -> WorldInfo {
-    const BLOCK_X: i32 = 200;
+    const BLOCK_X: i32 = 400;
     const BLOCK_Y: i32 = 500;
-    const BLOCK_Z: i32 = 200;
+    const BLOCK_Z: i32 = 400;
 
     let look_at = Point3::new(BLOCK_X as f32 / 2.0, 10.0, BLOCK_Z as f32 / 2.0);
 
-    let origin = Point3::new(-600.0f32, 800.0, -600.0);
+    let origin = Point3::new(-150.0f32, 200.0, -150.0);
 
     let fov = 40.0;
     let focus_distance = {
@@ -92,58 +112,41 @@ pub fn voxel_city() -> WorldInfo {
     fn height(x: isize, z: isize) -> isize {
         let center = Point2::new(BLOCK_X as f32 / 2.0, BLOCK_Z as f32 / 2.0);
         let radius = center.distance(Point2::new(x as f32, z as f32));
-        let h = (-radius / 10.0).exp() * 300.0;
+        let h = (-radius / 10.0).exp() * 30.0;
         h.max(20.0).min(BLOCK_Y as f32) as isize
     }
     let mut world = CubeWorld::new(
         vec![
             CubeMaterial::new(RgbColor::new(0.2, 0.05, 0.05)),
-            CubeMaterial::new(RgbColor::new(0.65, 0.8, 0.05)),
-            CubeMaterial::new(RgbColor::new(0.0, 0.0, 0.5)),
+            CubeMaterial::new(0.1 * RgbColor::new(0.65, 0.8, 0.05)),
+            CubeMaterial::new(0.1 * RgbColor::new(0.0, 0.0, 0.5)),
         ],
-        vec![],
+        vec![CubeMaterial::new(0.1 * RgbColor::new(0.0, 0.0, 0.5))],
         BLOCK_X,
         BLOCK_Y,
         BLOCK_Z,
     );
-    const X_GRID: i32 = BLOCK_X / 10;
-    const Z_GRID: i32 = BLOCK_Z / 10;
-    let mut rng = rand::rngs::StdRng::seed_from_u64(1233897876);
-    let mut grid = vec![];
-    for x in 0..X_GRID {
-        let mut z_row = [0.0f32; Z_GRID as usize];
-        for z in 0..Z_GRID {
-            z_row[z as usize] = rng.gen_range(0.0..20.0);
-        }
-        grid.push(z_row);
-    }
-    let noise = PerlinGrid::new(X_GRID as usize, Z_GRID as usize);
+
+    let noise = PerlinNoise::new();
     for x in 0..BLOCK_X as isize {
         for z in 0..BLOCK_Z as isize {
             let h = height(x, z);
-            let x_get = (x as f32 / BLOCK_X as f32) * X_GRID as f32;
-            let x0_get = x_get.floor() as usize;
-            let x1_get = (x0_get + 1).min(X_GRID as usize - 1);
 
-            let z_get = ((z as f32 / BLOCK_Z as f32) * Z_GRID as f32);
-            let z0_get = z_get.floor() as usize;
-            let z1_get = (z0_get + 1).min(Z_GRID as usize - 1);
-            let rx0_z0 = grid[x0_get][z0_get];
-            let rx1_z0 = grid[x1_get][z0_get];
-            let rz0 = (1.0 - x_get.fract()) * rx0_z0 + x_get.fract() * rx1_z0;
-            let rx0_z1 = grid[x0_get][z1_get];
-            let rx1_z1 = grid[x1_get][z1_get];
-            let rz1 = (1.0 - x_get.fract()) * rx0_z1 + x_get.fract() * rx1_z1;
-            let rand_sample = (1.0 - z_get.fract()) * rz0 + z_get.fract() * rz1;
-            let rand_sample = noise.get(
-                x as f32 / (BLOCK_X as f32 - 1.0),
-                z as f32 / (BLOCK_Z as f32 - 1.0),
-            );
+            let rand_sample = 0.3
+                * noise
+                    .get(
+                        x as f32 / (BLOCK_X as f32 - 1.0),
+                        z as f32 / (BLOCK_Z as f32 - 1.0),
+                    )
+                    .min(200.0);
             let terrain_height = h + rand_sample as isize;
+            for y2 in terrain_height + 1..30 {
+                // let material = CubeMaterialIndex::new_translucent(0, 0.1);
+                let material = CubeMaterialIndex::new_solid(2);
+                world.update(x, y2, z, CubeMaterialIndex::new_solid(2));
+            }
             for y in 0..=terrain_height {
-                let index = if terrain_height <= 50 { 2 } else { 1 };
-
-                world.update(x, y, z, CubeMaterialIndex::new_solid(index));
+                world.update(x, y, z, CubeMaterialIndex::new_solid(1));
             }
         }
     }
@@ -164,21 +167,21 @@ pub fn voxel_city() -> WorldInfo {
             }
         }
     }
-    let sun_radius = 10.0 * f32::PI() / 180.0;
-    let sun = Object::new(Box::new(Sun { radius: 1.0 }), Transform::identity());
-    let sun_sky = SunSky {
-        intensity: 0.0,
-        sun_radius,
-        sun_theta: 3.0 * f32::PI() / 4.0,
-        sun_phi: f32::PI() / 4.0,
+
+    let sun = Sun {
+        phi: 1.0 * f32::PI() / 6.0,
+        theta: 1.231,
+        radius: 5.0 * f32::PI() / 180.0,
     };
+    let sun_sky = SunSky::new(sun, 0.05, 12.0);
     WorldInfo {
         objects: vec![
             Object::new(Box::new(world), Transform::identity()),
-            lava_light.clone(),
+            //   lava_light.clone(),
         ],
-        lights: vec![lava_light],
-        background: Box::new(Sky { intensity: 0.2 }),
+        //lights: vec![lava_light],
+        lights: vec![],
+        background: Box::new(sun_sky),
         camera: Camera::new(
             1.0,
             fov,
@@ -190,5 +193,6 @@ pub fn voxel_city() -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: Some(sun),
     }
 }

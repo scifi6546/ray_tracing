@@ -86,5 +86,6 @@ pub fn dielectric_demo(refraction: f32) -> WorldInfo {
             0.0,
             0.0,
         ),
+        sun: None,
     }
 }

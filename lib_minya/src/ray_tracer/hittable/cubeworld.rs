@@ -64,9 +64,6 @@ fn step_translucent(
     let max_r = 1.0 / density;
     let r = rand_f32(0.0, max_r);
 
-    if rand_u32(0, 10000000) == 0 {
-        info!("r: {}, max_r: {}", r, max_r)
-    }
     if r <= 1.0 {
         let dist = max_distance * r;
         let next_pos = position + dist * direction.normalize();
