@@ -6,10 +6,10 @@ use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
 use rand::prelude::*;
 
-pub fn voxel_city() -> WorldInfo {
-    const BLOCK_X: i32 = 200;
+pub fn voxel_city_big() -> WorldInfo {
+    const BLOCK_X: i32 = 1024;
     const BLOCK_Y: i32 = 500;
-    const BLOCK_Z: i32 = 200;
+    const BLOCK_Z: i32 = 1024;
 
     let look_at = Point3::new(BLOCK_X as f32 / 2.0, 10.0, BLOCK_Z as f32 / 2.0);
 

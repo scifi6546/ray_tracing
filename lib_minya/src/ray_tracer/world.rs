@@ -14,6 +14,8 @@ mod random_scene;
 mod translucent_cubeworld;
 mod two_spheres;
 mod voxel_city;
+mod voxel_city_big;
+
 use super::sun::Sun;
 use super::{
     bvh::BvhTree, hittable::hittable_objects, hittable::*, material::*, texture::*, Background,
@@ -21,7 +23,7 @@ use super::{
 };
 mod world_prelude {
     pub use super::super::background::{ConstantColor as ConstantColorBackground, Sky, SunSky};
-    pub use super::super::hittable::cubeworld::{CubeMaterial, CubeMaterialIndex};
+    pub use super::super::hittable::cubeworld::{CubeMaterial, CubeMaterialIndex, PerlinNoise};
     pub use super::super::sun::Sun;
 }
 use crate::prelude::*;
@@ -319,6 +321,10 @@ pub fn get_scenarios() -> Scenarios {
             f: voxel_city::voxel_city,
         }),
         Box::new(ScenarioFn {
+            name: "Voxel City Big".to_string(),
+            f: voxel_city_big::voxel_city_big,
+        }),
+        Box::new(ScenarioFn {
             name: "Translucent Cube World".to_string(),
             f: translucent_cubeworld::translucent_cube_world,
         }),
@@ -340,6 +346,6 @@ pub fn get_scenarios() -> Scenarios {
     }
     Scenarios {
         items: map,
-        default: "Voxel City".to_string(),
+        default: "Voxel City Big".to_string(),
     }
 }
