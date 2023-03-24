@@ -72,7 +72,7 @@ pub fn voxel_city_big() -> WorldInfo {
                         x as f32 / (BLOCK_X as f32 - 1.0),
                         z as f32 / (BLOCK_Z as f32 - 1.0),
                     )
-                    .min(200.0);
+                    .min(BLOCK_Y as f32);
             let terrain_height = h + rand_sample as isize;
             for y2 in terrain_height + 1..30 {
                 // let material = CubeMaterialIndex::new_translucent(0, 0.1);
