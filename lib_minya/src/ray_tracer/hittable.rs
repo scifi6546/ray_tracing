@@ -2,7 +2,7 @@ mod constant_medium;
 mod rect;
 mod render_box;
 mod sphere;
-pub mod voxelworld;
+pub mod voxel_world;
 
 use super::{Aabb, Material, Ray};
 
@@ -17,7 +17,7 @@ pub use rect::{XYRect, XZRect, YZRect};
 pub use render_box::RenderBox;
 pub use sphere::{MovingSphere, Sphere};
 use std::ops::Deref;
-pub use voxelworld::CubeWorld;
+pub use voxel_world::CubeWorld;
 ///Objects that can be hit
 pub mod hittable_objects {
     pub use super::rect::{XYRect, XZRect, YZRect};

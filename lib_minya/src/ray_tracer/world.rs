@@ -23,7 +23,9 @@ use super::{
 };
 mod world_prelude {
     pub use super::super::background::{ConstantColor as ConstantColorBackground, Sky, SunSky};
-    pub use super::super::hittable::voxelworld::{CubeMaterial, CubeMaterialIndex, PerlinNoise};
+    pub use super::super::hittable::voxel_world::{
+        CubeMaterial, CubeMaterialIndex, PerlinBuilder, PerlinNoise,
+    };
     pub use super::super::sun::Sun;
 }
 use crate::prelude::*;
