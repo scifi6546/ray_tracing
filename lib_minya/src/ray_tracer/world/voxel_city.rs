@@ -60,8 +60,8 @@ pub fn voxel_city() -> WorldInfo {
         BLOCK_Y,
         BLOCK_Z,
     );
+    let noise = PerlinBuilder::new(BLOCK_X as usize).num_layers(2).build();
 
-    let noise = PerlinNoise::new(BLOCK_X as usize);
     for x in 0..BLOCK_X as isize {
         for z in 0..BLOCK_Z as isize {
             let h = height(x, z);

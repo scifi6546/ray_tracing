@@ -50,23 +50,35 @@ impl PerlinGrid {
 }
 pub struct PerlinBuilder {
     size: usize,
+    num_layers: usize,
 }
 impl PerlinBuilder {
     pub fn new(size: usize) -> Self {
-        Self { size }
+        Self {
+            size,
+            num_layers: (size as f32).log2().floor() as usize,
+        }
+    }
+    pub fn num_layers(self, num_layers: usize) -> Self {
+        Self {
+            size: self.size,
+            num_layers,
+        }
     }
     pub fn build(self) -> PerlinNoise {
-        PerlinNoise::new(self.size, todo!())
+        PerlinNoise::new(self.size, self.num_layers)
     }
 }
 pub struct PerlinNoise {
     layers: Vec<PerlinGrid>,
 }
 impl PerlinNoise {
-    pub fn new(size: usize, max_layers: usize) -> Self {
+    pub fn new(size: usize, num_layers: usize) -> Self {
         Self {
             layers: (1..=(size as f32).log2().floor() as usize)
                 .rev()
+                .enumerate()
+                .filter_map(|(idx, res)| if idx < num_layers { Some(res) } else { None })
                 .map(|res| {
                     info!("res: {}, res pow: {}", res, 2usize.pow(res as u32));
                     PerlinGrid::new(2usize.pow(res as u32), 2usize.pow(res as u32))

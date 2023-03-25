@@ -60,25 +60,27 @@ pub fn voxel_city_big() -> WorldInfo {
         BLOCK_Y,
         BLOCK_Z,
     );
-    let noise = PerlinBuilder::new(BLOCK_X as usize).build();
+    let noise = PerlinBuilder::new(BLOCK_X as usize).num_layers(3).build();
 
     for x in 0..BLOCK_X as isize {
         for z in 0..BLOCK_Z as isize {
             let h = height(x, z);
 
-            let rand_sample = 0.3
-                * noise
-                    .get(
-                        x as f32 / (BLOCK_X as f32 - 1.0),
-                        z as f32 / (BLOCK_Z as f32 - 1.0),
-                    )
-                    .min(BLOCK_Y as f32);
-            let terrain_height = h + rand_sample as isize;
+            let rand_sample = noise
+                .get(
+                    x as f32 / (BLOCK_X as f32 - 1.0),
+                    z as f32 / (BLOCK_Z as f32 - 1.0),
+                )
+                .min(BLOCK_Y as f32);
+            let terrain_height = rand_sample as isize;
+            /*
             for y2 in terrain_height + 1..30 {
                 // let material = CubeMaterialIndex::new_translucent(0, 0.1);
                 let material = CubeMaterialIndex::new_solid(2);
                 world.update(x, y2, z, CubeMaterialIndex::new_solid(2));
             }
+
+             */
             for y in 0..=terrain_height {
                 world.update(x, y, z, CubeMaterialIndex::new_solid(1));
             }
@@ -107,7 +109,7 @@ pub fn voxel_city_big() -> WorldInfo {
         theta: 1.231,
         radius: 5.0 * f32::PI() / 180.0,
     };
-    let sun_sky = SunSky::new(sun, 0.05, 12.0);
+    let sun_sky = SunSky::new(sun, 0.05, 22.0);
     WorldInfo {
         objects: vec![
             Object::new(Box::new(world), Transform::identity()),
