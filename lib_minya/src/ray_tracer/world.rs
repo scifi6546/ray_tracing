@@ -348,6 +348,6 @@ pub fn get_scenarios() -> Scenarios {
     }
     Scenarios {
         items: map,
-        default: "Voxel City Big".to_string(),
+        default: "Cube World Big".to_string(),
     }
 }

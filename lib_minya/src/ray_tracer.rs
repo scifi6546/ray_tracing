@@ -407,7 +407,8 @@ impl RayTracer {
         self.current_shader = shader
     }
     /// Does one ray tracing step and saves result to image
-    pub fn trace_image(&self, rgb_img: &mut RgbImage) {
+    pub fn trace_image(&self, rgb_img: &mut ParallelImage) {
+        let mut imgs = rgb_img.split(1);
         let image_width = rgb_img.width();
         let image_height = rgb_img.height();
 
@@ -427,20 +428,23 @@ impl RayTracer {
                 if c.color.is_nan() {
                     //error!("ray color retuned NaN");
                 }
-                rgb_img.add_xy(x, y, c.color);
+                imgs[0].add_xy(x, y, c.color);
             }
         }
+        *rgb_img = ParallelImage::join(imgs);
     }
     /// performs post processing step on image
-    pub fn post_process(&self, rgb_img: &mut RgbImage) {
+    pub fn post_process(&self, rgb_img: &mut ParallelImage) {
         bloom(rgb_img);
     }
     /// renders current scene to image
-    pub fn tracing_loop(&self, rgb_img: &mut RgbImage, num_samples: usize) {
+    pub fn tracing_loop(&self, parallel_image: &mut ParallelImage, num_samples: usize) {
         for _ in 0..num_samples {
-            self.trace_image(rgb_img);
+            self.trace_image(parallel_image);
         }
-        *rgb_img = rgb_img.clone() / num_samples as f32;
-        self.post_process(rgb_img);
+        let mut post_process = parallel_image.clone() / num_samples as f32;
+        self.post_process(&mut post_process);
+
+        *parallel_image = post_process;
     }
 }

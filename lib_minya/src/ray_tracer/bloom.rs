@@ -1,13 +1,13 @@
 use crate::prelude::*;
 
 trait PostProcessingStage {
-    fn process(&self, texture_in: &RgbImage) -> RgbImage;
+    fn process(&self, texture_in: &ParallelImage) -> ParallelImage;
 }
 struct GaussianBlur {
     amount: usize,
 }
 impl GaussianBlur {
-    fn blur(texture: RgbImage) -> RgbImage {
+    fn blur(texture: ParallelImage) -> ParallelImage {
         let weights = [0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216];
 
         let mut x_mod = texture.clone();
@@ -39,7 +39,7 @@ impl GaussianBlur {
     }
 }
 impl PostProcessingStage for GaussianBlur {
-    fn process(&self, texture_in: &RgbImage) -> RgbImage {
+    fn process(&self, texture_in: &ParallelImage) -> ParallelImage {
         let mut mod_texture = texture_in.clone();
 
         let mut down_sampled = vec![Self::blur(mod_texture.clone())];
@@ -61,7 +61,7 @@ struct SelectMinMag {
     min_mag: f32,
 }
 impl PostProcessingStage for SelectMinMag {
-    fn process(&self, texture_in: &RgbImage) -> RgbImage {
+    fn process(&self, texture_in: &ParallelImage) -> ParallelImage {
         let mut out_texture = texture_in.clone();
         for x in 0..texture_in.width() {
             for y in 0..texture_in.height() {
@@ -75,7 +75,7 @@ impl PostProcessingStage for SelectMinMag {
         return out_texture;
     }
 }
-pub fn bloom(texture: &mut RgbImage) {
+pub fn bloom(texture: &mut ParallelImage) {
     let original_texture = texture.clone();
 
     let select = SelectMinMag { min_mag: 1.0 };

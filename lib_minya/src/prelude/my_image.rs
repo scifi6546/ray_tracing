@@ -1,6 +1,13 @@
 use crate::prelude::*;
 use std::ops::Add;
 use to_numpy::NumpyArray3D;
+pub trait MyImage: NumpyArray3D {
+    fn width(&self) -> usize;
+    fn height(&self) -> usize;
+    fn get(&self, x: usize, y: usize) -> RgbColor;
+    fn set(&mut self, x: usize, y: usize, color: RgbColor);
+}
+
 #[derive(Clone)]
 pub struct RgbImage {
     pub buffer: Vec<RgbColor>,

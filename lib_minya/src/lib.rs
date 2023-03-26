@@ -1,5 +1,7 @@
+mod parallel_image;
 pub mod prelude;
 pub mod ray_tracer;
+
 use cgmath::{prelude::*, Vector3};
 
 use prelude::*;
@@ -12,12 +14,22 @@ pub struct Image {
     height: u32,
 }
 impl Image {
-    pub fn from_rgb_image(image: &RgbImage) -> Self {
-        let buffer = image.buffer.iter().flat_map(|c| c.as_rgba_u8()).collect();
+    pub fn from_parallel_image(image: &ParallelImage) -> Self {
+        let mut buffer = vec![0u8; 4 * image.width() * image.height()];
+        for x in 0..image.width() {
+            for y in 0..image.height() {
+                let c = image.get_xy(x, y).as_rgba_u8();
+                buffer[x * 4 + y * image.width() * 4] = c[0];
+                buffer[x * 4 + y * image.width() * 4 + 1] = c[1];
+                buffer[x * 4 + y * image.width() * 4 + 2] = c[2];
+                buffer[x * 4 + y * image.width() * 4 + 3] = c[3];
+            }
+        }
+
         Self {
             buffer,
-            width: image.width,
-            height: image.height,
+            width: image.width() as u32,
+            height: image.height() as u32,
         }
     }
     pub fn new(buffer: Vec<u8>, width: u32, height: u32) -> Self {

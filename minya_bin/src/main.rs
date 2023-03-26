@@ -93,31 +93,32 @@ impl Handler {
         let (image_sender, image_reciever) = channel();
         let info = ray_tracer.get_info();
         thread::spawn(move || {
-            let mut rgb_img = RgbImage::new_black(1000, 1000);
             let total_time = Instant::now();
             let mut num_samples = 1usize;
+            let mut par_img = ParallelImage::new_black(1000, 1000);
             loop {
                 if let Ok(message) = message_reciever.try_recv() {
                     match message {
                         Message::LoadScenario(scenario) => {
                             info!("loading scenario: {}", scenario);
-                            rgb_img = RgbImage::new_black(1000, 1000);
+                            par_img = ParallelImage::new_black(1000, 1000);
                             num_samples = 1;
                             ray_tracer.load_scenario(scenario);
                         }
-                        Message::SaveFile(path) => rgb_img.save_image(path, num_samples),
+                        Message::SaveFile(path) => par_img.save_image(path, num_samples),
                         Message::SetShader(s) => {
-                            rgb_img = RgbImage::new_black(1000, 1000);
+                            par_img = ParallelImage::new_black(1000, 1000);
                             ray_tracer.set_shader(s);
                         }
                     }
                 }
-                ray_tracer.trace_image(&mut rgb_img);
-                let mut img_send = rgb_img.clone() / num_samples as f32;
-                ray_tracer.post_process(&mut img_send);
+
+                ray_tracer.trace_image(&mut par_img);
+                let mut process_image = par_img.clone() / num_samples as f32;
+                ray_tracer.post_process(&mut process_image);
 
                 image_sender
-                    .send(Image::from_rgb_image(&img_send))
+                    .send(Image::from_parallel_image(&process_image))
                     .expect("channel failed");
                 let average_time_s = total_time.elapsed().as_secs_f32() / (num_samples) as f32;
                 info!(
