@@ -1,12 +1,10 @@
-mod my_image;
-
 pub use super::parallel_image::ParallelImage;
 pub(crate) use super::parallel_image::ParallelImagePart;
 pub use base_lib::{clamp, RgbColor};
 pub use cgmath;
 use cgmath::{num_traits::*, prelude::*, Point2, Point3, Vector3};
 pub use log::{error, info, warn};
-pub use my_image::RgbImage;
+
 use std::{cmp::PartialOrd, fmt::*, ops::Div, path::Path};
 pub fn rand_f32(min: f32, max: f32) -> f32 {
     rand::random::<f32>() * (max - min) + min

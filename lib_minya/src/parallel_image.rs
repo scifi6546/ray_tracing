@@ -17,16 +17,7 @@ impl ParallelImage {
             height,
         }
     }
-    pub fn from_img(image: &RgbImage) -> Self {
-        let mut self_img = Self::new_black(image.width() as usize, image.height() as usize);
-        for x in 0..image.width() {
-            for y in 0..image.height() {
-                let self_idx = self_img.get_idx(x as usize, y as usize);
-                self_img.buffer[self_idx] = image.get_xy(x, y);
-            }
-        }
-        self_img
-    }
+
     pub fn to_image(&self, num_samples: usize) -> image::RgbImage {
         let normalized_buffer: Vec<RgbColor> = self
             .buffer
@@ -58,19 +49,17 @@ impl ParallelImage {
         }
         return image;
     }
+    pub fn get_uv(&self, uv: Point2<f32>) -> RgbColor {
+        let x = ((uv.x * (self.width() as f32 - 1.0)) as usize).clamp(0, self.width() - 1);
+        let v = 1.0 - uv.y;
+        let y = ((v * (self.height() as f32 - 1.0)) as usize).clamp(0, self.height() - 1);
+        self.get_xy(x, y)
+    }
     pub fn save_image<P: AsRef<Path>>(&self, p: P, num_samples: usize) {
         let img = self.to_image(num_samples);
         img.save(p).expect("failed to save image");
     }
-    pub fn to_rgb_image(self) -> RgbImage {
-        let mut img = RgbImage::new_black(self.width as u32, self.height as u32);
-        for x in 0..self.width() {
-            for y in 0..self.height {
-                img.set_xy(x as u32, y as u32, self.get(x, y));
-            }
-        }
-        img
-    }
+
     pub fn new_black(width: usize, height: usize) -> Self {
         Self {
             buffer: vec![RgbColor::BLACK; width * height],

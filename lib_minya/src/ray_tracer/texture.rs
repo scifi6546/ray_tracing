@@ -182,18 +182,19 @@ impl Texture for Perlin {
 }
 #[derive(Clone)]
 pub struct ImageTexture {
-    texture: RgbImage,
+    texture: ParallelImage,
 }
 impl ImageTexture {
     pub fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
         let reader = image::open(path).expect("failed to read image").into_rgb8();
-        let mut texture = RgbImage::new_black(reader.width(), reader.height());
+        let mut texture =
+            ParallelImage::new_black(reader.width() as usize, reader.height() as usize);
         for x in 0..reader.width() {
             for y in 0..reader.height() {
                 let pixel = reader.get_pixel(x, y);
                 texture.set_xy(
-                    x,
-                    y,
+                    x as usize,
+                    y as usize,
                     RgbColor::new(
                         pixel.0[0] as f32 / 255.0,
                         pixel.0[1] as f32 / 255.0,
