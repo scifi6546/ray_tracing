@@ -1,5 +1,7 @@
-pub use super::parallel_image::ParallelImage;
-pub(crate) use super::parallel_image::ParallelImagePart;
+pub(crate) use super::parallel_image::{
+    image_channel, ImageReceiver, ImageSender, ParallelImagePart, RayTracerMessage,
+};
+pub use super::parallel_image::{ParallelImage, ParallelImageCollector};
 pub use base_lib::{clamp, RgbColor};
 pub use cgmath;
 use cgmath::{num_traits::*, prelude::*, Point2, Point3, Vector3};

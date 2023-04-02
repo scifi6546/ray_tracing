@@ -150,7 +150,7 @@ impl std::ops::Mul<Vector4<f32>> for Transform {
 }
 
 pub struct Object {
-    pub shape: Box<dyn Hittable>,
+    pub shape: Box<dyn Hittable + Send>,
     pub transform: Transform,
 }
 impl Clone for Object {
@@ -163,7 +163,7 @@ impl Clone for Object {
 }
 
 impl Object {
-    pub fn new(shape: Box<dyn Hittable>, transform: Transform) -> Self {
+    pub fn new(shape: Box<dyn Hittable + Send>, transform: Transform) -> Self {
         Self { shape, transform }
     }
 }

@@ -1,7 +1,15 @@
 use crate::prelude::*;
 use cgmath::{prelude::*, Point2};
-use miniquad::KeyCode::P;
-use std::path::Path;
+
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc, Mutex,
+    },
+};
+
 #[derive(Clone)]
 pub struct ParallelImage {
     buffer: Vec<RgbColor>,
@@ -97,6 +105,7 @@ impl ParallelImage {
         for slice in 0..num_parts {
             let slice_start = slice_width * slice;
             let slice_end = (slice_start + slice_width).min(self.width());
+            info!("slice start: {}, slice end: {}", slice_start, slice_end);
             let mut buffer = vec![];
             buffer.reserve((slice_end - slice_start) * self.height);
 
@@ -115,7 +124,35 @@ impl ParallelImage {
         }
         out_images
     }
-    pub(crate) fn join(mut images: Vec<ParallelImagePart>) -> Self {
+    fn join_container(mut images: Vec<&PartContainer>) -> Self {
+        assert!(!images.is_empty());
+        images.sort_by(|img1, img2| {
+            img1.image
+                .offset
+                .x
+                .partial_cmp(&img2.image.offset.x)
+                .unwrap()
+        });
+        let last = &images.last().as_ref().unwrap().image;
+        let width = last.offset.x + last.width;
+        let mut buffer = vec![RgbColor::BLACK; width * last.height];
+        for img in images.iter() {
+            let image = &img.image;
+            for x in 0..image.width {
+                for y in 0..image.height {
+                    let idx = Self::get_idx_no_self(width, x + img.image.offset.x, y);
+                    buffer[idx] = image.get_xy(x + img.image.offset.x, y + img.image.offset.y)
+                        / img.num_samples as f32;
+                }
+            }
+        }
+        Self {
+            buffer,
+            width,
+            height: last.height,
+        }
+    }
+    pub(crate) fn join(mut images: Vec<&ParallelImagePart>) -> Self {
         assert!(!images.is_empty());
         images.sort_by(|img1, img2| img1.offset.x.partial_cmp(&img2.offset.x).unwrap());
         let last = images.last().unwrap();
@@ -239,7 +276,8 @@ impl std::ops::Div<f32> for ParallelImage {
         }
     }
 }
-pub(crate) struct ParallelImagePart {
+#[derive(Clone)]
+pub struct ParallelImagePart {
     buffer: Vec<RgbColor>,
     width: usize,
     height: usize,
@@ -247,6 +285,15 @@ pub(crate) struct ParallelImagePart {
     offset: Point2<usize>,
 }
 impl ParallelImagePart {
+    pub(crate) fn width(&self) -> usize {
+        self.width
+    }
+    pub(crate) fn height(&self) -> usize {
+        self.height
+    }
+    pub(crate) fn offset(&self) -> Point2<usize> {
+        self.offset
+    }
     fn get_idx(&self, x: usize, y: usize) -> usize {
         assert!(x >= self.offset.x);
         if x >= self.offset.x + self.width {
@@ -260,6 +307,11 @@ impl ParallelImagePart {
         assert!(y >= 0);
         assert!(y < self.height);
         (x - self.offset.x) + y * self.width
+    }
+    pub(crate) fn set_black(&mut self) {
+        for pixel in self.buffer.iter_mut() {
+            *pixel = RgbColor::BLACK;
+        }
     }
     /// gets with offset
     pub(crate) fn get_xy(&self, x: usize, y: usize) -> RgbColor {
@@ -305,5 +357,125 @@ impl ParallelImagePart {
                 }
             }
         }
+    }
+}
+
+pub(crate) struct ImageReceiver {
+    receiver: Receiver<ParallelImagePart>,
+    num_items: Arc<Mutex<usize>>,
+}
+impl ImageSender {
+    const MAX_ITEMS: usize = 10;
+    pub(crate) fn send(&mut self, image: ParallelImagePart) {
+        let mut num_items = self.num_items.lock().expect("failed to get num items");
+        if *num_items < Self::MAX_ITEMS {
+            self.sender.send(image).expect("failed to send image");
+            *num_items += 1;
+        }
+    }
+}
+pub(crate) struct ImageSender {
+    sender: Sender<ParallelImagePart>,
+    num_items: Arc<Mutex<usize>>,
+}
+pub(crate) fn image_channel() -> (ImageSender, ImageReceiver) {
+    let (sender, receiver) = channel();
+    let num_items = Arc::new(Mutex::new(0));
+    (
+        ImageSender {
+            sender,
+            num_items: num_items.clone(),
+        },
+        ImageReceiver {
+            receiver,
+            num_items,
+        },
+    )
+}
+
+impl ImageReceiver {
+    pub(crate) fn try_recv(&mut self) -> Option<ParallelImagePart> {
+        let mut num_items = self.num_items.lock().expect("failed to get num items");
+        let parallel_image_opt = self.receiver.try_recv();
+        match parallel_image_opt {
+            Ok(img) => {
+                *num_items -= 1;
+                Some(img)
+            }
+            Err(e) => match e {
+                std::sync::mpsc::TryRecvError::Disconnected => panic!("channel disconnected"),
+                std::sync::mpsc::TryRecvError::Empty => None,
+            },
+        }
+    }
+}
+pub(crate) enum RayTracerMessage {
+    LoadScenario(String),
+}
+struct PartContainer {
+    image: ParallelImagePart,
+    num_samples: usize,
+}
+pub struct ParallelImageCollector {
+    receivers: Vec<ImageReceiver>,
+    message_senders: Vec<Sender<RayTracerMessage>>,
+    images: HashMap<Point2<usize>, PartContainer>,
+}
+impl ParallelImageCollector {
+    pub(crate) fn new(
+        receivers: Vec<ImageReceiver>,
+        message_senders: Vec<Sender<RayTracerMessage>>,
+    ) -> Self {
+        Self {
+            receivers,
+            message_senders,
+            images: HashMap::new(),
+        }
+    }
+    pub(crate) fn clear(&mut self) {
+        self.images.clear();
+    }
+    pub fn receive(&mut self) -> Option<ParallelImage> {
+        for recv in self.receivers.iter_mut() {
+            loop {
+                if let Some(image) = recv.try_recv() {
+                    let num_samples = self
+                        .images
+                        .get(&image.offset())
+                        .map(|img| img.num_samples + 1)
+                        .unwrap_or(1);
+
+                    self.images
+                        .insert(image.offset, PartContainer { image, num_samples });
+                } else {
+                    break;
+                }
+            }
+        }
+        if self.images.len() >= 1 {
+            Some(ParallelImage::join_container(
+                self.images.iter().map(|(k, v)| v).collect(),
+            ))
+        } else {
+            None
+        }
+    }
+    pub fn load_scenario(&mut self, name: String) {
+        self.clear();
+        for sender in self.message_senders.iter() {
+            sender
+                .send(RayTracerMessage::LoadScenario(name.clone()))
+                .expect("failed to send")
+        }
+    }
+    pub fn save_file<P: AsRef<Path>>(&mut self, p: P) {
+        if let Some(img) = self.receive() {
+            img.save_image(p, 1)
+        } else {
+            error!("no images yet")
+        }
+    }
+    pub fn set_shader(&mut self, s: super::ray_tracer::CurrentShader) {
+        todo!()
     }
 }

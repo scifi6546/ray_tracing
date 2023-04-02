@@ -33,8 +33,14 @@ use pdf::{CosinePdf, LightPdf, PdfList, ScatterRecord};
 use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, SolidColor, Texture};
 pub use world::{ScenarioCtor, World};
 
-use std::collections::HashMap;
-use std::thread;
+use std::sync::RwLock;
+use std::thread::Scope;
+use std::{
+    collections::HashMap,
+    sync::mpsc::{channel, Receiver},
+    thread,
+    thread::Builder as ThreadBuilder,
+};
 
 pub fn rand_unit_vec() -> Vector3<f32> {
     loop {
@@ -67,6 +73,7 @@ pub(crate) struct RayColorOutput {
 pub(crate) trait Shader {
     fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RayColorOutput;
 }
+#[derive(Clone)]
 pub struct LightMapShader {}
 impl Shader for LightMapShader {
     fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RayColorOutput {
@@ -116,6 +123,7 @@ impl Shader for LightMapShader {
         }
     }
 }
+#[derive(Clone)]
 pub struct DiffuseShader {}
 impl Shader for DiffuseShader {
     fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RayColorOutput {
@@ -155,6 +163,7 @@ impl Shader for DiffuseShader {
         }
     }
 }
+#[derive(Clone)]
 pub struct RayTracingShader {}
 impl Shader for RayTracingShader {
     fn ray_color(&self, ray: Ray, world: &World, depth: u32) -> RayColorOutput {
@@ -355,6 +364,22 @@ pub struct RayTracer {
     diffuse_shader: DiffuseShader,
     light_map_shader: LightMapShader,
 }
+impl Clone for RayTracer {
+    fn clone(&self) -> Self {
+        Self {
+            scenarios: self
+                .scenarios
+                .iter()
+                .map(|(k, v)| (k.clone(), dyn_clone::clone_box(v.as_ref())))
+                .collect(),
+            world: self.world.clone(),
+            current_shader: self.current_shader.clone(),
+            ray_tracing_shader: self.ray_tracing_shader.clone(),
+            diffuse_shader: self.diffuse_shader.clone(),
+            light_map_shader: self.light_map_shader.clone(),
+        }
+    }
+}
 pub struct RayTracerInfo {
     pub scenarios: Vec<String>,
 }
@@ -409,13 +434,21 @@ impl RayTracer {
     /// Does one ray tracing step and saves result to image
     pub fn trace_image(&self, rgb_img: &mut ParallelImage) {
         let mut imgs = rgb_img.split(1);
-        let image_width = rgb_img.width();
-        let image_height = rgb_img.height();
+        self.trace_part(&mut imgs[0]);
 
-        for x in 0..image_width {
-            for y in 0..image_height {
-                let u = (x as f32 + rand_f32(0.0, 1.0)) / (image_width as f32 - 1.0);
-                let v = (y as f32 + rand_f32(0.0, 1.0)) / (image_height as f32 - 1.0);
+        *rgb_img = ParallelImage::join(imgs.iter().collect());
+    }
+    fn trace_part(&self, part: &mut ParallelImagePart) {
+        let image_width = part.width();
+        let image_height = part.height();
+        let total_width = part.total_width();
+        let total_height = part.total_height();
+        let offset = part.offset();
+        let mut total_color = RgbColor::BLACK;
+        for x in offset.x..offset.x + image_width {
+            for y in offset.y..offset.y + image_height {
+                let u = (x as f32 + rand_f32(0.0, 1.0)) / (total_width as f32 - 1.0);
+                let v = (y as f32 + rand_f32(0.0, 1.0)) / (total_height as f32 - 1.0);
                 let r = self.world.camera.get_ray(u, v);
                 let c = match self.current_shader {
                     CurrentShader::Diffuse => self.diffuse_shader.ray_color(r, &self.world, 50),
@@ -426,12 +459,12 @@ impl RayTracer {
                 };
 
                 if c.color.is_nan() {
-                    //error!("ray color retuned NaN");
+                    error!("ray color retuned NaN");
                 }
-                imgs[0].add_xy(x, y, c.color);
+                total_color += c.color;
+                part.add_xy(x, y, c.color);
             }
         }
-        *rgb_img = ParallelImage::join(imgs);
     }
     /// performs post processing step on image
     pub fn post_process(&self, rgb_img: &mut ParallelImage) {
@@ -446,5 +479,37 @@ impl RayTracer {
         self.post_process(&mut post_process);
 
         *parallel_image = post_process;
+    }
+    pub fn threaded_render(self, mut image: ParallelImage) -> ParallelImageCollector {
+        //let (sender, receiver) = channel();
+
+        let num_threads = 8;
+        let mut parts = image.split(num_threads);
+        let mut receivers = vec![];
+        let mut senders = vec![];
+        for part in parts.drain(..) {
+            let (mut sender, receiver) = image_channel();
+            let mut self_clone = self.clone();
+            let (message_sender, message_receiver) = channel();
+            senders.push(message_sender);
+            thread::spawn(move || {
+                let mut part = part;
+                loop {
+                    for msg in message_receiver.try_iter() {
+                        match msg {
+                            RayTracerMessage::LoadScenario(name) => {
+                                self_clone.load_scenario(name);
+                                part.set_black()
+                            }
+                        };
+                    }
+                    self_clone.trace_part(&mut part);
+
+                    sender.send(part.clone());
+                }
+            });
+            receivers.push(receiver);
+        }
+        ParallelImageCollector::new(receivers, senders)
     }
 }

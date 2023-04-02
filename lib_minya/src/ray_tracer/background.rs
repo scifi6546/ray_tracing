@@ -2,10 +2,12 @@ use super::{sun::Sun, Ray};
 use crate::prelude::*;
 use cgmath::Vector3;
 use cgmath::{num_traits::FloatConst, prelude::*};
+use dyn_clone::DynClone;
 
-pub trait Background: Send {
+pub trait Background: Send + DynClone {
     fn color(&self, ray: Ray) -> RgbColor;
 }
+#[derive(Clone)]
 pub struct Sky {
     pub intensity: f32,
 }
@@ -82,6 +84,7 @@ impl Background for SunSky {
         }
     }
 }
+#[derive(Clone)]
 pub struct ConstantColor {
     pub color: RgbColor,
 }

@@ -30,7 +30,7 @@ mod world_prelude {
 }
 use crate::prelude::*;
 use cgmath::Point3;
-use dyn_clone::clone_box;
+use dyn_clone::{clone_box, DynClone};
 
 pub use cornell_smoke::cornell_smoke;
 pub use easy_cornell_box::easy_cornell_box;
@@ -45,7 +45,7 @@ pub use two_spheres::two_spheres;
 pub struct WorldInfo {
     pub objects: Vec<Object>,
     pub lights: Vec<Object>,
-    pub background: Box<dyn Background>,
+    pub background: Box<dyn Background + Send>,
     pub camera: Camera,
     pub sun: Option<Sun>,
 }
@@ -64,12 +64,24 @@ impl WorldInfo {
         }
     }
 }
+
 pub struct World {
     pub bvh: BvhTree,
     pub lights: Vec<Object>,
-    pub background: Box<dyn Background>,
+    pub background: Box<dyn Background + Send>,
     pub camera: Camera,
     pub sun: Option<Sun>,
+}
+impl Clone for World {
+    fn clone(&self) -> Self {
+        Self {
+            bvh: self.bvh.clone(),
+            lights: self.lights.clone(),
+            background: clone_box(&*self.background),
+            camera: self.camera.clone(),
+            sun: self.sun.clone(),
+        }
+    }
 }
 impl World {
     pub fn from_baselib_scene(scene: &base_lib::Scene) -> Self {
@@ -77,7 +89,7 @@ impl World {
             .objects
             .iter()
             .map(|obj| {
-                let material: Box<dyn Material> = match &obj.material {
+                let material: Box<dyn Material + Send> = match &obj.material {
                     base_lib::Material::Light(tex) => Box::new(DiffuseLight {
                         emit: match tex {
                             base_lib::Texture::ConstantColor(color) => {
@@ -93,7 +105,7 @@ impl World {
                         },
                     }),
                 };
-                let obj_out: Box<dyn Hittable> = match obj.shape {
+                let obj_out: Box<dyn Hittable + Send> = match obj.shape {
                     base_lib::Shape::Sphere { radius, origin } => Box::new(Sphere {
                         radius,
                         origin,
@@ -167,7 +179,7 @@ impl World {
                     obj_out,
                 )
             })
-            .collect::<Vec<(bool, Box<dyn Hittable>)>>();
+            .collect::<Vec<(bool, Box<dyn Hittable + Send>)>>();
         let lights = objects_temp
             .iter()
             .filter(|(is_light, _obj)| *is_light)
@@ -177,7 +189,7 @@ impl World {
             .iter()
             .map(|(_is_light, obj)| Object::new(clone_box(obj.deref()), Transform::identity()))
             .collect::<_>();
-        let background: Box<dyn Background> = match scene.background {
+        let background: Box<dyn Background + Send> = match scene.background {
             base_lib::Background::Sky => Box::new(Sky::default()),
             base_lib::Background::ConstantColor(color) => Box::new(ConstantColor { color }),
         };
@@ -218,14 +230,16 @@ impl World {
         self.bvh.hit(ray, t_min, t_max)
     }
 }
-pub trait ScenarioCtor: Send {
+pub trait ScenarioCtor: Send + DynClone {
     fn build(&self) -> World;
     fn name(&self) -> String;
 }
+#[derive(Clone)]
 pub struct ScenarioFn {
     f: fn() -> WorldInfo,
     name: String,
 }
+
 impl ScenarioCtor for ScenarioFn {
     fn build(&self) -> World {
         (self.f)().build_world()
@@ -235,6 +249,7 @@ impl ScenarioCtor for ScenarioFn {
         self.name.clone()
     }
 }
+#[derive(Clone)]
 struct BaselibScenario {
     ctor: fn() -> base_lib::Scene,
     name: String,

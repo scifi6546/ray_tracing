@@ -52,6 +52,7 @@ impl Aabb {
             && self.maximum.z >= point.z
     }
 }
+#[derive(Clone)]
 pub struct BvhTree {
     objects: Vec<Object>,
     root_node: BvhTreeNode,
@@ -76,6 +77,7 @@ impl BvhTree {
         self.root_node.bounding_box(&self.objects, time_0, time_1)
     }
 }
+#[derive(Clone)]
 enum BvhTreeNode {
     None,
     Child {
