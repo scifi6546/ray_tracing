@@ -4,7 +4,7 @@ use cgmath::{InnerSpace, Point2, Point3, Vector3};
 use dyn_clone::clone_box;
 use std::ops::Deref;
 
-pub trait Texture: Send + dyn_clone::DynClone {
+pub trait Texture: Send + Sync + dyn_clone::DynClone {
     fn name(&self) -> &'static str;
     fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor;
 }

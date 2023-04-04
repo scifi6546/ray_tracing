@@ -10,7 +10,7 @@ use crate::prelude::*;
 use std::rc::Rc;
 
 //pub type PDF = f32;
-pub trait Material: Send + DynClone {
+pub trait Material: Send + Sync + DynClone {
     fn name(&self) -> &'static str;
     fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord>;
     fn scattering_pdf(&self, ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray)

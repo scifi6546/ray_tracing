@@ -230,7 +230,7 @@ impl World {
         self.bvh.hit(ray, t_min, t_max)
     }
 }
-pub trait ScenarioCtor: Send + DynClone {
+pub trait ScenarioCtor: Send + Sync + DynClone {
     fn build(&self) -> World;
     fn name(&self) -> String;
 }

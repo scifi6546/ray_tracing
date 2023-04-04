@@ -1,12 +1,13 @@
 use crate::prelude::*;
 use cgmath::{prelude::*, Point2};
 
+use crate::ray_tracer::RayTracer;
 use std::{
     collections::HashMap,
     path::Path,
     sync::{
         mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
+        Arc, Mutex, RwLock,
     },
 };
 
@@ -420,16 +421,19 @@ pub struct ParallelImageCollector {
     receivers: Vec<ImageReceiver>,
     message_senders: Vec<Sender<RayTracerMessage>>,
     images: HashMap<Point2<usize>, PartContainer>,
+    ray_tracer: Arc<RwLock<RayTracer>>,
 }
 impl ParallelImageCollector {
     pub(crate) fn new(
         receivers: Vec<ImageReceiver>,
         message_senders: Vec<Sender<RayTracerMessage>>,
+        ray_tracer: Arc<RwLock<RayTracer>>,
     ) -> Self {
         Self {
             receivers,
             message_senders,
             images: HashMap::new(),
+            ray_tracer,
         }
     }
     pub(crate) fn clear(&mut self) {
@@ -462,6 +466,10 @@ impl ParallelImageCollector {
     }
     pub fn load_scenario(&mut self, name: String) {
         self.clear();
+        {
+            let mut write_lock = self.ray_tracer.write().expect("failed to read");
+            write_lock.load_scenario(name.clone());
+        }
         for sender in self.message_senders.iter() {
             sender
                 .send(RayTracerMessage::LoadScenario(name.clone()))

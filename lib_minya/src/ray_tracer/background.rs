@@ -4,7 +4,7 @@ use cgmath::Vector3;
 use cgmath::{num_traits::FloatConst, prelude::*};
 use dyn_clone::DynClone;
 
-pub trait Background: Send + DynClone {
+pub trait Background: Send + Sync + DynClone {
     fn color(&self, ray: Ray) -> RgbColor;
 }
 #[derive(Clone)]

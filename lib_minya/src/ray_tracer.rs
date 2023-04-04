@@ -33,13 +33,14 @@ use pdf::{CosinePdf, LightPdf, PdfList, ScatterRecord};
 use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, SolidColor, Texture};
 pub use world::{ScenarioCtor, World};
 
-use std::sync::RwLock;
-use std::thread::Scope;
 use std::{
     collections::HashMap,
-    sync::mpsc::{channel, Receiver},
+    sync::{
+        mpsc::{channel, Receiver},
+        Arc, RwLock,
+    },
     thread,
-    thread::Builder as ThreadBuilder,
+    thread::{Builder as ThreadBuilder, Scope},
 };
 
 pub fn rand_unit_vec() -> Vector3<f32> {
@@ -481,35 +482,37 @@ impl RayTracer {
         *parallel_image = post_process;
     }
     pub fn threaded_render(self, mut image: ParallelImage) -> ParallelImageCollector {
-        //let (sender, receiver) = channel();
-
         let num_threads = 8;
         let mut parts = image.split(num_threads);
         let mut receivers = vec![];
         let mut senders = vec![];
+        let self_rw_lock = Arc::new(RwLock::new(self.clone()));
         for part in parts.drain(..) {
             let (mut sender, receiver) = image_channel();
-            let mut self_clone = self.clone();
             let (message_sender, message_receiver) = channel();
             senders.push(message_sender);
+            let self_rw_lock = self_rw_lock.clone();
             thread::spawn(move || {
                 let mut part = part;
+
                 loop {
                     for msg in message_receiver.try_iter() {
                         match msg {
-                            RayTracerMessage::LoadScenario(name) => {
-                                self_clone.load_scenario(name);
-                                part.set_black()
-                            }
+                            RayTracerMessage::LoadScenario(name) => part.set_black(),
                         };
                     }
-                    self_clone.trace_part(&mut part);
+                    {
+                        let self_read_res = self_rw_lock.read().expect("failed to get lock");
+                        self_read_res.trace_part(&mut part);
+                        sender.send(part.clone());
+                    }
+                    //self_clone.trace_part(&mut part);
 
-                    sender.send(part.clone());
+                    //sender.send(part.clone());
                 }
             });
             receivers.push(receiver);
         }
-        ParallelImageCollector::new(receivers, senders)
+        ParallelImageCollector::new(receivers, senders, self_rw_lock)
     }
 }

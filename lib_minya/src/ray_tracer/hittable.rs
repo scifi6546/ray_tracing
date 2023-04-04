@@ -22,7 +22,7 @@ pub use voxel_world::CubeWorld;
 pub mod hittable_objects {
     pub use super::rect::{XYRect, XZRect, YZRect};
 }
-pub trait Hittable: Send + DynClone {
+pub trait Hittable: Send + Sync + DynClone {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
     fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb>;
     /// probability of hitting the box for given ray going towards point
