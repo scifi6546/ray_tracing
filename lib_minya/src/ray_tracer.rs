@@ -481,7 +481,24 @@ impl RayTracer {
 
         *parallel_image = post_process;
     }
+
     pub fn threaded_render(self, mut image: ParallelImage) -> ParallelImageCollector {
+        fn loop_try_get(lock: &RwLock<RayTracer>) -> std::sync::RwLockReadGuard<RayTracer> {
+            loop {
+                let t = lock.try_read();
+                match t {
+                    Ok(t) => return t,
+                    Err(e) => match e {
+                        std::sync::TryLockError::Poisoned(_) => {
+                            panic!()
+                        }
+                        std::sync::TryLockError::WouldBlock => {
+                            thread::sleep(std::time::Duration::from_millis(10))
+                        }
+                    },
+                }
+            }
+        }
         let num_threads = 8;
         let mut parts = image.split(num_threads);
         let mut receivers = vec![];
@@ -502,7 +519,8 @@ impl RayTracer {
                         };
                     }
                     {
-                        let self_read_res = self_rw_lock.read().expect("failed to get lock");
+                        let self_read_res = loop_try_get(&self_rw_lock);
+                        //let self_read_res = self_rw_lock.read().expect("failed to get lock");
                         self_read_res.trace_part(&mut part);
                         sender.send(part.clone());
                     }
