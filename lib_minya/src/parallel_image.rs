@@ -106,7 +106,7 @@ impl ParallelImage {
         for slice in 0..num_parts {
             let slice_start = slice_width * slice;
             let slice_end = (slice_start + slice_width).min(self.width());
-            info!("slice start: {}, slice end: {}", slice_start, slice_end);
+
             let mut buffer = vec![];
             buffer.reserve((slice_end - slice_start) * self.height);
 

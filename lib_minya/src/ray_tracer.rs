@@ -493,7 +493,7 @@ impl RayTracer {
                             panic!()
                         }
                         std::sync::TryLockError::WouldBlock => {
-                            thread::sleep(std::time::Duration::from_millis(10))
+                            thread::sleep(std::time::Duration::from_millis(1))
                         }
                     },
                 }
@@ -520,13 +520,9 @@ impl RayTracer {
                     }
                     {
                         let self_read_res = loop_try_get(&self_rw_lock);
-                        //let self_read_res = self_rw_lock.read().expect("failed to get lock");
                         self_read_res.trace_part(&mut part);
                         sender.send(part.clone());
                     }
-                    //self_clone.trace_part(&mut part);
-
-                    //sender.send(part.clone());
                 }
             });
             receivers.push(receiver);

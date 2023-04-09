@@ -5,6 +5,7 @@ use super::{
 use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
 use rand::prelude::*;
+use std::collections::{HashMap, HashSet};
 
 pub fn load_vox() -> WorldInfo {
     const BLOCK_X: i32 = 20;
@@ -13,7 +14,7 @@ pub fn load_vox() -> WorldInfo {
 
     let look_at = Point3::new(BLOCK_X as f32 / 2.0, 10.0, BLOCK_Z as f32 / 2.0);
 
-    let origin = Point3::new(-60.0f32, 80.0, -60.0);
+    let origin = Point3::new(30.0f32, 10.0, -60.0);
 
     let fov = 40.0;
     let focus_distance = {
@@ -23,39 +24,52 @@ pub fn load_vox() -> WorldInfo {
     let light = Object::new(
         Box::new(Sphere {
             radius: 1.0,
-            origin: Point3::new(10.0, 10.0, 0.0),
+            origin: Point3::new(-10.0, 10.0, 0.0),
             material: Box::new(DiffuseLight {
                 emit: Box::new(SolidColor {
-                    color: RgbColor::WHITE,
+                    color: 200000000000.0 * RgbColor::WHITE,
                 }),
             }),
         }),
         Transform::identity(),
     );
-
-    let mut world = CubeWorld::new(
-        vec![
-            CubeMaterial::new(RgbColor::new(0.2, 0.05, 0.05)),
-            CubeMaterial::new(RgbColor::new(0.65, 0.8, 0.05)),
-            CubeMaterial::new(RgbColor::new(0.0, 0.0, 0.5)),
-        ],
-        vec![],
-        BLOCK_X,
-        BLOCK_Y,
-        BLOCK_Z,
-    );
     let files = dot_vox::load("voxel_assets/building.vox").expect("voxel files");
+    let mut used_indices: HashSet<u8> = HashSet::new();
     for m in files.models.iter() {
         for v in m.voxels.iter() {
+            used_indices.insert(v.i);
+        }
+    }
+    let mut materials: Vec<CubeMaterial> = Vec::new();
+    let mut index_to_material: HashMap<u8, usize> = HashMap::new();
+    for idx in used_indices.iter() {
+        let color_u32 = files.palette[*idx as usize];
+        let red = ((color_u32 & 0x00ff_00_00u32) >> 16) as f32 / 255.0;
+        let green = ((color_u32 & 0x00_00_ff_00u32) >> 8) as f32 / 255.0;
+        let blue = (color_u32 & 0x00_00_00_ffu32) as f32 / 255.0;
+        let color = 0.1 * RgbColor::new(red, green, blue);
+
+        let new_idx = materials.len();
+        materials.push(CubeMaterial::new(color));
+        index_to_material.insert(*idx, new_idx);
+    }
+
+    let mut world = CubeWorld::new(materials, vec![], BLOCK_X, BLOCK_Y, BLOCK_Z);
+
+    let mut used_cube_mat_indices = HashSet::new();
+    for m in files.models.iter() {
+        for v in m.voxels.iter() {
+            let index = index_to_material[&v.i] as u16;
+            used_cube_mat_indices.insert(index);
+
             world.update(
                 v.x as isize,
                 v.z as isize,
                 v.y as isize,
-                CubeMaterialIndex::new_solid(0),
+                CubeMaterialIndex::new_solid(index),
             )
         }
     }
-    let sun_radius = 10.0 * f32::PI() / 180.0;
 
     WorldInfo {
         objects: vec![
@@ -63,7 +77,7 @@ pub fn load_vox() -> WorldInfo {
             light.clone(),
         ],
         lights: vec![light],
-        background: Box::new(Sky { intensity: 0.2 }),
+        background: Box::new(Sky { intensity: 0.0 }),
         camera: Camera::new(
             1.0,
             fov,
