@@ -2,6 +2,7 @@ use super::{hittable::Hittable, World};
 use crate::prelude::*;
 
 use crate::ray_tracer::hittable::HitRecord;
+use crate::ray_tracer::rand_unit_vec;
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
 use miniquad::BlendFactor::Value;
 use std::{fmt, rc::Rc};
@@ -111,7 +112,7 @@ impl SkyPdf {}
 impl Pdf for SkyPdf {
     fn value(&self, direction: &Ray, world: &World) -> Option<f32> {
         if world.sun.is_none() {
-            None
+            Some(1.0)
         } else {
             let sun = world.sun.unwrap();
             let sun_vector = sun.make_direction_vector();
@@ -141,32 +142,34 @@ impl Pdf for SkyPdf {
             (rand_r.sqrt(), rand_theta)
         }
         if world.sun.is_none() {
-            return None;
+            let rand_vector = rand_unit_vec();
+            Some((rand_vector, 4.0 * f32::PI()))
+        } else {
+            let sun = world.sun.unwrap();
+
+            let (r, theta) = gen_unit_circle();
+
+            let r = r * sun.radius;
+            let sun_vector = sun.make_direction_vector();
+            let cross_vector = sun_vector.cross(Vector3::new(0.0, 0.0, 1.0));
+            if cross_vector.magnitude() < 0.01 {
+                panic!()
+            }
+            let k = cross_vector.normalize();
+            let v_rot = r.cos() * sun_vector
+                + (k.cross(sun_vector)) * theta.sin()
+                + k * (k.dot(sun_vector)) * (1.0 - theta.cos());
+
+            let area = f32::PI() * sun.radius.powi(2);
+            if rand_u32(0, 1000) == 0 {
+                // info!("area: {}, v_rot: {:#?}, k: {:#?}", area, v_rot, k);
+            }
+            let area_sphere = 4.0 * f32::PI();
+
+            // rotation vector, https://en.wikipedia.org/wiki/Rodrigues'_rotation_formula
+            //
+            Some((v_rot, area / area_sphere))
         }
-        let sun = world.sun.unwrap();
-
-        let (r, theta) = gen_unit_circle();
-
-        let r = r * sun.radius;
-        let sun_vector = sun.make_direction_vector();
-        let cross_vector = sun_vector.cross(Vector3::new(0.0, 0.0, 1.0));
-        if cross_vector.magnitude() < 0.01 {
-            panic!()
-        }
-        let k = cross_vector.normalize();
-        let v_rot = r.cos() * sun_vector
-            + (k.cross(sun_vector)) * theta.sin()
-            + k * (k.dot(sun_vector)) * (1.0 - theta.cos());
-
-        let area = f32::PI() * sun.radius.powi(2);
-        if rand_u32(0, 1000) == 0 {
-            // info!("area: {}, v_rot: {:#?}, k: {:#?}", area, v_rot, k);
-        }
-        let area_sphere = 4.0 * f32::PI();
-
-        // rotation vector, https://en.wikipedia.org/wiki/Rodrigues'_rotation_formula
-        //
-        Some((v_rot, area / area_sphere))
     }
 }
 pub struct PdfList {

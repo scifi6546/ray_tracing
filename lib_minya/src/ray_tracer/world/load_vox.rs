@@ -14,7 +14,7 @@ pub fn load_vox() -> WorldInfo {
 
     let look_at = Point3::new(BLOCK_X as f32 / 2.0, 10.0, BLOCK_Z as f32 / 2.0);
 
-    let origin = Point3::new(30.0f32, 10.0, -60.0);
+    let origin = Point3::new(50.0f32, 10.0, 40.0);
 
     let fov = 40.0;
     let focus_distance = {
@@ -27,7 +27,7 @@ pub fn load_vox() -> WorldInfo {
             origin: Point3::new(-10.0, 10.0, 0.0),
             material: Box::new(DiffuseLight {
                 emit: Box::new(SolidColor {
-                    color: 200000000000.0 * RgbColor::WHITE,
+                    color: 0.0 * RgbColor::WHITE,
                 }),
             }),
         }),
@@ -47,7 +47,7 @@ pub fn load_vox() -> WorldInfo {
         let red = ((color_u32 & 0x00ff_00_00u32) >> 16) as f32 / 255.0;
         let green = ((color_u32 & 0x00_00_ff_00u32) >> 8) as f32 / 255.0;
         let blue = (color_u32 & 0x00_00_00_ffu32) as f32 / 255.0;
-        let color = 0.1 * RgbColor::new(red, green, blue);
+        let color = RgbColor::new(red, green, blue);
 
         let new_idx = materials.len();
         materials.push(CubeMaterial::new(color));
@@ -72,12 +72,9 @@ pub fn load_vox() -> WorldInfo {
     }
 
     WorldInfo {
-        objects: vec![
-            Object::new(Box::new(world), Transform::identity()),
-            light.clone(),
-        ],
-        lights: vec![light],
-        background: Box::new(Sky { intensity: 0.0 }),
+        objects: vec![Object::new(Box::new(world), Transform::identity())],
+        lights: vec![],
+        background: Box::new(Sky { intensity: 0.4 }),
         camera: Camera::new(
             1.0,
             fov,

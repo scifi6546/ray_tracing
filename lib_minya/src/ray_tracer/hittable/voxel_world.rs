@@ -6,6 +6,8 @@ use crate::{prelude::*, ray_tracer::Material};
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 use rand::prelude::*;
 mod perlin;
+mod voxel_model;
+
 pub use perlin::{PerlinBuilder, PerlinNoise};
 use std::ops::Neg;
 
