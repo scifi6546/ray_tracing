@@ -10,6 +10,7 @@ mod voxel_model;
 
 pub use perlin::{PerlinBuilder, PerlinNoise};
 use std::ops::Neg;
+pub use voxel_model::VoxelModel;
 
 enum HitResult<T: Solid> {
     Hit {
@@ -238,6 +239,9 @@ impl CubeMaterialIndex {
             Self::Solid { index } => *index != MaterialIndex::MAX,
         }
     }
+    pub fn is_air(&self) -> bool {
+        !self.is_solid()
+    }
 }
 
 impl Solid for CubeMaterialIndex {
@@ -266,6 +270,12 @@ impl Solid for CubeMaterialIndex {
 #[derive(Clone)]
 pub struct CubeMaterial {
     material: Lambertian,
+    color: RgbColor,
+}
+impl CubeMaterial {
+    pub fn distance(&self, other: &Self) -> f32 {
+        self.color.distance(&other.color)
+    }
 }
 impl Material for CubeMaterial {
     fn name(&self) -> &'static str {
@@ -292,6 +302,7 @@ impl CubeMaterial {
             material: Lambertian {
                 albedo: Box::new(SolidColor { color }),
             },
+            color,
         }
     }
 }
@@ -345,6 +356,14 @@ impl CubeWorld {
                 }
             }
         };
+    }
+    pub fn in_world(&self, x: isize, y: isize, z: isize) -> bool {
+        x >= 0
+            && x < self.x as isize
+            && y >= 0
+            && y < self.y as isize
+            && z >= 0
+            && z < self.z as isize
     }
     fn check_x(
         &self,

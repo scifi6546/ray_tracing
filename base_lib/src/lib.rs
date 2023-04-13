@@ -330,6 +330,12 @@ impl RgbColor {
         green: 1.0,
         blue: 1.0,
     };
+    pub fn distance(&self, other: &Self) -> f32 {
+        ((self.red - other.red).powi(2)
+            + (self.green - other.green).powi(2)
+            + (self.blue - other.blue).powi(2))
+        .sqrt()
+    }
     pub fn magnitude_squared(&self) -> f32 {
         self.red.powi(2) + self.green.powi(2) + self.blue.powi(2)
     }

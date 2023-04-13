@@ -9,6 +9,7 @@ mod easy_scene;
 mod empty_scene;
 mod light_demo;
 mod load_vox;
+mod load_vox_model;
 mod one_sphere;
 mod random_scene;
 mod translucent_cubeworld;
@@ -24,7 +25,7 @@ use super::{
 mod world_prelude {
     pub use super::super::background::{ConstantColor as ConstantColorBackground, Sky, SunSky};
     pub use super::super::hittable::voxel_world::{
-        CubeMaterial, CubeMaterialIndex, PerlinBuilder, PerlinNoise,
+        CubeMaterial, CubeMaterialIndex, PerlinBuilder, PerlinNoise, VoxelModel,
     };
     pub use super::super::sun::Sun;
 }
@@ -349,6 +350,10 @@ pub fn get_scenarios() -> Scenarios {
             name: "Load Voxel".to_string(),
             f: load_vox::load_vox,
         }),
+        Box::new(ScenarioFn {
+            name: "Load Voxel Model".to_string(),
+            f: load_vox_model::load_vox_model,
+        }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
         .drain(..)
@@ -363,6 +368,6 @@ pub fn get_scenarios() -> Scenarios {
     }
     Scenarios {
         items: map,
-        default: "Load Voxel".to_string(),
+        default: "Load Voxel Model".to_string(),
     }
 }
