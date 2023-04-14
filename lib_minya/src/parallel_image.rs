@@ -305,7 +305,7 @@ impl ParallelImagePart {
         }
 
         assert!(x < self.offset.x + self.width);
-        assert!(y >= 0);
+
         assert!(y < self.height);
         (x - self.offset.x) + y * self.width
     }

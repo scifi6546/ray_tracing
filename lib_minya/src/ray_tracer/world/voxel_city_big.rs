@@ -43,12 +43,6 @@ pub fn voxel_city_big() -> WorldInfo {
         Transform::identity(),
     );
 
-    fn height(x: isize, z: isize) -> isize {
-        let center = Point2::new(BLOCK_X as f32 / 2.0, BLOCK_Z as f32 / 2.0);
-        let radius = center.distance(Point2::new(x as f32, z as f32));
-        let h = (-radius / 10.0).exp() * 30.0;
-        h.max(20.0).min(BLOCK_Y as f32) as isize
-    }
     let mut world = CubeWorld::new(
         vec![
             CubeMaterial::new(RgbColor::new(0.2, 0.05, 0.05)),
@@ -64,8 +58,6 @@ pub fn voxel_city_big() -> WorldInfo {
 
     for x in 0..BLOCK_X as isize {
         for z in 0..BLOCK_Z as isize {
-            let h = height(x, z);
-
             let rand_sample = noise
                 .get(
                     x as f32 / (BLOCK_X as f32 - 1.0),

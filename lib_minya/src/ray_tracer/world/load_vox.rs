@@ -21,18 +21,7 @@ pub fn load_vox() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-    let light = Object::new(
-        Box::new(Sphere {
-            radius: 1.0,
-            origin: Point3::new(-10.0, 10.0, 0.0),
-            material: Box::new(DiffuseLight {
-                emit: Box::new(SolidColor {
-                    color: 0.0 * RgbColor::WHITE,
-                }),
-            }),
-        }),
-        Transform::identity(),
-    );
+
     let files = dot_vox::load("voxel_assets/building.vox").expect("voxel files");
     let mut used_indices: HashSet<u8> = HashSet::new();
     for m in files.models.iter() {

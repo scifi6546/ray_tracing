@@ -1,5 +1,5 @@
 use super::{
-    pdf::{CosinePdf, LambertianPDF, LightPdf, PdfList, SkyPdf},
+    pdf::{CosinePdf, LambertianPDF, LightPdf, SkyPdf},
     rand_unit_vec, reflect, HitRay, HitRecord, Ray, RgbColor, ScatterRecord, Texture,
 };
 use cgmath::{num_traits::*, InnerSpace, Vector3};

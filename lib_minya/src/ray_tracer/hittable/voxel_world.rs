@@ -159,13 +159,15 @@ impl<T: Clone + Solid> Voxels<T> {
                 next_dist = next_dist.map(|f| f - next_dist.y);
                 next_dist.y += step_size.y;
                 Vector3::new(0.0, step_dir.y.neg(), 0.0).normalize()
-            } else {
+            } else if min_idx == 2 {
                 //min_idx = 2
                 voxel_pos.z += step_dir.z;
                 current_pos += direction * next_dist.z;
                 next_dist = next_dist.map(|f| f - next_dist.z);
                 next_dist.z += step_size.z;
                 Vector3::new(0.0, 0.0, step_dir.z.neg()).normalize()
+            } else {
+                panic!("invalid min_idx")
             };
             let x_pos = voxel_pos.x as isize;
             let y_pos = voxel_pos.y as isize;
@@ -538,7 +540,7 @@ impl Hittable for CubeWorld {
         }
         if min_index != usize::MAX {
             let s = solutions[min_index].clone().unwrap();
-            let mut idx = s.origin.map(|v| v.floor() as usize);
+            let mut idx = s.origin.map(|v| v as usize);
             if idx.x == self.x as usize {
                 idx.x -= 1;
             }

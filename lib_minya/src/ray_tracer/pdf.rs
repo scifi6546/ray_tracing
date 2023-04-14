@@ -125,8 +125,8 @@ impl Pdf for SkyPdf {
         }
     }
 
-    fn is_valid(&self, world: &World) -> bool {
-        todo!()
+    fn is_valid(&self, _world: &World) -> bool {
+        true
     }
 
     fn generate(
@@ -172,68 +172,7 @@ impl Pdf for SkyPdf {
         }
     }
 }
-pub struct PdfList {
-    items: Vec<Box<dyn Pdf>>,
-}
-impl PdfList {
-    pub fn new(items: Vec<Box<dyn Pdf>>) -> Self {
-        assert!(!items.is_empty());
-        Self { items }
-    }
-}
-impl Pdf for PdfList {
-    fn value(&self, direction: &Ray, world: &World) -> Option<f32> {
-        let hit = self
-            .items
-            .iter()
-            .filter(|item| item.is_valid(world))
-            .filter_map(|item| item.value(direction, world))
-            .collect::<Vec<_>>();
-        Some(hit.iter().sum::<f32>() / hit.len() as f32)
-    }
 
-    fn is_valid(&self, world: &World) -> bool {
-        self.items
-            .iter()
-            .map(|item| item.is_valid(world))
-            .any(|x| x)
-    }
-
-    fn generate(
-        &self,
-        incoming_ray: Ray,
-        hit_point: Point3<f32>,
-        world: &World,
-    ) -> Option<(Vector3<f32>, f32)> {
-        let random_pdf = rand_u32(0, self.items.len() as u32) as usize;
-        if let Some((out_direction, pdf)) =
-            self.items[random_pdf].generate(incoming_ray, hit_point, world)
-        {
-            let mut sum = 0.0f32;
-            let mut total = 0;
-            let value_ray = Ray {
-                origin: hit_point,
-                direction: out_direction,
-                time: 0.0,
-            };
-            for i in 0..self.items.len() {
-                if let Some(value) = self.items[i].value(&value_ray, world) {
-                    if i != random_pdf {
-                        sum += value;
-                        total += 1;
-                    }
-                }
-            }
-            if total != 0 {
-                Some((out_direction, (sum + pdf) / (total + 1) as f32))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-}
 pub(crate) struct LambertianPDF {
     sin_pdf: CosinePdf,
     light_pdf: LightPdf,

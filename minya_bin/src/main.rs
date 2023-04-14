@@ -16,7 +16,6 @@ use log::info;
 use std::{
     sync::mpsc::{channel, Receiver},
     thread,
-    time::Instant,
 };
 pub enum Message {
     LoadScenario(String),
@@ -88,13 +87,11 @@ impl Handler {
             ],
             shader,
         );
-        let mut ray_tracer = RayTracer::new(None, None, None);
+        let ray_tracer = RayTracer::new(None, None, None);
         let (message_sender, message_reciever) = channel();
         let (image_sender, image_reciever) = channel();
         let info = ray_tracer.get_info();
         thread::spawn(move || {
-            let total_time = Instant::now();
-            let mut num_samples = 1usize;
             let mut par_img = ParallelImage::new_black(1000, 1000);
             let mut receiver = ray_tracer
                 .clone()
@@ -106,7 +103,6 @@ impl Handler {
                             info!("loading scenario: {}", scenario);
                             receiver.load_scenario(scenario);
                             par_img = ParallelImage::new_black(1000, 1000);
-                            num_samples = 1;
                         }
                         Message::SaveFile(path) => receiver.save_file(path),
                         Message::SetShader(s) => {
@@ -125,8 +121,6 @@ impl Handler {
                 image_sender
                     .send(Image::from_parallel_image(&process_image))
                     .expect("channel failed");
-
-                num_samples += 1;
             }
         });
         Self {
