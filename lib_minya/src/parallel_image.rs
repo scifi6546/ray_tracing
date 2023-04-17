@@ -412,6 +412,7 @@ impl ImageReceiver {
 }
 pub(crate) enum RayTracerMessage {
     LoadScenario(String),
+    SetShader(super::ray_tracer::CurrentShader),
 }
 struct PartContainer {
     image: ParallelImagePart,
@@ -484,6 +485,14 @@ impl ParallelImageCollector {
         }
     }
     pub fn set_shader(&mut self, s: super::ray_tracer::CurrentShader) {
-        todo!()
+        {
+            let mut write_lock = self.ray_tracer.write().expect("failed to read");
+            write_lock.set_shader(s);
+        }
+        for sender in self.message_senders.iter() {
+            sender
+                .send(RayTracerMessage::SetShader(s))
+                .expect("failed to send shader")
+        }
     }
 }

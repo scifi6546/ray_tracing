@@ -516,6 +516,7 @@ impl RayTracer {
                     for msg in message_receiver.try_iter() {
                         match msg {
                             RayTracerMessage::LoadScenario(_name) => part.set_black(),
+                            RayTracerMessage::SetShader(_) => part.set_black(),
                         };
                     }
                     {

@@ -376,10 +376,10 @@ impl CubeWorld {
         normal: Vector3<f32>,
     ) -> Option<CheckRes> {
         let t = (x - ray.origin.x) / ray.direction.x;
-        if t > t_min && t < t_max {
+        if (t >= t_min && t <= t_max) || true {
             let pos = ray.at(t);
 
-            if pos.y > 0.0 && pos.y < self.y as f32 && pos.z > 0.0 && pos.z < self.z as f32 {
+            if pos.y >= 0.0 && pos.y <= self.y as f32 && pos.z >= 0.0 && pos.z <= self.z as f32 {
                 Some(CheckRes {
                     direction: ray.direction,
                     origin: pos,
@@ -428,10 +428,10 @@ impl CubeWorld {
         normal: Vector3<f32>,
     ) -> Option<CheckRes> {
         let t = (z - ray.origin.z) / ray.direction.z;
-        if t > t_min && t < t_max {
+        if (t > t_min && t < t_max) || true {
             let pos = ray.at(t);
 
-            if pos.x > 0.0 && pos.x < self.x as f32 && pos.y > 0.0 && pos.y < self.y as f32 {
+            if pos.x >= 0.0 && pos.x <= self.x as f32 && pos.y >= 0.0 && pos.y <= self.y as f32 {
                 Some(CheckRes {
                     direction: ray.direction,
                     origin: pos,
@@ -526,10 +526,7 @@ impl Hittable for CubeWorld {
 
         let mut min_index = usize::MAX;
         for i in 0..solutions.len() {
-            let check_opt = solutions[i].clone();
-            if check_opt.is_some() {
-                let check = check_opt.unwrap();
-
+            if let Some(check) = solutions[i].as_ref() {
                 let distance = Point3::new(check.origin.x, check.origin.y, check.origin.z)
                     .distance(ray.origin);
                 if min_dist > distance {
