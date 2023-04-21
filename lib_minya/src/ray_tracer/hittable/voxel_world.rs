@@ -11,8 +11,8 @@ mod voxel_model;
 pub use perlin::{PerlinBuilder, PerlinNoise};
 use std::ops::Neg;
 pub use voxel_model::VoxelModel;
-
-enum HitResult<T: Solid> {
+#[derive(Debug)]
+enum HitResult<T: Solid + std::fmt::Debug> {
     Hit {
         position: Point3<f32>,
         normal: Vector3<f32>,
@@ -81,7 +81,7 @@ fn step_translucent(
         None
     }
 }
-impl<T: Clone + Solid> Voxels<T> {
+impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
     pub fn new(x_dim: usize, y_dim: usize, z_dim: usize, default_value: T) -> Self {
         Self {
             data: vec![default_value; x_dim * y_dim * z_dim],
@@ -115,7 +115,7 @@ impl<T: Clone + Solid> Voxels<T> {
 
     pub fn trace_voxels(&self, origin: Point3<f32>, direction: Vector3<f32>) -> HitResult<T> {
         let step_size = 1.0 / direction.map(|e| e.abs());
-        let mut step_dir = Vector3::new(0.0, 0.0, 0.0);
+        let mut step_dir = Vector3::new(0.0f32, 0.0, 0.0);
         let mut next_dist = Vector3::new(0.0, 0.0, 0.0);
         if direction.x < 0.0 {
             step_dir.x = -1.0;
@@ -140,28 +140,28 @@ impl<T: Clone + Solid> Voxels<T> {
             next_dist.z = (1.0 - origin.z.fract()) / direction.z;
         }
 
-        let mut voxel_pos = origin.map(|e| e.floor());
+        let mut voxel_pos = origin.map(|e| e as isize);
         let mut current_pos = origin;
 
         loop {
             let min_idx = min_idx_vec(next_dist);
             let normal = if min_idx == 0 {
                 //min_idx = 0
-                voxel_pos.x += step_dir.x;
+                voxel_pos.x += if step_dir.x.is_sign_positive() { 1 } else { -1 };
                 current_pos += direction * next_dist.x;
                 next_dist = next_dist.map(|f| f - next_dist.x);
                 next_dist.x += step_size.x;
                 Vector3::new(step_dir.x.neg(), 0.0, 0.0).normalize()
             } else if min_idx == 1 {
                 //min_idx = 1
-                voxel_pos.y += step_dir.y;
+                voxel_pos.y += if step_dir.y.is_sign_positive() { 1 } else { -1 };
                 current_pos += direction * next_dist.y;
                 next_dist = next_dist.map(|f| f - next_dist.y);
                 next_dist.y += step_size.y;
                 Vector3::new(0.0, step_dir.y.neg(), 0.0).normalize()
             } else if min_idx == 2 {
                 //min_idx = 2
-                voxel_pos.z += step_dir.z;
+                voxel_pos.z += if step_dir.z.is_sign_positive() { 1 } else { -1 };
                 current_pos += direction * next_dist.z;
                 next_dist = next_dist.map(|f| f - next_dist.z);
                 next_dist.z += step_size.z;
@@ -376,8 +376,13 @@ impl CubeWorld {
         normal: Vector3<f32>,
     ) -> Option<CheckRes> {
         let t = (x - ray.origin.x) / ray.direction.x;
-        if (t >= t_min && t <= t_max) || true {
-            let pos = ray.at(t);
+        if (t >= t_min && t <= t_max) || t >= 0.0 {
+            let pos = ray.origin + ray.direction * t;
+            if (pos.x - x).abs() > 0.0001 {
+                panic!()
+            }
+            // let pos = Point3::new(x, ray.origin.y, ray.origin.z);
+            //   let pos = ray.at(t);
 
             if pos.y >= 0.0 && pos.y <= self.y as f32 && pos.z >= 0.0 && pos.z <= self.z as f32 {
                 Some(CheckRes {
@@ -428,9 +433,11 @@ impl CubeWorld {
         normal: Vector3<f32>,
     ) -> Option<CheckRes> {
         let t = (z - ray.origin.z) / ray.direction.z;
-        if (t > t_min && t < t_max) || true {
+        if (t > t_min && t < t_max) || t >= 0.0 {
             let pos = ray.at(t);
-
+            if (pos.z - z).abs() > 0.0001 {
+                panic!()
+            }
             if pos.x >= 0.0 && pos.x <= self.x as f32 && pos.y >= 0.0 && pos.y <= self.y as f32 {
                 Some(CheckRes {
                     direction: ray.direction,
@@ -461,7 +468,7 @@ impl CubeWorld {
                 let dist = ray.origin - position;
                 let t =
                     Vector3::new(dist.x, dist.y, dist.z).magnitude() / ray.direction.magnitude();
-                if (t > t_min && t < t_max) || true {
+                if (t > t_min && t < t_max) && t >= 0.0 {
                     Some(HitRecord::new_ref(
                         ray,
                         position,
@@ -513,7 +520,7 @@ impl Hittable for CubeWorld {
                 self.y as f32,
                 Vector3::new(0.0, 1.0, 0.0),
             ),
-            self.check_z(ray, t_min, t_max, 0.0, Vector3::new(0.0, 0.0, -1.0)),
+            self.check_z(ray, t_min, t_max, 0.0, Vector3::new(0.0, 0.0, 1.0)),
             self.check_z(
                 ray,
                 t_min,
@@ -537,20 +544,39 @@ impl Hittable for CubeWorld {
         }
         if min_index != usize::MAX {
             let s = solutions[min_index].clone().unwrap();
-            let mut idx = s.origin.map(|v| v as usize);
+            let mut idx = s.origin.map(|v| v.floor() as usize);
             if idx.x == self.x as usize {
-                idx.x -= 1;
+                idx.x = self.x as usize - 1;
             }
             if idx.y == self.y as usize {
-                idx.y -= 1;
+                idx.y -= self.y as usize - 1;
             }
             if idx.z == self.z as usize {
-                idx.z -= 1;
+                idx.z -= self.z as usize - 1;
             }
+
             let voxel = self.voxels.get(idx.x, idx.y, idx.z);
             if !voxel.is_solid() {
                 let hit_res = self.voxels.trace_voxels(s.origin, s.direction);
-                self.manage_hit_res(ray, hit_res, t_min, t_max)
+
+                let hit_res = match hit_res {
+                    HitResult::Hit {
+                        position,
+                        normal,
+                        voxel,
+                    } => HitResult::Hit {
+                        position,
+                        normal,
+                        voxel: CubeMaterialIndex::new_solid(0),
+                    },
+                    HitResult::DidNotHit => HitResult::DidNotHit,
+                };
+                self.manage_hit_res(
+                    ray,
+                    self.voxels.trace_voxels(s.origin, s.direction),
+                    t_min,
+                    t_max,
+                )
             } else {
                 match voxel {
                     CubeMaterialIndex::Solid { index } => Some(HitRecord::new_ref(
