@@ -13,7 +13,7 @@ pub fn load_vox_model() -> WorldInfo {
     let model = VoxelModel::load("voxel_assets/apartment_building.vox");
     let look_at = Point3::new(BLOCK_X as f32 / 2.0, 10.0, BLOCK_Z as f32 / 2.0);
 
-    let origin = Point3::new(-50.0f32, 10.0, -40.0);
+    let origin = Point3::new(-50.0f32, 100.0, -40.0);
     //let origin = Point3::new(-40.0f32, 10.0, -40.0);
 
     let fov = 40.0;
@@ -24,6 +24,7 @@ pub fn load_vox_model() -> WorldInfo {
 
     let materials = vec![CubeMaterial::new(RgbColor::WHITE)];
     let mut world = CubeWorld::new(materials, vec![], BLOCK_X, BLOCK_Y, BLOCK_Z);
+    info!("{}", model.debug_text());
     model.add_to_world(&mut world);
 
     WorldInfo {

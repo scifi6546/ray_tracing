@@ -1,5 +1,6 @@
 use super::{CubeMaterial, CubeMaterialIndex, CubeWorld, RgbColor, Voxels};
 use crate::prelude::*;
+use crate::ray_tracer::hittable::voxel_world::Solid;
 use cgmath::Point3;
 use std::io::Read;
 use std::{
@@ -7,6 +8,7 @@ use std::{
     fs::*,
     path::Path,
 };
+
 pub struct VoxelModel {
     model: Voxels<CubeMaterialIndex>,
     offset: Point3<isize>,
@@ -37,22 +39,26 @@ impl VoxelModel {
                 min_y = (v.y as usize).min(min_y);
                 max_y = (v.y as usize).max(max_y);
 
-                min_z = (v.y as usize).min(min_z);
-                max_z = (v.y as usize).max(max_z);
+                min_z = (v.z as usize).min(min_z);
+                max_z = (v.z as usize).max(max_z);
             }
         }
         let mut materials: Vec<CubeMaterial> = Vec::new();
         let mut index_to_material = HashMap::<u8, usize>::new();
         for idx in used_indices.iter() {
             let color_u32 = vox_data.palette[*idx as usize];
-            let red = ((color_u32 & 0x00ff_00_00u32) >> 16) as f32 / 255.0;
+            info!("idx: {}, color: {:x}", idx, color_u32);
+            let blue = ((color_u32 & 0x00ff_00_00u32) >> 16) as f32 / 255.0;
             let green = ((color_u32 & 0x00_00_ff_00u32) >> 8) as f32 / 255.0;
-            let blue = (color_u32 & 0x00_00_00_ffu32) as f32 / 255.0;
+            let red = (color_u32 & 0x00_00_00_ffu32) as f32 / 255.0;
             let color = RgbColor::new(red, green, blue);
 
             let new_idx = materials.len();
             materials.push(CubeMaterial::new(color));
             index_to_material.insert(*idx, new_idx);
+        }
+        for mat in materials.iter() {
+            info!("material {:?}", mat)
         }
         let x_dim = (max_x - min_x) + 1;
         let y_dim = (max_z - min_z) + 1;
@@ -62,6 +68,10 @@ impl VoxelModel {
         for model in vox_data.models.iter() {
             for voxel in model.voxels.iter() {
                 let index = index_to_material[&voxel.i] as u16;
+                info!(
+                    "x: {}, y: {}, z: {}, i: {}",
+                    voxel.x, voxel.y, voxel.z, voxel.i
+                );
                 world.update(
                     voxel.x as isize - min_x as isize,
                     voxel.z as isize - min_z as isize,
@@ -76,6 +86,31 @@ impl VoxelModel {
             solid_materials: materials,
         }
     }
+    pub(crate) fn debug_text(&self) -> String {
+        let mut string = String::new();
+        for x in 0..self.model.x_dim {
+            for y in 0..self.model.y_dim {
+                for z in 0..self.model.z_dim {
+                    let mat_idx = self.model.get(x, y, z);
+                    let material = match mat_idx {
+                        CubeMaterialIndex::Solid { index } => {
+                            if mat_idx.is_solid() {
+                                Some(self.solid_materials[index as usize].clone())
+                            } else {
+                                None
+                            }
+                        }
+                        CubeMaterialIndex::Translucent { .. } => None,
+                    };
+                    if let Some(material) = material {
+                        let txt = format!("x: {}, y: {}, z: {},mat: {}\n", x, y, z, material.color);
+                        string += &txt;
+                    }
+                }
+            }
+        }
+        string
+    }
     pub fn add_to_world(&self, voxel_world: &mut CubeWorld) {
         // old materials to new materials, key is index of old material, value is new index
         let mut material_indices = HashMap::<usize, usize>::new();
@@ -86,7 +121,9 @@ impl VoxelModel {
                     material_indices.insert(old_mat_index, world_mat_index);
                 } else {
                     add_materials.push(old_material.clone());
+
                     let index = voxel_world.solid_materials.len() + add_materials.len() - 1;
+
                     material_indices.insert(old_mat_index, index);
                 }
             }

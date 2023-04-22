@@ -279,6 +279,13 @@ impl CubeMaterial {
         self.color.distance(&other.color)
     }
 }
+impl std::fmt::Debug for CubeMaterial {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Cube Material")
+            .field("color", &self.color)
+            .finish()
+    }
+}
 impl Material for CubeMaterial {
     fn name(&self) -> &'static str {
         "cube material"
@@ -549,28 +556,14 @@ impl Hittable for CubeWorld {
                 idx.x = self.x as usize - 1;
             }
             if idx.y == self.y as usize {
-                idx.y -= self.y as usize - 1;
+                idx.y = self.y as usize - 1;
             }
             if idx.z == self.z as usize {
-                idx.z -= self.z as usize - 1;
+                idx.z = self.z as usize - 1;
             }
 
             let voxel = self.voxels.get(idx.x, idx.y, idx.z);
             if !voxel.is_solid() {
-                let hit_res = self.voxels.trace_voxels(s.origin, s.direction);
-
-                let hit_res = match hit_res {
-                    HitResult::Hit {
-                        position,
-                        normal,
-                        voxel,
-                    } => HitResult::Hit {
-                        position,
-                        normal,
-                        voxel: CubeMaterialIndex::new_solid(0),
-                    },
-                    HitResult::DidNotHit => HitResult::DidNotHit,
-                };
                 self.manage_hit_res(
                     ray,
                     self.voxels.trace_voxels(s.origin, s.direction),
