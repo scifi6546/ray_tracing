@@ -8,7 +8,6 @@ mod easy_cornell_box;
 mod easy_scene;
 mod empty_scene;
 mod light_demo;
-mod load_vox;
 mod load_vox_model;
 mod one_sphere;
 mod random_scene;
@@ -345,10 +344,6 @@ pub fn get_scenarios() -> Scenarios {
         Box::new(ScenarioFn {
             name: "Translucent Cube World".to_string(),
             f: translucent_cubeworld::translucent_cube_world,
-        }),
-        Box::new(ScenarioFn {
-            name: "Load Voxel".to_string(),
-            f: load_vox::load_vox,
         }),
         Box::new(ScenarioFn {
             name: "Load Voxel Model".to_string(),
