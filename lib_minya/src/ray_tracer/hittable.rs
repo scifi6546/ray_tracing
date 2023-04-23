@@ -21,6 +21,7 @@ pub use voxel_world::CubeWorld;
 ///Objects that can be hit
 pub mod hittable_objects {
     pub use super::rect::{XYRect, XZRect, YZRect};
+    pub use super::voxel_world::{CubeMaterial, CubeWorld, VoxelModel};
 }
 pub trait Hittable: Send + Sync + DynClone {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;

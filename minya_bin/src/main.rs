@@ -212,8 +212,8 @@ impl EventHandler for Handler {
 fn main() {
     miniquad::start(
         conf::Conf {
-            window_width: 800,
-            window_height: 800,
+            window_width: 1000,
+            window_height: 1000,
             ..Default::default()
         },
         |mut ctx| Box::new(Handler::new(&mut ctx)),

@@ -4,7 +4,9 @@ pub(crate) use super::parallel_image::{
 pub use super::parallel_image::{ParallelImage, ParallelImageCollector};
 pub use base_lib::{clamp, RgbColor};
 pub use cgmath;
-use cgmath::{num_traits::*, prelude::*, Point2, Point3, Vector3};
+use cgmath::{num_traits::FloatConst, prelude::*};
+//use cgmath::num_traits::*;
+pub(crate) use cgmath::{Point2, Point3, Vector3};
 pub use log::{error, info, warn};
 
 use std::{cmp::PartialOrd, fmt::*, ops::Div, path::Path};

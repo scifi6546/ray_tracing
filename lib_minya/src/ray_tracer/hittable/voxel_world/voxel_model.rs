@@ -8,14 +8,15 @@ use std::{
     fs::*,
     path::Path,
 };
-
+#[derive(Clone)]
 pub struct VoxelModel {
     model: Voxels<CubeMaterialIndex>,
-    offset: Point3<isize>,
+
     solid_materials: Vec<CubeMaterial>,
 }
 impl VoxelModel {
     const MAX_COLOR_DISTANCE: f32 = 0.01;
+
     pub fn load<P: AsRef<Path>>(p: P) -> Self {
         let mut f = File::open(p).expect("failed to get file");
         let mut bytes = vec![];
@@ -47,7 +48,7 @@ impl VoxelModel {
         let mut index_to_material = HashMap::<u8, usize>::new();
         for idx in used_indices.iter() {
             let color_u32 = vox_data.palette[*idx as usize];
-            info!("idx: {}, color: {:x}", idx, color_u32);
+
             let blue = ((color_u32 & 0x00ff_00_00u32) >> 16) as f32 / 255.0;
             let green = ((color_u32 & 0x00_00_ff_00u32) >> 8) as f32 / 255.0;
             let red = (color_u32 & 0x00_00_00_ffu32) as f32 / 255.0;
@@ -57,21 +58,15 @@ impl VoxelModel {
             materials.push(CubeMaterial::new(color));
             index_to_material.insert(*idx, new_idx);
         }
-        for mat in materials.iter() {
-            info!("material {:?}", mat)
-        }
+
         let x_dim = (max_x - min_x) + 1;
         let y_dim = (max_z - min_z) + 1;
         let z_dim = (max_y - min_y) + 1;
-        info!("x_dim: {}, y_dim: {}, z_dim: {}", x_dim, y_dim, z_dim);
         let mut world = Voxels::new(x_dim, y_dim, z_dim, CubeMaterialIndex::new_air());
         for model in vox_data.models.iter() {
             for voxel in model.voxels.iter() {
                 let index = index_to_material[&voxel.i] as u16;
-                info!(
-                    "x: {}, y: {}, z: {}, i: {}",
-                    voxel.x, voxel.y, voxel.z, voxel.i
-                );
+
                 world.update(
                     voxel.x as isize - min_x as isize,
                     voxel.z as isize - min_z as isize,
@@ -82,7 +77,6 @@ impl VoxelModel {
         }
         Self {
             model: world,
-            offset: Point3::new(0, 0, 0),
             solid_materials: materials,
         }
     }
@@ -111,21 +105,27 @@ impl VoxelModel {
         }
         string
     }
-    pub fn add_to_world(&self, voxel_world: &mut CubeWorld) {
+    pub fn add_to_world(&self, voxel_world: &mut CubeWorld, offset: Point3<isize>) {
         // old materials to new materials, key is index of old material, value is new index
         let mut material_indices = HashMap::<usize, usize>::new();
         let mut add_materials: Vec<CubeMaterial> = Vec::new();
         for (old_mat_index, old_material) in self.solid_materials.iter().enumerate() {
+            let mut found_color = false;
             for (world_mat_index, world_mat) in voxel_world.solid_materials.iter().enumerate() {
-                if world_mat.distance(old_material) < Self::MAX_COLOR_DISTANCE {
+                let dist = world_mat.distance(old_material);
+                //info!("dist: {}", dist);
+                if world_mat.distance(old_material) <= Self::MAX_COLOR_DISTANCE {
                     material_indices.insert(old_mat_index, world_mat_index);
-                } else {
-                    add_materials.push(old_material.clone());
-
-                    let index = voxel_world.solid_materials.len() + add_materials.len() - 1;
-
-                    material_indices.insert(old_mat_index, index);
+                    found_color = true;
+                    break;
                 }
+            }
+            if !found_color {
+                add_materials.push(old_material.clone());
+
+                let index = voxel_world.solid_materials.len() + add_materials.len() - 1;
+
+                material_indices.insert(old_mat_index, index);
             }
         }
         voxel_world.solid_materials.append(&mut add_materials);
@@ -144,9 +144,9 @@ impl VoxelModel {
                         };
                         let material = CubeMaterialIndex::new_solid(mat_index);
                         voxel_world.update(
-                            x as isize + self.offset.x,
-                            y as isize + self.offset.y,
-                            z as isize + self.offset.z,
+                            x as isize + offset.x,
+                            y as isize + offset.y,
+                            z as isize + offset.z,
                             material,
                         );
                     }

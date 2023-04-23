@@ -385,11 +385,6 @@ impl CubeWorld {
         let t = (x - ray.origin.x) / ray.direction.x;
         if (t >= t_min && t <= t_max) || t >= 0.0 {
             let pos = ray.origin + ray.direction * t;
-            if (pos.x - x).abs() > 0.0001 {
-                panic!()
-            }
-            // let pos = Point3::new(x, ray.origin.y, ray.origin.z);
-            //   let pos = ray.at(t);
 
             if pos.y >= 0.0 && pos.y <= self.y as f32 && pos.z >= 0.0 && pos.z <= self.z as f32 {
                 Some(CheckRes {
@@ -497,6 +492,9 @@ impl CubeWorld {
             }
             HitResult::DidNotHit => None,
         }
+    }
+    pub(crate) fn get_solid_material_colors(&self) -> Vec<RgbColor> {
+        self.solid_materials.iter().map(|mat| mat.color).collect()
     }
 }
 

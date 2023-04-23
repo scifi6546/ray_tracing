@@ -24,8 +24,7 @@ pub fn load_vox_model() -> WorldInfo {
 
     let materials = vec![CubeMaterial::new(RgbColor::WHITE)];
     let mut world = CubeWorld::new(materials, vec![], BLOCK_X, BLOCK_Y, BLOCK_Z);
-    info!("{}", model.debug_text());
-    model.add_to_world(&mut world);
+    model.add_to_world(&mut world, Point3::new(0, 0, 0));
 
     WorldInfo {
         objects: vec![Object::new(Box::new(world), Transform::identity())],

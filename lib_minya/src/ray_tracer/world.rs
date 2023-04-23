@@ -11,6 +11,7 @@ mod light_demo;
 mod load_vox_model;
 mod one_sphere;
 mod random_scene;
+mod sinnoh;
 mod translucent_cubeworld;
 mod two_spheres;
 mod voxel_city;
@@ -349,6 +350,10 @@ pub fn get_scenarios() -> Scenarios {
             name: "Load Voxel Model".to_string(),
             f: load_vox_model::load_vox_model,
         }),
+        Box::new(ScenarioFn {
+            name: "Sinnoh".to_string(),
+            f: sinnoh::twinleaf_town,
+        }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
         .drain(..)
@@ -363,6 +368,6 @@ pub fn get_scenarios() -> Scenarios {
     }
     Scenarios {
         items: map,
-        default: "Load Voxel Model".to_string(),
+        default: "Sinnoh".to_string(),
     }
 }
