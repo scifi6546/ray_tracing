@@ -3,43 +3,43 @@ use crate::prelude::*;
 use cgmath::prelude::*;
 
 pub(crate) fn twinleaf_town() -> WorldInfo {
-    let TILE_SIZE_X = 16;
-    let TILE_SIZE_Z = 16;
+    let tile_size_x = 16;
+    let tile_size_z = 16;
     let map = [
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-        [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-        [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0],
-        [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-        [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-        [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 4, 0, 0, 0, 0, 3, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1],
+        [1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1],
+        [1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 4, 0, 0, 0, 0, 1, 1],
+        [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1],
+        [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1],
+        [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     ];
-    let NUM_TILES_X = map.len() as i32;
-    let NUM_TILES_Z = map[0].len() as i32;
-    let BLOCK_X = TILE_SIZE_X * NUM_TILES_X;
-    let BLOCK_Y = 16;
-    let BLOCK_Z = TILE_SIZE_Z * NUM_TILES_Z;
-    info!("block_x: {},block_Z: {}", BLOCK_X, BLOCK_Z);
+    let num_tiles_x = map.len() as i32;
+    let num_tiles_z = map[0].len() as i32;
+    let block_x = tile_size_x * num_tiles_x;
+    let block_y = 70;
+    let block_z = tile_size_z * num_tiles_z;
+    info!("block_x: {},block_Z: {}", block_x, block_z);
     let fov = 40.0;
 
-    let look_at = Point3::new(BLOCK_X as f32 / 2.0, 10.0, BLOCK_Z as f32 / 2.0);
+    let look_at = Point3::new(block_x as f32 / 2.0, 10.0, block_z as f32 / 2.0);
 
-    let origin = Point3::new(-500.0f32, 300.0, BLOCK_Z as f32 / 2.0);
+    let origin = Point3::new(-500.0f32, 300.0, block_z as f32 / 2.0);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
@@ -48,44 +48,39 @@ pub(crate) fn twinleaf_town() -> WorldInfo {
     let mut world = CubeWorld::new(
         vec![CubeMaterial::new(RgbColor::WHITE)],
         vec![],
-        BLOCK_X,
-        BLOCK_Y,
-        BLOCK_Z,
+        block_x,
+        block_y,
+        block_z,
     );
 
     let grass = VoxelModel::load("voxel_assets/sinnoh/grass.vox");
     let mail_box = VoxelModel::load("voxel_assets/sinnoh/mail_box.vox");
     let dirt = VoxelModel::load("voxel_assets/sinnoh/dirt.vox");
-
-    for x in 0..NUM_TILES_X {
-        for z in 0..NUM_TILES_Z {
+    let house = VoxelModel::load("voxel_assets/sinnoh/house.vox");
+    for x in 0..num_tiles_x {
+        for z in 0..num_tiles_z {
             let tile = match map[x as usize][z as usize] {
-                0 => &grass,
-                1 => &dirt,
-                2 => &mail_box,
+                0 => None,
+                1 => Some(&grass),
+                2 => Some(&dirt),
+                3 => Some(&mail_box),
+                4 => Some(&house),
                 _ => panic!(),
             };
-            let x_tile_pos = NUM_TILES_X as isize - x as isize - 1;
+            let x_tile_pos = num_tiles_x as isize - x as isize - 1;
             let z_tile_pos = z as isize;
-            //info!("x_tile: {}, z_tile: {}", x_tile_pos, z_tile_pos);
-            tile.add_to_world(
-                &mut world,
-                Point3::new(
-                    x_tile_pos * TILE_SIZE_X as isize,
-                    0,
-                    z_tile_pos * TILE_SIZE_Z as isize,
-                ),
-            );
-
-            let material_colors = world.get_solid_material_colors();
-            //tall_grass 230
-            //base 227
-            /*
-            for color in material_colors.iter() {
-                info!("mat color: {}", color)
+            if let Some(tile) = tile {
+                tile.add_to_world(
+                    &mut world,
+                    Point3::new(
+                        x_tile_pos * tile_size_x as isize,
+                        0,
+                        z_tile_pos * tile_size_z as isize,
+                    ),
+                );
             }
 
-             */
+            let material_colors = world.get_solid_material_colors();
         }
     }
 

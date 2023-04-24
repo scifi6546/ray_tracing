@@ -10,8 +10,7 @@ use std::{
 };
 #[derive(Clone)]
 pub struct VoxelModel {
-    model: Voxels<CubeMaterialIndex>,
-
+    models: Vec<Voxels<CubeMaterialIndex>>,
     solid_materials: Vec<CubeMaterial>,
 }
 impl VoxelModel {
@@ -62,49 +61,31 @@ impl VoxelModel {
         let x_dim = (max_x - min_x) + 1;
         let y_dim = (max_z - min_z) + 1;
         let z_dim = (max_y - min_y) + 1;
-        let mut world = Voxels::new(x_dim, y_dim, z_dim, CubeMaterialIndex::new_air());
-        for model in vox_data.models.iter() {
-            for voxel in model.voxels.iter() {
-                let index = index_to_material[&voxel.i] as u16;
+        let models = vox_data
+            .models
+            .iter()
+            .map(|model| {
+                let mut world = Voxels::new(x_dim, y_dim, z_dim, CubeMaterialIndex::new_air());
+                for voxel in model.voxels.iter() {
+                    let index = index_to_material[&voxel.i] as u16;
 
-                world.update(
-                    voxel.x as isize - min_x as isize,
-                    voxel.z as isize - min_z as isize,
-                    voxel.y as isize - min_y as isize,
-                    CubeMaterialIndex::new_solid(index),
-                )
-            }
-        }
+                    world.update(
+                        voxel.x as isize - min_x as isize,
+                        voxel.z as isize - min_z as isize,
+                        voxel.y as isize - min_y as isize,
+                        CubeMaterialIndex::new_solid(index),
+                    )
+                }
+                world
+            })
+            .collect();
+
         Self {
-            model: world,
+            models,
             solid_materials: materials,
         }
     }
-    pub(crate) fn debug_text(&self) -> String {
-        let mut string = String::new();
-        for x in 0..self.model.x_dim {
-            for y in 0..self.model.y_dim {
-                for z in 0..self.model.z_dim {
-                    let mat_idx = self.model.get(x, y, z);
-                    let material = match mat_idx {
-                        CubeMaterialIndex::Solid { index } => {
-                            if mat_idx.is_solid() {
-                                Some(self.solid_materials[index as usize].clone())
-                            } else {
-                                None
-                            }
-                        }
-                        CubeMaterialIndex::Translucent { .. } => None,
-                    };
-                    if let Some(material) = material {
-                        let txt = format!("x: {}, y: {}, z: {},mat: {}\n", x, y, z, material.color);
-                        string += &txt;
-                    }
-                }
-            }
-        }
-        string
-    }
+
     pub fn add_to_world(&self, voxel_world: &mut CubeWorld, offset: Point3<isize>) {
         // old materials to new materials, key is index of old material, value is new index
         let mut material_indices = HashMap::<usize, usize>::new();
@@ -112,8 +93,6 @@ impl VoxelModel {
         for (old_mat_index, old_material) in self.solid_materials.iter().enumerate() {
             let mut found_color = false;
             for (world_mat_index, world_mat) in voxel_world.solid_materials.iter().enumerate() {
-                let dist = world_mat.distance(old_material);
-                //info!("dist: {}", dist);
                 if world_mat.distance(old_material) <= Self::MAX_COLOR_DISTANCE {
                     material_indices.insert(old_mat_index, world_mat_index);
                     found_color = true;
@@ -129,26 +108,28 @@ impl VoxelModel {
             }
         }
         voxel_world.solid_materials.append(&mut add_materials);
-        for x in 0..self.model.x_dim {
-            for y in 0..self.model.y_dim {
-                for z in 0..self.model.z_dim {
-                    let voxel_mat = self.model.get(x, y, z);
-                    if voxel_mat.is_solid()
-                        && voxel_world.in_world(x as isize, y as isize, z as isize)
-                    {
-                        let mat_index = match voxel_mat {
-                            CubeMaterialIndex::Solid { index } => {
-                                material_indices[&(index as usize)] as u16
-                            }
-                            CubeMaterialIndex::Translucent { .. } => panic!(),
-                        };
-                        let material = CubeMaterialIndex::new_solid(mat_index);
-                        voxel_world.update(
-                            x as isize + offset.x,
-                            y as isize + offset.y,
-                            z as isize + offset.z,
-                            material,
-                        );
+        for model in self.models.iter() {
+            for x in 0..model.x_dim {
+                for y in 0..model.y_dim {
+                    for z in 0..model.z_dim {
+                        let voxel_mat = model.get(x, y, z);
+                        if voxel_mat.is_solid()
+                            && voxel_world.in_world(x as isize, y as isize, z as isize)
+                        {
+                            let mat_index = match voxel_mat {
+                                CubeMaterialIndex::Solid { index } => {
+                                    material_indices[&(index as usize)] as u16
+                                }
+                                CubeMaterialIndex::Translucent { .. } => panic!(),
+                            };
+                            let material = CubeMaterialIndex::new_solid(mat_index);
+                            voxel_world.update(
+                                x as isize + offset.x,
+                                y as isize + offset.y,
+                                z as isize + offset.z,
+                                material,
+                            );
+                        }
                     }
                 }
             }
