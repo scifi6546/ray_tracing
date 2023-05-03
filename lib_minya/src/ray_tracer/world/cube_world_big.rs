@@ -1,6 +1,6 @@
 use super::{
-    world_prelude::*, Camera, CubeWorld, DiffuseLight, Lambertian, Object, Sky, SolidColor, Sphere,
-    Transform, WorldInfo, XZRect,
+    world_prelude::*, Camera, DiffuseLight, Lambertian, Object, Sky, SolidColor, Sphere, Transform,
+    VoxelWorld, WorldInfo, XZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
@@ -37,7 +37,7 @@ pub fn cube_world_big() -> WorldInfo {
         let h = (radius / 10.0).cos() * 10.0 + 15.0;
         h.max(0.0).min((MAX_Y - 1) as f32) as isize
     }
-    let mut world = CubeWorld::new(
+    let mut world = VoxelWorld::new(
         vec![
             CubeMaterial::new(RgbColor::new(0.65, 0.05, 0.05)),
             CubeMaterial::new(RgbColor::new(0.65, 0.8, 0.05)),

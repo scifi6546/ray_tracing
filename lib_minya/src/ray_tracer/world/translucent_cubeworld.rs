@@ -1,6 +1,6 @@
 use super::{
-    world_prelude::*, Camera, ConstantColor, CubeWorld, DiffuseLight, Metal, Object, SolidColor,
-    Sphere, Transform, WorldInfo,
+    world_prelude::*, Camera, ConstantColor, DiffuseLight, Metal, Object, SolidColor, Sphere,
+    Transform, VoxelWorld, WorldInfo,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -31,7 +31,7 @@ pub fn translucent_cube_world() -> WorldInfo {
         Transform::identity(),
     );
 
-    let mut world = CubeWorld::new(
+    let mut world = VoxelWorld::new(
         vec![CubeMaterial::new(RgbColor::new(0.65, 0.05, 0.05))],
         vec![CubeMaterial::new(RgbColor::new(0.5, 0.05, 0.5))],
         10,

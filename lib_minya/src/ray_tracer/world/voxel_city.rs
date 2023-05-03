@@ -1,6 +1,6 @@
 use super::{
-    hittable_objects::*, world_prelude::*, Camera, CubeWorld, DiffuseLight, Object, Sky,
-    SolidColor, Sphere, Transform, WorldInfo,
+    hittable_objects::*, world_prelude::*, Camera, DiffuseLight, Object, Sky, SolidColor, Sphere,
+    Transform, VoxelWorld, WorldInfo,
 };
 use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
@@ -49,7 +49,7 @@ pub fn voxel_city() -> WorldInfo {
         let h = (-radius / 10.0).exp() * 30.0;
         h.max(20.0).min(BLOCK_Y as f32) as isize
     }
-    let mut world = CubeWorld::new(
+    let mut world = VoxelWorld::new(
         vec![
             CubeMaterial::new(RgbColor::new(0.2, 0.05, 0.05)),
             CubeMaterial::new(0.1 * RgbColor::new(0.65, 0.8, 0.05)),

@@ -5,7 +5,9 @@ use crate::ray_tracer::texture::SolidColor;
 use crate::{prelude::*, ray_tracer::Material};
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 use rand::prelude::*;
+pub(crate) use voxel_map::VoxelMap;
 mod perlin;
+mod voxel_map;
 mod voxel_model;
 
 pub use perlin::{PerlinBuilder, PerlinNoise};
@@ -316,7 +318,7 @@ impl CubeMaterial {
     }
 }
 #[derive(Clone)]
-pub struct CubeWorld {
+pub struct VoxelWorld {
     solid_materials: Vec<CubeMaterial>,
     translucent_materials: Vec<CubeMaterial>,
     voxels: Voxels<CubeMaterialIndex>,
@@ -324,7 +326,7 @@ pub struct CubeWorld {
     y: i32,
     z: i32,
 }
-impl CubeWorld {
+impl VoxelWorld {
     pub fn new(
         solid_materials: Vec<CubeMaterial>,
         translucent_materials: Vec<CubeMaterial>,
@@ -498,7 +500,7 @@ impl CubeWorld {
     }
 }
 
-impl Hittable for CubeWorld {
+impl Hittable for VoxelWorld {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let aabb = self.bounding_box(t_min, t_max).expect("failed to get aabb");
         if aabb.contains_point(ray.origin) {

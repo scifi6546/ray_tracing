@@ -1,4 +1,4 @@
-use super::{CubeMaterial, CubeMaterialIndex, CubeWorld, RgbColor, Voxels};
+use super::{CubeMaterial, CubeMaterialIndex, RgbColor, VoxelWorld, Voxels};
 use crate::prelude::*;
 use crate::ray_tracer::hittable::voxel_world::Solid;
 use cgmath::Point3;
@@ -86,7 +86,7 @@ impl VoxelModel {
         }
     }
 
-    pub fn add_to_world(&self, voxel_world: &mut CubeWorld, offset: Point3<isize>) {
+    pub fn add_to_world(&self, voxel_world: &mut VoxelWorld, offset: Point3<isize>) {
         // old materials to new materials, key is index of old material, value is new index
         let mut material_indices = HashMap::<usize, usize>::new();
         let mut add_materials: Vec<CubeMaterial> = Vec::new();

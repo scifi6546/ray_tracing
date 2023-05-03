@@ -1,6 +1,6 @@
 use super::{
-    hittable_objects::*, world_prelude::*, Camera, CubeWorld, DiffuseLight, Object, Sky,
-    SolidColor, Sphere, Transform, WorldInfo,
+    hittable_objects::*, world_prelude::*, Camera, DiffuseLight, Object, Sky, SolidColor, Sphere,
+    Transform, VoxelWorld, WorldInfo,
 };
 use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
@@ -23,7 +23,7 @@ pub fn load_vox_model() -> WorldInfo {
     };
 
     let materials = vec![CubeMaterial::new(RgbColor::WHITE)];
-    let mut world = CubeWorld::new(materials, vec![], BLOCK_X, BLOCK_Y, BLOCK_Z);
+    let mut world = VoxelWorld::new(materials, vec![], BLOCK_X, BLOCK_Y, BLOCK_Z);
     model.add_to_world(&mut world, Point3::new(0, 0, 0));
 
     WorldInfo {

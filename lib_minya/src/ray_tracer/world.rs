@@ -351,8 +351,12 @@ pub fn get_scenarios() -> Scenarios {
             f: load_vox_model::load_vox_model,
         }),
         Box::new(ScenarioFn {
-            name: "Sinnoh".to_string(),
+            name: "Twinleaf Town".to_string(),
             f: sinnoh::twinleaf_town,
+        }),
+        Box::new(ScenarioFn {
+            name: "Twinleaf Town Map".to_string(),
+            f: sinnoh::twinleaf_map,
         }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
@@ -368,6 +372,6 @@ pub fn get_scenarios() -> Scenarios {
     }
     Scenarios {
         items: map,
-        default: "Sinnoh".to_string(),
+        default: "Twinleaf Town Map".to_string(),
     }
 }
