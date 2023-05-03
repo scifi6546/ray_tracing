@@ -351,10 +351,6 @@ pub fn get_scenarios() -> Scenarios {
             f: load_vox_model::load_vox_model,
         }),
         Box::new(ScenarioFn {
-            name: "Twinleaf Town".to_string(),
-            f: sinnoh::twinleaf_town,
-        }),
-        Box::new(ScenarioFn {
             name: "Twinleaf Town Map".to_string(),
             f: sinnoh::twinleaf_map,
         }),

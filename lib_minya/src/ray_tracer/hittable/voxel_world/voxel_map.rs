@@ -65,10 +65,11 @@ impl VoxelMap {
                 let tile_index = self.tiles[x][z];
                 let tile = models.get(&tile_index).expect("invalid tile type");
                 if let Some(tile) = tile.as_ref() {
+                    let x_tile_pos = self.num_tiles_x() - x - 1;
                     tile.add_to_world(
                         voxels,
                         Point3::new(
-                            x as isize * self.tile_size as isize,
+                            x_tile_pos as isize * self.tile_size as isize,
                             0,
                             z as isize * self.tile_size as isize,
                         ),
