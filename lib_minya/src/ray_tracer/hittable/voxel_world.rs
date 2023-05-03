@@ -495,9 +495,7 @@ impl VoxelWorld {
             HitResult::DidNotHit => None,
         }
     }
-    pub(crate) fn get_solid_material_colors(&self) -> Vec<RgbColor> {
-        self.solid_materials.iter().map(|mat| mat.color).collect()
-    }
+
 }
 
 impl Hittable for VoxelWorld {

@@ -69,7 +69,6 @@ impl Hittable for ConstantMedium {
             position,
             direction: ray.direction,
             normal: Vector3::unit_x(),
-            t,
             front_face: true,
             uv: Point2::origin(),
         };

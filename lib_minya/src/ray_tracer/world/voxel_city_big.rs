@@ -26,22 +26,7 @@ pub fn voxel_city_big() -> WorldInfo {
             color: 200.0 * RgbColor::new(252.0 / 255.0, 79.0 / 255.0, 5.0 / 255.0),
         }),
     });
-    let lava_light = Object::new(
-        Box::new(Sphere {
-            radius: 3.0,
-            origin: Point3::new(50.0, 100.0, 50.0),
-            material: light.clone(),
-        }),
-        Transform::identity(),
-    );
-    let lava_light_far = Object::new(
-        Box::new(Sphere {
-            radius: 3.0,
-            origin: Point3::new(500000.0, 280000.0, 500000.0),
-            material: light.clone(),
-        }),
-        Transform::identity(),
-    );
+
 
     let mut world = VoxelWorld::new(
         vec![

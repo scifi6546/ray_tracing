@@ -288,7 +288,7 @@ pub struct HitRay {
     position: Point3<f32>,
     direction: Vector3<f32>,
     normal: Vector3<f32>,
-    t: f32,
+
     front_face: bool,
     uv: Point2<f32>,
 }
@@ -302,9 +302,7 @@ impl HitRay {
     pub(crate) fn normal(&self) -> Vector3<f32> {
         self.normal
     }
-    pub(crate) fn t(&self) -> f32 {
-        self.t
-    }
+
     pub(crate) fn front_face(&self) -> bool {
         self.front_face
     }
@@ -344,7 +342,7 @@ impl HitRecord {
             direction: ray.direction,
             //normal: if front_face { normal } else { -normal },
             normal,
-            t,
+
             front_face,
             uv,
         };
@@ -378,9 +376,7 @@ impl HitRecord {
         let hit_ray = HitRay {
             position,
             direction: ray.direction,
-            //normal: if front_face { normal } else { -normal },
             normal,
-            t,
             front_face,
             uv,
         };

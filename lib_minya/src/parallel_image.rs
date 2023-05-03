@@ -262,7 +262,7 @@ impl std::ops::Add<&ParallelImage> for ParallelImage {
 impl std::ops::Add<ParallelImage> for ParallelImage {
     type Output = Self;
 
-    fn add(mut self, rhs: ParallelImage) -> Self::Output {
+    fn add(self, rhs: ParallelImage) -> Self::Output {
         self.add(&rhs)
     }
 }

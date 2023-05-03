@@ -40,7 +40,7 @@ impl GaussianBlur {
 }
 impl PostProcessingStage for GaussianBlur {
     fn process(&self, texture_in: &ParallelImage) -> ParallelImage {
-        let mut mod_texture = texture_in.clone();
+        let mod_texture = texture_in.clone();
 
         let mut down_sampled = vec![Self::blur(mod_texture.clone())];
         for _ in 0..self.amount {
@@ -51,9 +51,7 @@ impl PostProcessingStage for GaussianBlur {
             down_sampled[i] = down_sampled[i].clone() + &down_sampled[i + 1];
         }
 
-        //for _ in 0..self.amount {
-        //    mod_texture = Self::blur(mod_texture);
-        //}
+
         return down_sampled[0].clone();
     }
 }

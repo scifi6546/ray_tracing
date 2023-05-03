@@ -16,10 +16,7 @@ pub(crate) fn twinleaf_map() -> WorldInfo {
     let look_at = Point3::new(block_x as f32 / 2.0, 10.0, block_z as f32 / 2.0);
 
     let origin = Point3::new(0.0f32, 30.0,  2.0);
-    let focus_distance = {
-        let t = look_at - origin;
-        (t.dot(t)).sqrt()
-    };
+  
     let look_at = Point3::new(block_x as f32 / 2.0, 10.0, block_z as f32 / 2.0);
     //let look_at = Point3::new(0.0, 0.0, 0.0);
     let origin = Point3::new(-500.0f32, 300.0, block_z as f32 / 2.0);
