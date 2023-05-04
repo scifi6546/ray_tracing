@@ -1,13 +1,14 @@
 use super::{CubeMaterial, CubeMaterialIndex, RgbColor, VoxelWorld, Voxels};
 use crate::prelude::*;
-use crate::ray_tracer::hittable::voxel_world::Solid;
 use cgmath::Point3;
 use std::io::Read;
+use std::ops::Neg;
 use std::{
     collections::{HashMap, HashSet},
     fs::*,
     path::Path,
 };
+
 #[derive(Clone)]
 pub struct VoxelModel {
     models: Vec<Voxels<CubeMaterialIndex>>,
@@ -72,7 +73,7 @@ impl VoxelModel {
                     world.update(
                         voxel.x as isize - min_x as isize,
                         voxel.z as isize - min_z as isize,
-                        voxel.y as isize - min_y as isize,
+                        (voxel.y as isize - min_y as isize).neg() + max_y as isize - min_y as isize,
                         CubeMaterialIndex::new_solid(index),
                     )
                 }
