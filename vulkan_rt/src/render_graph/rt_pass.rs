@@ -43,9 +43,7 @@ trait VkResultHelperFuncs {
         if let Some(e) = self.get_err() {
             println!("error: {:#?}", e);
             if *e == vk::Result::ERROR_DEVICE_LOST {
-                /// getting len of checkpoints will be used to fill in checkpoint array
-                let len = unsafe { base.checkpoints.get_queue_checkpoint_data_len(queue) };
-                println!("num checkpoints: {}", len);
+                // getting len of checkpoints will be used to fill in checkpoint array
             }
         }
         self
@@ -108,7 +106,7 @@ impl ModelAccelerationStructure {
             let build_size = raytracing_state
                 .acceleration_structure
                 .get_acceleration_structure_build_sizes(
-                    vk::AccelerationStructureBuildTypeKHR::HOST,
+                    vk::AccelerationStructureBuildTypeKHR::DEVICE,
                     &build_type[0],
                     &[1],
                 );
@@ -194,11 +192,7 @@ impl ModelAccelerationStructure {
                 .dst_acceleration_structure(acceleration_structure)
                 .build()];
             base.device.device_wait_idle().expect("failed to wait??");
-            let info = vk::SemaphoreCreateInfo::builder().flags(vk::SemaphoreCreateFlags::empty());
-            let dep_semaphore_semaphore = base
-                .device
-                .create_semaphore(&info, None)
-                .expect("failed to create semaphore");
+
             // todo incorporate vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR
             record_submit_commandbuffer(
                 &base.device,
@@ -246,12 +240,14 @@ impl ModelAccelerationStructure {
                 },
             );
             base.device
+                .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
+                .expect("failed to wait for fence");
+
+            base.device
                 .device_wait_idle()
                 .check_error(base.present_queue, base)
                 .expect("failed to wait idle");
-            base.device
-                .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
-                .expect("failed to wait for fence");
+
             allocator
                 .lock()
                 .expect("failed to get allocator")

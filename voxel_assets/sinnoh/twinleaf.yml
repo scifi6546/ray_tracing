@@ -22,16 +22,25 @@ tile_types:
   - index: 7
     is_air: false
     model_path: "voxel_assets/sinnoh/water.vox"
+  - index: 8
+    is_air: false
+    model_path: "voxel_assets/sinnoh/fence0.vox"
+  - index: 9
+    is_air: false
+    model_path: "voxel_assets/sinnoh/fence_ld_corner.vox"
+  - index: 10
+    is_air: false
+    model_path: "voxel_assets/sinnoh/fence1.vox"
 
 tile_size: 16
-tiles: [ [ 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+tiles: [ [ 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 9, 1, 1, 1, 1, 1, 1, 1, 1, 8, 8, 8, 8, 8, 8, 0, 0, 0,
            0, 0, 0, ],
   [
-    5, 0, 5, 0, 5, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 0, 5,
+    5, 0, 5, 0, 5, 0, 1, 1, 1, 1, 1, 10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 0, 5,
     0, 5, 0,
   ],
   [
-    0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
     0, 0, 0,
   ],
   [

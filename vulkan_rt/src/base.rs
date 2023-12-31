@@ -165,17 +165,17 @@ impl Base {
             }
         }
         unsafe {
-            extension_manager.add_extension(DebugUtils::name().as_ptr());
+            instance_extension_manager.add_extension(DebugUtils::name().as_ptr());
         }
-        let base_extensions = unsafe {
-            [
-                CStr::from_bytes_with_nul_unchecked(b"VK_KHR_maintenance1\0"),
+        let base_extensions: &'static [&CStr] = unsafe {
+            &[
+                //CStr::from_bytes_with_nul_unchecked(b"VK_KHR_maintenance1\0"),
                 //   CStr::from_bytes_with_nul_unchecked(b"VK_KHR_get_physical_device_properties2\0"),
                 //  CStr::from_bytes_with_nul_unchecked(b"VK_EXT_descriptor_indexing\0"),
             ]
         };
         for name in base_extensions {
-            unsafe { extension_manager.add_extension(name.as_ptr()) }
+            unsafe { instance_extension_manager.add_extension(name.as_ptr()) }
         }
 
         unsafe {
@@ -239,8 +239,6 @@ impl Base {
                 .add_extension(b"VK_KHR_deferred_host_operations\0".as_ptr() as *const i8);
             device_extension_manager
                 .add_extension(b"VK_KHR_acceleration_structure\0".as_ptr() as *const i8);
-            device_extension_manager
-                .add_extension(b"VK_NV_device_diagnostic_checkpoints\0".as_ptr() as *const i8);
 
             device_extension_manager.add_extension(Swapchain::name().as_ptr());
         }

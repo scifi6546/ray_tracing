@@ -1,5 +1,5 @@
 [workspace]
-members = ["minya_bin","base_lib","vulkan_rt","choose_vulkan","lib_minya"]
+members = ["minya_bin","base_lib","vulkan_rt","choose_vulkan","lib_minya", "real_time_engine"]
 [profile.dev]
 opt-level=0
 debug=2
