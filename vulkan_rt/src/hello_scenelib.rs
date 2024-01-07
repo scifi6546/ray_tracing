@@ -2,7 +2,7 @@ use super::{prelude::*, Base, GraphicsApp};
 use crate::record_submit_commandbuffer;
 use ash::{util::read_spv, vk};
 
-use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
+use gpu_allocator::{vulkan::*, AllocationSizes, AllocatorDebugSettings};
 
 use std::{
     borrow::Borrow,
@@ -52,6 +52,7 @@ impl App {
                 physical_device: base.p_device.clone(),
                 debug_settings: AllocatorDebugSettings::default(),
                 buffer_device_address: true,
+                allocation_sizes: AllocationSizes::default(),
             })
             .expect("created allocator"),
         ));
@@ -349,7 +350,7 @@ impl GraphicsApp for App {
             .prepare_frame(self.imgui_context.io_mut(), &base.window)
             .expect("failed to prepare frame");
 
-        let ui = self.imgui_context.frame();
+        let ui = self.imgui_context.new_frame();
         let mut set_name: Option<String> = None;
         for scene_name in self.engine_entities.names().iter() {
             let button_res = ui.button(scene_name);
@@ -364,7 +365,6 @@ impl GraphicsApp for App {
         }
         self.imgui_platform.prepare_render(&ui, &base.window);
 
-        let draw_data = ui.render();
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -441,7 +441,7 @@ impl GraphicsApp for App {
                         device.cmd_draw_indexed(draw_command_buffer, mesh.num_indices, 1, 0, 0, 1);
                     }
                     self.imgui_renderer
-                        .cmd_draw(draw_command_buffer, draw_data)
+                        .cmd_draw(draw_command_buffer, self.imgui_context.render())
                         .expect("failed to draw");
                     device.cmd_end_render_pass(draw_command_buffer);
                 },

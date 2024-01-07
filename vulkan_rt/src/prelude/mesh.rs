@@ -2,7 +2,7 @@ use super::{AnimationList, Mesh, Vertex};
 use crate::{record_submit_commandbuffer, Base};
 use ash::{util::Align, vk};
 use gpu_allocator::{
-    vulkan::{Allocation, AllocationCreateDesc, Allocator},
+    vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
     MemoryLocation,
 };
 use std::mem::{align_of, size_of};
@@ -32,6 +32,23 @@ impl RenderTexture {
         }[0];
         let (width, height) = texture.dimensions();
         let image_extent = vk::Extent2D { width, height };
+
+        let texture_create_info = vk::ImageCreateInfo::builder()
+            .image_type(vk::ImageType::TYPE_2D)
+            .format(vk::Format::R8G8B8A8_UNORM)
+            .extent(image_extent.into())
+            .mip_levels(1)
+            .array_layers(1)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .tiling(vk::ImageTiling::OPTIMAL)
+            .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+        let texture_image = unsafe {
+            base.device
+                .create_image(&texture_create_info, None)
+                .expect("failed to create image")
+        };
+
         let image_data = texture.clone().into_raw();
         let image_buffer_info = vk::BufferCreateInfo::builder()
             .size(size_of::<u8>() as u64 * image_data.len() as u64)
@@ -51,6 +68,7 @@ impl RenderTexture {
                 requirements: image_buffer_memory_req,
                 location: MemoryLocation::CpuToGpu,
                 linear: true,
+                allocation_scheme: AllocationScheme::GpuAllocatorManaged,
             })
             .expect("failed to make allocation");
 
@@ -73,21 +91,7 @@ impl RenderTexture {
                 )
                 .expect("failed to bind texture memory");
         }
-        let texture_create_info = vk::ImageCreateInfo::builder()
-            .image_type(vk::ImageType::TYPE_2D)
-            .format(vk::Format::R8G8B8A8_UNORM)
-            .extent(image_extent.into())
-            .mip_levels(1)
-            .array_layers(1)
-            .samples(vk::SampleCountFlags::TYPE_1)
-            .tiling(vk::ImageTiling::OPTIMAL)
-            .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
-        let texture_image = unsafe {
-            base.device
-                .create_image(&texture_create_info, None)
-                .expect("failed to create image")
-        };
+
         let texture_memory_req =
             unsafe { base.device.get_image_memory_requirements(texture_image) };
 
@@ -97,6 +101,7 @@ impl RenderTexture {
                 requirements: texture_memory_req,
                 location: MemoryLocation::GpuOnly,
                 linear: true,
+                allocation_scheme: AllocationScheme::DedicatedImage(texture_image),
             })
             .expect("failed to free allocation");
 
@@ -336,6 +341,7 @@ impl Model {
                 requirements: index_buffer_memory_req,
                 location: MemoryLocation::CpuToGpu,
                 linear: true,
+                allocation_scheme: AllocationScheme::DedicatedBuffer(index_buffer),
             })
             .expect("failed to allocate");
         let index_ptr = index_allocation.mapped_ptr().expect("failed to map ptr");
@@ -376,6 +382,7 @@ impl Model {
                 location: MemoryLocation::CpuToGpu,
                 linear: true,
                 name: "Vertex Buffer",
+                allocation_scheme: AllocationScheme::DedicatedBuffer(vertex_buffer),
             })
             .expect("failed to allocate");
         let vert_ptr = vertex_allocation

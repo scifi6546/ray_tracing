@@ -9,7 +9,7 @@ use super::{prelude::*, Base, GraphicsApp};
 use crate::render_graph::mesh_descriptors::MeshDescriptors;
 use ash::{extensions::khr::AccelerationStructure, vk};
 use diffuse_pass::DiffusePass;
-use gpu_allocator::{vulkan::*, AllocatorDebugSettings};
+use gpu_allocator::{vulkan::*, AllocationSizes, AllocatorDebugSettings};
 use graph::{RenderGraph, RenderPass};
 use output_pass::OutputPass;
 use rt_pass::RtPass;
@@ -148,6 +148,7 @@ impl RenderPassApp {
                 physical_device: base.p_device.clone(),
                 debug_settings: AllocatorDebugSettings::default(),
                 buffer_device_address: true,
+                allocation_sizes: AllocationSizes::default(),
             })
             .expect("created allocator"),
         ));

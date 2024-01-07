@@ -1,8 +1,8 @@
 use super::{prelude::*, record_submit_commandbuffer, Base};
 use ash::{util::read_spv, vk};
 use cgmath::Vector3;
-use gpu_allocator::vulkan::*;
-use gpu_allocator::AllocatorDebugSettings;
+use gpu_allocator::{vulkan::*, AllocationSizes, AllocatorDebugSettings};
+
 use std::{
     default::Default,
     ffi::CStr,
@@ -20,6 +20,7 @@ pub fn run(base: &Base) {
             physical_device: base.p_device.clone(),
             debug_settings: AllocatorDebugSettings::default(),
             buffer_device_address: true,
+            allocation_sizes: AllocationSizes::default(),
         })
         .expect("created allocator"),
     ));

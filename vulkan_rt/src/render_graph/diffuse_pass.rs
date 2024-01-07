@@ -2,7 +2,7 @@ use super::{PassBase, VulkanOutput, VulkanOutputType, VulkanPass};
 use crate::{prelude::*, record_submit_commandbuffer};
 use ash::{util::read_spv, vk};
 use gpu_allocator::{
-    vulkan::{Allocation, AllocationCreateDesc},
+    vulkan::{Allocation, AllocationCreateDesc, AllocationScheme},
     MemoryLocation,
 };
 
@@ -58,6 +58,7 @@ impl FramebufferTexture {
                 requirements: texture_memory_req,
                 location: MemoryLocation::GpuOnly,
                 linear: true,
+                allocation_scheme: AllocationScheme::DedicatedImage(texture_image),
             })
             .expect("failed to free allocation");
         unsafe {

@@ -8,7 +8,7 @@ use crate::{
 use ash::vk;
 use generational_arena::Index as ArenaIndex;
 use gpu_allocator::{
-    vulkan::{Allocation, AllocationCreateDesc, Allocator},
+    vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
     MemoryLocation,
 };
 use std::ffi::c_void;
@@ -90,8 +90,11 @@ impl ModelAccelerationStructure {
                 .queue_family_indices(&queue_family_indicies)
                 .sharing_mode(vk::SharingMode::EXCLUSIVE)
                 .usage(vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR);
-            let buffer = base.device.create_buffer(&info, None).expect("buffer");
-            let memory_reqs = base.device.get_buffer_memory_requirements(buffer);
+            let acceleration_structure_buffer =
+                base.device.create_buffer(&info, None).expect("buffer");
+            let memory_reqs = base
+                .device
+                .get_buffer_memory_requirements(acceleration_structure_buffer);
             let allocation = allocator
                 .lock()
                 .expect("failed to get lock")
@@ -100,15 +103,22 @@ impl ModelAccelerationStructure {
                     requirements: memory_reqs,
                     location: MemoryLocation::GpuOnly,
                     linear: true,
+                    allocation_scheme: AllocationScheme::DedicatedBuffer(
+                        acceleration_structure_buffer,
+                    ),
                 })
                 .expect("failed to get allocation");
 
             base.device
-                .bind_buffer_memory(buffer, allocation.memory(), allocation.offset())
+                .bind_buffer_memory(
+                    acceleration_structure_buffer,
+                    allocation.memory(),
+                    allocation.offset(),
+                )
                 .expect("failed to bind memory");
             let acceleration_structure_create_info =
                 vk::AccelerationStructureCreateInfoKHR::builder()
-                    .buffer(buffer)
+                    .buffer(acceleration_structure_buffer)
                     .offset(0)
                     .size(build_size.acceleration_structure_size)
                     .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL);
@@ -139,6 +149,7 @@ impl ModelAccelerationStructure {
                     requirements: scratch_memory_reqs,
                     location: MemoryLocation::GpuOnly,
                     linear: true,
+                    allocation_scheme: AllocationScheme::DedicatedBuffer(scratch_buffer),
                 })
                 .expect("failed to bind scratch memory");
             base.device
@@ -205,7 +216,7 @@ impl ModelAccelerationStructure {
                 .expect("failed to free");
             base.device.destroy_buffer(scratch_buffer, None);
             Ok(Self {
-                buffer,
+                buffer: acceleration_structure_buffer,
                 allocation: Some(allocation),
                 acceleration_structure,
             })
@@ -264,31 +275,41 @@ impl RtPass {
                 .queue_family_indices(&queue_family_indicies)
                 .sharing_mode(vk::SharingMode::EXCLUSIVE)
                 .usage(vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR);
-            let buffer = pass_base
+            let acceleration_structure_buffer = pass_base
                 .base
                 .device
                 .create_buffer(&info, None)
-                .expect("buffer");
-            let memory_reqs = pass_base.base.device.get_buffer_memory_requirements(buffer);
+                .expect("failed to create buffer for top level acceleration structure");
+            let memory_reqs = pass_base
+                .base
+                .device
+                .get_buffer_memory_requirements(acceleration_structure_buffer);
             let allocation = pass_base
                 .allocator
                 .lock()
                 .expect("failed to get lock")
                 .allocate(&AllocationCreateDesc {
-                    name: "",
+                    name: "Top Level Acceleration Structure Buffer",
                     requirements: memory_reqs,
                     location: MemoryLocation::GpuOnly,
                     linear: true,
+                    allocation_scheme: AllocationScheme::DedicatedBuffer(
+                        acceleration_structure_buffer,
+                    ),
                 })
                 .expect("failed to get allocation");
 
             pass_base
                 .base
                 .device
-                .bind_buffer_memory(buffer, allocation.memory(), allocation.offset())
+                .bind_buffer_memory(
+                    acceleration_structure_buffer,
+                    allocation.memory(),
+                    allocation.offset(),
+                )
                 .expect("failed to bind memory");
             let info = vk::AccelerationStructureCreateInfoKHR::builder()
-                .buffer(buffer)
+                .buffer(acceleration_structure_buffer)
                 .offset(0)
                 .size(allocation.size())
                 .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL);
@@ -300,7 +321,7 @@ impl RtPass {
 
             Ok(Self {
                 allocation: Some(allocation),
-                buffer,
+                buffer: acceleration_structure_buffer,
                 acceleration_structure,
                 model_acceleration_structures,
             })

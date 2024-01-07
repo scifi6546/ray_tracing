@@ -375,20 +375,12 @@ impl VulkanPass for OutputPass {
         if let Some(name) = new_active_scene {
             engine_entities.set_name(name);
         }
-        if ui.is_any_item_hovered() {
-            // println!("hovered!!!");
-        }
-        /*
-        if ui.is_any_item_active() {
-            println!("item active")
-        }
 
-         */
         if ui.button("foo!!!!") {
             println!("clicked foo????");
         }
         self.imgui_platform.prepare_render(&ui, &base.base.window);
-        let draw_data = ui.render();
+
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -436,16 +428,7 @@ impl VulkanPass for OutputPass {
                         .unwrap()
                         .animation
                         .build_transform_mat(0);
-                    /*
-                    device.cmd_bind_descriptor_sets(
-                        draw_command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.pipeline_layout,
-                        0,
-                        &[self.render_plane.as_ref().unwrap().texture.descriptor_set],
-                        &[],
-                    );
-                    */
+
                     device.cmd_bind_descriptor_sets(
                         draw_command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
@@ -490,7 +473,7 @@ impl VulkanPass for OutputPass {
                     );
 
                     self.imgui_renderer
-                        .cmd_draw(draw_command_buffer, draw_data)
+                        .cmd_draw(draw_command_buffer, scene_state.imgui_context.render())
                         .expect("failed to draw");
                     device.cmd_end_render_pass(draw_command_buffer);
                 },

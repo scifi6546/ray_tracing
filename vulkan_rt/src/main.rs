@@ -107,8 +107,7 @@ impl<App: GraphicsApp> GraphicsAppRunner<App> {
         self.base
             .event_loop
             .borrow_mut()
-            .run_return(|event, _target, controll_flow| {
-                *controll_flow = ControlFlow::Poll;
+            .run_return(|event, _, control_flow| {
                 self.app.handle_event(self.base.clone(), &event);
                 match event {
                     Event::NewEvents(_) => {
@@ -121,7 +120,7 @@ impl<App: GraphicsApp> GraphicsAppRunner<App> {
                         ..
                     } => {
                         println!("exit");
-                        *controll_flow = ControlFlow::Exit
+                        *control_flow = ControlFlow::ExitWithCode(0)
                     }
 
                     Event::MainEventsCleared => {

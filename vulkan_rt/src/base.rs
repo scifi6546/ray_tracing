@@ -1,6 +1,5 @@
 mod extension_manager;
 use super::{aftermath_impl::AftermathState, find_memory_type_index, record_submit_commandbuffer};
-
 use ash::{
     extensions::{
         ext::DebugUtils,
@@ -10,13 +9,15 @@ use ash::{
     vk, Device, Entry, Instance,
 };
 use extension_manager::ExtensionManager;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use std::{borrow::Cow, cell::RefCell, ffi::CStr, os::raw::c_char};
+use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    platform::run_return::EventLoopExtRunReturn,
     window::WindowBuilder,
 };
+
 #[derive(Debug)]
 struct ExtensionInfo {
     #[allow(dead_code)]
@@ -164,7 +165,8 @@ impl Base {
             CStr::from_bytes_with_nul(b"VK_KHR_get_physical_device_properties2\0").unwrap(),
         );
 
-        for name in ash_window::enumerate_required_extensions(&window).unwrap() {
+        for name in ash_window::enumerate_required_extensions(window.raw_display_handle()).unwrap()
+        {
             unsafe {
                 instance_extension_manager.add_extension_ptr(*name);
             }
@@ -218,8 +220,14 @@ impl Base {
                 .expect("failed to create debug callback")
         };
         let surface = unsafe {
-            ash_window::create_surface(&entry, &instance, &window, None)
-                .expect("failed to create render surface")
+            ash_window::create_surface(
+                &entry,
+                &instance,
+                window.raw_display_handle(),
+                window.raw_window_handle(),
+                None,
+            )
+            .expect("failed to create render surface")
         };
         let surface_loader = Surface::new(&entry, &instance);
         let p_devices = unsafe {
@@ -576,15 +584,14 @@ impl Base {
         let mut frame_counter = 0;
         self.event_loop
             .borrow_mut()
-            .run_return(|event, _target, controll_flow| {
-                *controll_flow = ControlFlow::Poll;
+            .run_return(|event, _, control_flow| {
                 match event {
                     Event::WindowEvent {
                         event: WindowEvent::CloseRequested,
                         ..
                     } => {
                         println!("exit");
-                        *controll_flow = ControlFlow::Exit
+                        *control_flow = ControlFlow::Exit;
                     }
                     Event::WindowEvent {
                         event: WindowEvent::KeyboardInput { input, .. },
