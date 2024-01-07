@@ -156,20 +156,20 @@ impl Base {
             .map(|raw_name| raw_name.as_ptr())
             .collect();
         let mut instance_extension_manager = ExtensionManager::new();
-        unsafe {
-            instance_extension_manager
-                .add_extension(b"VK_KHR_get_physical_device_properties2\0".as_ptr() as *const i8);
-            instance_extension_manager
-                .add_extension(b"VK_KHR_get_physical_device_properties2\0".as_ptr() as *const i8)
-        }
+        instance_extension_manager.add_extension(
+            CStr::from_bytes_with_nul(b"VK_KHR_get_physical_device_properties2\0").unwrap(),
+        );
+        instance_extension_manager.add_extension(
+            CStr::from_bytes_with_nul(b"VK_KHR_get_physical_device_properties2\0").unwrap(),
+        );
 
         for name in ash_window::enumerate_required_extensions(&window).unwrap() {
             unsafe {
-                instance_extension_manager.add_extension(*name);
+                instance_extension_manager.add_extension_ptr(*name);
             }
         }
         unsafe {
-            instance_extension_manager.add_extension(DebugUtils::name().as_ptr());
+            instance_extension_manager.add_extension(DebugUtils::name());
         }
         let base_extensions: &'static [&CStr] = unsafe {
             &[
@@ -180,7 +180,7 @@ impl Base {
             ]
         };
         for name in base_extensions {
-            unsafe { instance_extension_manager.add_extension(name.as_ptr()) }
+            unsafe { instance_extension_manager.add_extension(name) }
         }
 
         unsafe {
@@ -191,11 +191,11 @@ impl Base {
             let name_str = name_cstr.to_str().unwrap();
             println!("enabled layer: {}", name_str);
         }
-
+        let instance_extension_names = instance_extension_manager.extensions();
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
             .enabled_layer_names(&layer_names_raw)
-            .enabled_extension_names(instance_extension_manager.extensions());
+            .enabled_extension_names(&instance_extension_names);
         println!("create info: {:#?}", *create_info);
         let entry = unsafe { Entry::load() }.expect("failed to load");
         for ext in get_extension_names(&entry) {
@@ -234,26 +234,22 @@ impl Base {
                 .expect("Error getting physical devices")
         };
         let mut device_extension_manager = ExtensionManager::new();
-        unsafe {
-            device_extension_manager.add_extension(b"VK_KHR_maintenance3\0".as_ptr() as *const i8);
-            device_extension_manager
-                .add_extension(b"VK_EXT_descriptor_indexing\0".as_ptr() as *const i8);
-            device_extension_manager
-                .add_extension(b"VK_KHR_buffer_device_address\0".as_ptr() as *const i8);
-            device_extension_manager
-                .add_extension(b"VK_KHR_deferred_host_operations\0".as_ptr() as *const i8);
-            device_extension_manager
-                .add_extension(b"VK_KHR_acceleration_structure\0".as_ptr() as *const i8);
-            /*
-            device_extension_manager
-                .add_extension(b"VK_KHR_get_physical_device_properties2\0".as_ptr() as *const i8);
-            */
-            #[cfg(feature = "aftermath")]
-            device_extension_manager
-                .add_extension(b"VK_NV_device_diagnostics_config\0".as_ptr() as *const i8);
-
-            device_extension_manager.add_extension(Swapchain::name().as_ptr());
-        }
+        device_extension_manager
+            .add_extension(CStr::from_bytes_with_nul(b"VK_KHR_maintenance3\0").unwrap());
+        device_extension_manager
+            .add_extension(CStr::from_bytes_with_nul(b"VK_EXT_descriptor_indexing\0").unwrap());
+        device_extension_manager
+            .add_extension(CStr::from_bytes_with_nul(b"VK_KHR_buffer_device_address\0").unwrap());
+        device_extension_manager.add_extension(
+            CStr::from_bytes_with_nul(b"VK_KHR_deferred_host_operations\0").unwrap(),
+        );
+        device_extension_manager
+            .add_extension(CStr::from_bytes_with_nul(b"VK_KHR_acceleration_structure\0").unwrap());
+        #[cfg(feature = "aftermath")]
+        device_extension_manager.add_extension(
+            CStr::from_bytes_with_nul(b"VK_NV_device_diagnostics_config\0").unwrap(),
+        );
+        device_extension_manager.add_extension(Swapchain::name());
 
         let (p_device, queue_family_index) = unsafe {
             p_devices
@@ -313,10 +309,10 @@ impl Base {
                     | vk::DeviceDiagnosticsConfigFlagsNV::ENABLE_RESOURCE_TRACKING,
             )
             .build();
-
+        let device_extension_names = device_extension_manager.extensions();
         let device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(std::slice::from_ref(&queue_info))
-            .enabled_extension_names(device_extension_manager.extensions())
+            .enabled_extension_names(&device_extension_names)
             //.enabled_features(&features)
             .push_next(&mut features_next);
         #[cfg(feature = "aftermath")]

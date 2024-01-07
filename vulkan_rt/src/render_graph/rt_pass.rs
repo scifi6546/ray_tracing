@@ -29,7 +29,10 @@ unsafe fn get_addr_const(
         device_address: get_device_address(device, buffer),
     }
 }
-unsafe fn get_addr(device: &ash::Device, buffer: &vk::Buffer) -> vk::DeviceOrHostAddressKHR {
+unsafe fn get_device_or_host_address(
+    device: &ash::Device,
+    buffer: &vk::Buffer,
+) -> vk::DeviceOrHostAddressKHR {
     vk::DeviceOrHostAddressKHR {
         device_address: get_device_address(device, buffer),
     }
@@ -175,7 +178,7 @@ impl ModelAccelerationStructure {
                         .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
                         .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
                         .geometries(&geo)
-                        .scratch_data(get_addr(&base.device, &scratch_buffer))
+                        .scratch_data(get_device_or_host_address(&base.device, &scratch_buffer))
                         .dst_acceleration_structure(acceleration_structure)
                         .build()];
 

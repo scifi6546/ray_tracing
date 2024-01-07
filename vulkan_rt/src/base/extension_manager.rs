@@ -1,7 +1,7 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
 pub struct ExtensionManager {
-    extensions: Vec<*const c_char>,
+    extensions: Vec<&'static CStr>,
 }
 pub enum ContainError {
     DoesNotContain(String),
@@ -11,51 +11,40 @@ impl ExtensionManager {
         Self { extensions: vec![] }
     }
     /// adds extension to manager.  if extension is not present it is not added
-    pub unsafe fn add_extension(&mut self, extension: *const c_char) {
-        let found = self
-            .extensions
-            .iter()
-            .map(|self_e| strcmp(*self_e, extension))
-            .fold(false, |acc, x| acc || x);
+    pub fn add_extension(&mut self, extension: &'static CStr) {
+        let found = self.extensions.contains(&extension);
+
         if !found {
             self.extensions.push(extension);
         }
     }
-    pub fn extensions(&self) -> &[*const c_char] {
-        &self.extensions
+    pub unsafe fn add_extension_ptr(&mut self, extension_ptr: *const c_char) {
+        let extension = CStr::from_ptr(extension_ptr);
+        self.add_extension(extension)
+    }
+    pub fn extensions(&self) -> Vec<*const i8> {
+        self.extensions
+            .iter()
+            .map(|extension| extension.as_ptr() as *const i8)
+            .collect()
     }
     pub unsafe fn extensions_string(&self) -> Vec<String> {
         self.extensions
             .iter()
-            .map(|name| {
-                CStr::from_ptr(*name)
-                    .to_str()
-                    .expect("failed to get str")
-                    .to_string()
-            })
+            .map(|name| name.to_str().unwrap().to_string())
             .collect()
     }
     /// check if extensions vec contains all extensions required
     pub fn contains(&self, extensions: &[String]) -> bool {
         self.extensions
             .iter()
-            .map(|name| unsafe {
-                CStr::from_ptr(*name)
-                    .to_str()
-                    .expect("failed to get str")
-                    .to_string()
-            })
-            .map(|name| extensions.contains(&name))
+            .map(|name| extensions.contains(&name.to_str().unwrap().to_string()))
             .fold(true, |acc, x| acc && x)
     }
     pub unsafe fn print(&self) {
         println!("extension count: {}", self.extensions.len());
         for name in self.extensions.iter() {
-            let name_cstr = CStr::from_ptr(*name);
-            let name_str = name_cstr
-                .to_str()
-                .expect("failed to convert extension name to string");
-            println!("name: {}", name_str);
+            println!("name: {}", name.to_str().unwrap());
         }
     }
 }
