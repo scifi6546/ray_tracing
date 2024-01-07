@@ -1,5 +1,5 @@
 mod extension_manager;
-use super::{find_memory_type_index, record_submit_commandbuffer};
+use super::{aftermath_impl::AftermathState, find_memory_type_index, record_submit_commandbuffer};
 use ash::vk::{PhysicalDevice, PhysicalDeviceFeatures2};
 use ash::{
     extensions::{
@@ -86,6 +86,7 @@ pub struct Base {
     pub window_height: u32,
     pub instance_extension_manager: ExtensionManager,
     pub device_extension_manager: ExtensionManager,
+    pub aftermath_state: AftermathState,
 }
 impl Base {
     unsafe fn is_device_suitable(
@@ -104,6 +105,7 @@ impl Base {
                     .to_string()
             })
             .collect::<Vec<_>>();
+        println!("device extensions: {:#?}", extensions);
         required_extensions.contains(&extensions)
     }
     unsafe fn get_queue_family_index(
@@ -157,6 +159,8 @@ impl Base {
         unsafe {
             instance_extension_manager
                 .add_extension(b"VK_KHR_get_physical_device_properties2\0".as_ptr() as *const i8);
+            instance_extension_manager
+                .add_extension(b"VK_KHR_get_physical_device_properties2\0".as_ptr() as *const i8)
         }
 
         for name in ash_window::enumerate_required_extensions(&window).unwrap() {
@@ -169,6 +173,7 @@ impl Base {
         }
         let base_extensions: &'static [&CStr] = unsafe {
             &[
+
                 //CStr::from_bytes_with_nul_unchecked(b"VK_KHR_maintenance1\0"),
                 //   CStr::from_bytes_with_nul_unchecked(b"VK_KHR_get_physical_device_properties2\0"),
                 //  CStr::from_bytes_with_nul_unchecked(b"VK_EXT_descriptor_indexing\0"),
@@ -239,6 +244,13 @@ impl Base {
                 .add_extension(b"VK_KHR_deferred_host_operations\0".as_ptr() as *const i8);
             device_extension_manager
                 .add_extension(b"VK_KHR_acceleration_structure\0".as_ptr() as *const i8);
+            /*
+            device_extension_manager
+                .add_extension(b"VK_KHR_get_physical_device_properties2\0".as_ptr() as *const i8);
+            */
+            #[cfg(feature = "aftermath")]
+            device_extension_manager
+                .add_extension(b"VK_NV_device_diagnostics_config\0".as_ptr() as *const i8);
 
             device_extension_manager.add_extension(Swapchain::name().as_ptr());
         }
@@ -294,12 +306,21 @@ impl Base {
             .push_next(&mut rt_pipeline_feature)
             .push_next(&mut vulkan_12_features)
             .push_next(&mut vulkan_13_features);
+        #[cfg(feature = "aftermath")]
+        let mut aftermath_info = vk::DeviceDiagnosticsConfigCreateInfoNV::builder()
+            .flags(
+                vk::DeviceDiagnosticsConfigFlagsNV::ENABLE_AUTOMATIC_CHECKPOINTS
+                    | vk::DeviceDiagnosticsConfigFlagsNV::ENABLE_RESOURCE_TRACKING,
+            )
+            .build();
 
         let device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(std::slice::from_ref(&queue_info))
             .enabled_extension_names(device_extension_manager.extensions())
             //.enabled_features(&features)
             .push_next(&mut features_next);
+        #[cfg(feature = "aftermath")]
+        let device_create_info = device_create_info.push_next(&mut aftermath_info);
         let device = unsafe {
             instance
                 .create_device(p_device, &device_create_info, None)
@@ -519,7 +540,7 @@ impl Base {
                 .create_semaphore(&semaphore_create_info, None)
                 .expect("failed to create semaphore")
         };
-
+        let aftermath_state = AftermathState::new();
         Base {
             event_loop: RefCell::new(event_loop),
             entry,
@@ -555,6 +576,7 @@ impl Base {
             window_height,
             instance_extension_manager,
             device_extension_manager,
+            aftermath_state,
         }
     }
     pub fn num_swapchain_images(&self) -> usize {

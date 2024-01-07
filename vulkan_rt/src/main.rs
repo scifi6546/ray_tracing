@@ -1,5 +1,6 @@
 mod base;
 
+pub mod aftermath_impl;
 mod hello_many_meshes;
 mod hello_push;
 mod hello_scenelib;

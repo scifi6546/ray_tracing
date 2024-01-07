@@ -1,4 +1,5 @@
 use super::{Base, PassBase, RayTracingState, VulkanOutput, VulkanOutputType, VulkanPass};
+use crate::aftermath_impl::AftermathState;
 use crate::{
     prelude::{RenderModel, Vertex},
     record_submit_commandbuffer,
@@ -89,8 +90,8 @@ impl ModelAccelerationStructure {
                 .index_type(RenderModel::index_type())
                 .index_data(index_address)
                 .transform_data(vk::DeviceOrHostAddressConstKHR {
-                    // host_address: TRANSFORM_MAT.as_ptr() as *const c_void,
                     host_address: 0 as *const c_void,
+                    //host_address: TRANSFORM_MAT.as_ptr() as *const c_void,
                 })
                 .build();
             println!("triangles\n{:#?}", triangles);
@@ -106,9 +107,9 @@ impl ModelAccelerationStructure {
             let build_size = raytracing_state
                 .acceleration_structure
                 .get_acceleration_structure_build_sizes(
-                    vk::AccelerationStructureBuildTypeKHR::DEVICE,
+                    vk::AccelerationStructureBuildTypeKHR::HOST_OR_DEVICE,
                     &build_type[0],
-                    &[1],
+                    &[model.num_triangles()],
                 );
             println!(
                 "model size: {} scratch size: {}",
@@ -146,11 +147,6 @@ impl ModelAccelerationStructure {
                 .create_acceleration_structure(&acceleration_structure_create_info, None)
                 .expect("failed to create acceleration structure");
 
-            let build_range_infos = [vk::AccelerationStructureBuildRangeInfoKHR::builder()
-                .primitive_count(model.num_triangles())
-                .primitive_offset(0)
-                .first_vertex(0)
-                .build()];
             let scratch_buffer_info = vk::BufferCreateInfo::builder()
                 .size(build_size.build_scratch_size)
                 .queue_family_indices(&queue_family_indicies)
@@ -182,18 +178,11 @@ impl ModelAccelerationStructure {
                     scratch_memory.offset(),
                 )
                 .expect("failed to bind memory");
-            let range_arr: [&[vk::AccelerationStructureBuildRangeInfoKHR]; 1] =
-                [&build_range_infos];
-            let build_type = [vk::AccelerationStructureBuildGeometryInfoKHR::builder()
-                .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
-                .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
-                .geometries(&geo)
-                .scratch_data(get_addr(&base.device, &scratch_buffer))
-                .dst_acceleration_structure(acceleration_structure)
-                .build()];
+
             base.device.device_wait_idle().expect("failed to wait??");
 
             // todo incorporate vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR
+
             record_submit_commandbuffer(
                 &base.device,
                 base.setup_command_buffer,
@@ -203,6 +192,25 @@ impl ModelAccelerationStructure {
                 &[],
                 &[],
                 |device, command_buffer| {
+                    let geo = [vk::AccelerationStructureGeometryKHR::builder()
+                        .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
+                        .geometry(vk::AccelerationStructureGeometryDataKHR { triangles })
+                        .build()];
+                    let build_range_infos = [vk::AccelerationStructureBuildRangeInfoKHR::builder()
+                        .primitive_count(model.num_triangles())
+                        .primitive_offset(0)
+                        .first_vertex(0)
+                        .transform_offset(0)
+                        .build()];
+                    let range_arr: [&[vk::AccelerationStructureBuildRangeInfoKHR]; 1] =
+                        [&build_range_infos];
+                    let build_type = [vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+                        .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
+                        .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
+                        .geometries(&geo)
+                        .scratch_data(get_addr(&base.device, &scratch_buffer))
+                        .dst_acceleration_structure(acceleration_structure)
+                        .build()];
                     println!("{:#?}", build_type);
                     unsafe {
                         println!("{:#?}", *build_type[0].p_geometries);
@@ -239,21 +247,19 @@ impl ModelAccelerationStructure {
                         .cmd_build_acceleration_structures(command_buffer, &build_type, &range_arr);
                 },
             );
-            base.device
-                .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
-                .expect("failed to wait for fence");
 
-            base.device
-                .device_wait_idle()
-                .check_error(base.present_queue, base)
-                .expect("failed to wait idle");
-
-            allocator
-                .lock()
-                .expect("failed to get allocator")
-                .free(scratch_memory)
-                .expect("failed to free");
-            base.device.destroy_buffer(scratch_buffer, None);
+            let geo = [vk::AccelerationStructureGeometryKHR::builder()
+                .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
+                .geometry(vk::AccelerationStructureGeometryDataKHR { triangles })
+                .build()];
+            let build_range_infos = [vk::AccelerationStructureBuildRangeInfoKHR::builder()
+                .primitive_count(model.num_triangles())
+                .primitive_offset(0)
+                .first_vertex(0)
+                //.transform_offset(todo!("transform offset"))
+                .build()];
+            let range_arr: [&[vk::AccelerationStructureBuildRangeInfoKHR]; 1] =
+                [&build_range_infos];
             /*
             raytracing_state
                 .acceleration_structure
@@ -265,6 +271,23 @@ impl ModelAccelerationStructure {
                 .expect("failed to build bottom level accceleration structure");
 
              */
+            base.device
+                .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
+                .map_err(|e| base.aftermath_state.handle_error(e))
+                .expect("failed to wait for fence");
+
+            base.device
+                .device_wait_idle()
+                .check_error(base.present_queue, base)
+                .map_err(|e| base.aftermath_state.handle_error(e))
+                .expect("failed to wait idle");
+
+            allocator
+                .lock()
+                .expect("failed to get allocator")
+                .free(scratch_memory)
+                .expect("failed to free");
+            base.device.destroy_buffer(scratch_buffer, None);
             Ok(Self {
                 buffer,
                 allocation: Some(allocation),
