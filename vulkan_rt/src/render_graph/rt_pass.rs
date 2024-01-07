@@ -1,5 +1,5 @@
 use super::{Base, PassBase, RayTracingState, VulkanOutput, VulkanOutputType, VulkanPass};
-use crate::aftermath_impl::AftermathState;
+
 use crate::{
     prelude::{RenderModel, Vertex},
     record_submit_commandbuffer,
@@ -161,7 +161,7 @@ impl ModelAccelerationStructure {
                 &[],
                 &[],
                 &[],
-                |device, command_buffer| {
+                |_device, command_buffer| {
                     let geo = [vk::AccelerationStructureGeometryKHR::builder()
                         .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
                         .geometry(vk::AccelerationStructureGeometryDataKHR { triangles })
@@ -316,7 +316,7 @@ impl VulkanPass for RtPass {
         vec![VulkanOutputType::Empty]
     }
 
-    fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
+    fn process(&mut self, _base: &PassBase, _input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
         vec![VulkanOutput::Empty]
     }
 

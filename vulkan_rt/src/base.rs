@@ -1,6 +1,6 @@
 mod extension_manager;
 use super::{aftermath_impl::AftermathState, find_memory_type_index, record_submit_commandbuffer};
-use ash::vk::{PhysicalDevice, PhysicalDeviceFeatures2};
+
 use ash::{
     extensions::{
         ext::DebugUtils,
@@ -19,7 +19,9 @@ use winit::{
 };
 #[derive(Debug)]
 struct ExtensionInfo {
+    #[allow(dead_code)]
     pub name: String,
+    #[allow(dead_code)]
     pub version: u32,
 }
 fn get_extension_names(entry: &Entry) -> Vec<ExtensionInfo> {
@@ -29,7 +31,6 @@ fn get_extension_names(entry: &Entry) -> Vec<ExtensionInfo> {
         .iter()
         .map(|e| {
             assert!(e.extension_name.contains(&0));
-            let c_str = unsafe { CStr::from_ptr(e.extension_name.as_ptr()) };
 
             ExtensionInfo {
                 name: unsafe {
@@ -168,19 +169,12 @@ impl Base {
                 instance_extension_manager.add_extension_ptr(*name);
             }
         }
-        unsafe {
-            instance_extension_manager.add_extension(DebugUtils::name());
-        }
-        let base_extensions: &'static [&CStr] = unsafe {
-            &[
 
-                //CStr::from_bytes_with_nul_unchecked(b"VK_KHR_maintenance1\0"),
-                //   CStr::from_bytes_with_nul_unchecked(b"VK_KHR_get_physical_device_properties2\0"),
-                //  CStr::from_bytes_with_nul_unchecked(b"VK_EXT_descriptor_indexing\0"),
-            ]
-        };
+        instance_extension_manager.add_extension(DebugUtils::name());
+
+        let base_extensions: &'static [&CStr] = &[];
         for name in base_extensions {
-            unsafe { instance_extension_manager.add_extension(name) }
+            instance_extension_manager.add_extension(name)
         }
 
         unsafe {

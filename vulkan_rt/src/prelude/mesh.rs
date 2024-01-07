@@ -329,8 +329,7 @@ impl Model {
         };
         let index_buffer_memory_req =
             unsafe { base.device.get_buffer_memory_requirements(index_buffer) };
-        //     index_buffer_memory_req.
-        let t = vk::MemoryAllocateFlags::DEVICE_ADDRESS;
+
         let index_allocation = allocator
             .allocate(&AllocationCreateDesc {
                 name: "index buffer memory",

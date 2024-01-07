@@ -2,6 +2,7 @@ use ash::vk;
 use std::io::Write;
 pub struct AftermathState {
     #[cfg(feature = "aftermath")]
+    #[allow(dead_code)]
     aftermath: aftermath_rs::Aftermath,
 }
 impl AftermathState {
@@ -12,7 +13,7 @@ impl AftermathState {
             aftermath: aftermath_rs::Aftermath::new(FileAftermathDelegate),
         }
     }
-    pub fn handle_error(&self, error: vk::Result) {
+    pub fn handle_error(&self, _error: vk::Result) {
         #[cfg(feature = "aftermath")]
         {
             let status =
@@ -34,7 +35,7 @@ impl aftermath_rs::AftermathDelegate for FileAftermathDelegate {
 
         // Write `dump_data` to file, or send to telemetry server
     }
-    fn shader_debug_info(&mut self, data: &[u8]) {}
+    fn shader_debug_info(&mut self, _data: &[u8]) {}
 
-    fn description(&mut self, describe: &mut aftermath_rs::DescriptionBuilder) {}
+    fn description(&mut self, _describe: &mut aftermath_rs::DescriptionBuilder) {}
 }
