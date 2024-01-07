@@ -34,36 +34,7 @@ unsafe fn get_addr(device: &ash::Device, buffer: &vk::Buffer) -> vk::DeviceOrHos
         device_address: get_device_address(device, buffer),
     }
 }
-/// implements helpers for vk::Result
-trait VkResultHelperFuncs {
-    fn get_err(&self) -> Option<&vk::Result>;
-    fn check_error(self, queue: vk::Queue, base: &Base) -> Self
-    where
-        Self: Sized,
-    {
-        if let Some(e) = self.get_err() {
-            println!("error: {:#?}", e);
-            if *e == vk::Result::ERROR_DEVICE_LOST {
-                // getting len of checkpoints will be used to fill in checkpoint array
-            }
-        }
-        self
-    }
-}
-impl<T> VkResultHelperFuncs for Result<T, vk::Result> {
-    fn get_err(&self) -> Option<&vk::Result> {
-        if self.is_err() {
-            self.as_ref().err()
-        } else {
-            None
-        }
-    }
-}
-static TRANSFORM_MAT: [[f32; 4]; 3] = [
-    [1.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0],
-    [0.0, 0.0, 1.0, 0.0],
-];
+
 struct ModelAccelerationStructure {
     buffer: vk::Buffer,
     allocation: Option<Allocation>,
@@ -91,10 +62,9 @@ impl ModelAccelerationStructure {
                 .index_data(index_address)
                 .transform_data(vk::DeviceOrHostAddressConstKHR {
                     host_address: 0 as *const c_void,
-                    //host_address: TRANSFORM_MAT.as_ptr() as *const c_void,
                 })
                 .build();
-            println!("triangles\n{:#?}", triangles);
+
             let geo = [vk::AccelerationStructureGeometryKHR::builder()
                 .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
                 .geometry(vk::AccelerationStructureGeometryDataKHR { triangles })
@@ -111,10 +81,7 @@ impl ModelAccelerationStructure {
                     &build_type[0],
                     &[model.num_triangles()],
                 );
-            println!(
-                "model size: {} scratch size: {}",
-                build_size.acceleration_structure_size, build_size.build_scratch_size
-            );
+
             let info = vk::BufferCreateInfo::builder()
                 .size(build_size.acceleration_structure_size)
                 .queue_family_indices(&queue_family_indicies)
@@ -211,66 +178,13 @@ impl ModelAccelerationStructure {
                         .scratch_data(get_addr(&base.device, &scratch_buffer))
                         .dst_acceleration_structure(acceleration_structure)
                         .build()];
-                    println!("{:#?}", build_type);
-                    unsafe {
-                        println!("{:#?}", *build_type[0].p_geometries);
-                        println!("{:#?}", (*build_type[0].p_geometries).geometry.triangles);
-                        println!(
-                            "{:#?}",
-                            (*build_type[0].p_geometries)
-                                .geometry
-                                .triangles
-                                .vertex_data
-                                .device_address
-                        );
-                        println!(
-                            "index device address \n{:#?}\n",
-                            (*build_type[0].p_geometries)
-                                .geometry
-                                .triangles
-                                .index_data
-                                .device_address
-                        );
-                        println!(
-                            "transform device address: \n{:#?}\n",
-                            (*build_type[0].p_geometries)
-                                .geometry
-                                .triangles
-                                .transform_data
-                                .device_address
-                        );
-                    }
 
-                    println!("range arr: \n{:#?}\n", range_arr);
                     raytracing_state
                         .acceleration_structure
                         .cmd_build_acceleration_structures(command_buffer, &build_type, &range_arr);
                 },
             );
 
-            let geo = [vk::AccelerationStructureGeometryKHR::builder()
-                .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
-                .geometry(vk::AccelerationStructureGeometryDataKHR { triangles })
-                .build()];
-            let build_range_infos = [vk::AccelerationStructureBuildRangeInfoKHR::builder()
-                .primitive_count(model.num_triangles())
-                .primitive_offset(0)
-                .first_vertex(0)
-                //.transform_offset(todo!("transform offset"))
-                .build()];
-            let range_arr: [&[vk::AccelerationStructureBuildRangeInfoKHR]; 1] =
-                [&build_range_infos];
-            /*
-            raytracing_state
-                .acceleration_structure
-                .build_acceleration_structures(
-                    vk::DeferredOperationKHR::null(),
-                    &build_type,
-                    &range_arr,
-                )
-                .expect("failed to build bottom level accceleration structure");
-
-             */
             base.device
                 .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
                 .map_err(|e| base.aftermath_state.handle_error(e))
@@ -278,7 +192,6 @@ impl ModelAccelerationStructure {
 
             base.device
                 .device_wait_idle()
-                .check_error(base.present_queue, base)
                 .map_err(|e| base.aftermath_state.handle_error(e))
                 .expect("failed to wait idle");
 
