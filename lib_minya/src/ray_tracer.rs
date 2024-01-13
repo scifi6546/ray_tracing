@@ -510,6 +510,7 @@ impl RayTracer {
             senders.push(message_sender);
             let self_rw_lock = self_rw_lock.clone();
             thread::spawn(move || {
+                let mut render = true;
                 let mut part = part;
 
                 loop {
@@ -517,9 +518,15 @@ impl RayTracer {
                         match msg {
                             RayTracerMessage::LoadScenario(_name) => part.set_black(),
                             RayTracerMessage::SetShader(_) => part.set_black(),
+                            RayTracerMessage::StopRendering => {
+                                render = false;
+                            }
+                            RayTracerMessage::ContinueRendering => {
+                                render = true;
+                            }
                         };
                     }
-                    {
+                    if render {
                         let self_read_res = loop_try_get(&self_rw_lock);
                         self_read_res.trace_part(&mut part);
                         sender.send(part.clone());

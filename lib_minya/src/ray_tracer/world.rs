@@ -163,7 +163,10 @@ impl World {
                         Point3::new(center.x + size_x, center.y + size_y, center.z + size_z),
                         material,
                     )),
-                    base_lib::Shape::Voxels(voxel_grid) => todo!("voxel grid"),
+                    base_lib::Shape::Voxels(voxel_grid) => {
+                        error!("todo load voxel grid");
+                        todo!("voxel grid")
+                    }
                 };
                 let mut obj_out = obj_out;
                 for modifier in obj.modifiers.iter() {

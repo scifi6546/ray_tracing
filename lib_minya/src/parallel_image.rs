@@ -413,6 +413,8 @@ impl ImageReceiver {
 pub(crate) enum RayTracerMessage {
     LoadScenario(String),
     SetShader(super::ray_tracer::CurrentShader),
+    StopRendering,
+    ContinueRendering,
 }
 struct PartContainer {
     image: ParallelImagePart,
@@ -466,7 +468,14 @@ impl ParallelImageCollector {
         }
     }
     pub fn load_scenario(&mut self, name: String) {
+        self.message_senders.iter_mut().for_each(|s| {
+            s.send(RayTracerMessage::StopRendering)
+                .map_err(|e| error!("failed to send stop rendering message"))
+                .unwrap();
+        });
+        info!("loading scenario");
         self.clear();
+
         {
             let mut write_lock = self.ray_tracer.write().expect("failed to read");
             write_lock.load_scenario(name.clone());
@@ -476,6 +485,11 @@ impl ParallelImageCollector {
                 .send(RayTracerMessage::LoadScenario(name.clone()))
                 .expect("failed to send")
         }
+        self.message_senders.iter_mut().for_each(|s| {
+            s.send(RayTracerMessage::ContinueRendering)
+                .map_err(|e| error!("failed to send continue rendering message"))
+                .unwrap();
+        });
     }
     pub fn save_file<P: AsRef<Path>>(&mut self, p: P) {
         if let Some(img) = self.receive() {

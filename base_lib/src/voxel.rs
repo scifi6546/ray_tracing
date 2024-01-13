@@ -22,4 +22,13 @@ impl VoxelGrid {
             grid: Vec::new(),
         }
     }
+    pub fn size_x(&self) -> usize {
+        self.size_x
+    }
+    pub fn size_y(&self) -> usize {
+        self.size_y
+    }
+    pub fn size_z(&self) -> usize {
+        self.size_z
+    }
 }
