@@ -1,8 +1,11 @@
-use cgmath::{InnerSpace, Point3, Vector3};
+mod voxel;
+
+use cgmath::{InnerSpace, MetricSpace, Point3, Vector3};
 use std::{
     fmt::{Display, Formatter},
     ops::{Add, AddAssign, Div, Mul, Sub},
 };
+pub use voxel::VoxelGrid;
 
 pub struct Scene {
     pub name: String,
@@ -70,6 +73,7 @@ pub enum Shape {
         size_y: f32,
         size_z: f32,
     },
+    Voxels(VoxelGrid),
 }
 pub fn clamp<T: std::cmp::PartialOrd>(x: T, min: T, max: T) -> T {
     if x < min {
@@ -309,6 +313,41 @@ pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
                     far_clip: 10000.0,
                 },
             }
+        }),
+        ("Baselib Voxel Sphere".to_string(), || Scene {
+            name: "Voxel Grid".into(),
+            objects: vec![Object {
+                shape: Shape::Voxels(VoxelGrid::new(
+                    Vector3::new(32, 32, 32),
+                    Vector3::new(0.0, 0.0, 0.0),
+                    |x, y, z| {
+                        let center = Vector3::new(16.0, 16.0, 16.0);
+                        let current_pos = Vector3::new(x as f32, y as f32, z as f32);
+                        center.distance(current_pos) < 5.0
+                    },
+                )),
+                material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                    0.73, 0.73, 0.73,
+                ))),
+                modifiers: vec![],
+            }],
+            background: Background::ConstantColor(RgbColor::new(0.0, 0.0, 0.0)),
+            camera: Camera {
+                aspect_ratio: 1.0,
+                fov: 40.0,
+                origin: Point3::new(-20.0, 5.0, 0.0),
+                look_at: Point3::new(0.0, 0.0, 0.0),
+                up_vector: Vector3::new(0.0, 1.0, 0.0),
+                aperture: 0.00001,
+                focus_distance: {
+                    let t = Point3::new(0.0f32, 0.0, 0.0) - Point3::new(-20.0, 5.0, 0.0);
+                    (t.dot(t)).sqrt()
+                },
+                start_time: 0.0,
+                end_time: 0.0,
+                near_clip: 1.0,
+                far_clip: 10000.0,
+            },
         }),
     ]
 }

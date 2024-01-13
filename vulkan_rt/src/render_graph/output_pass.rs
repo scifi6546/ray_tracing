@@ -8,7 +8,8 @@ use std::{ffi::CStr, io::Cursor, mem::size_of};
 pub struct OutputPass {
     imgui_renderer: imgui_rs_vulkan_renderer::Renderer,
     imgui_platform: imgui_winit_support::WinitPlatform,
-    render_plane: Option<RenderModel>,
+    /// target to render from
+    render_planes: Vec<RenderModel>,
     framebuffers: Vec<vk::Framebuffer>,
     renderpass: vk::RenderPass,
     descriptor_pool: vk::DescriptorPool,
@@ -23,7 +24,7 @@ pub struct OutputPass {
     present_index: Option<u32>,
 }
 impl OutputPass {
-    pub fn new(base: &mut PassBase) -> Self {
+    pub fn new(base: &mut PassBase, number_of_passes: usize) -> Self {
         let mut scene_state = base.scene_state.as_ref().borrow_mut();
 
         let imgui_context = &mut scene_state.imgui_context;
@@ -146,6 +147,26 @@ impl OutputPass {
                 &descriptor_set_layouts,
             )
         };
+        let render_planes = (0..number_of_passes)
+            .map(|_i| {
+                let render_plane_mesh = Mesh::plane();
+                let render_plane_model = Model {
+                    animation: AnimationList::new(vec![]),
+                    mesh: render_plane_mesh,
+                    texture: image::RgbaImage::from_pixel(
+                        100,
+                        100,
+                        image::Rgba([100, 100, 100, 0xff]),
+                    ),
+                };
+                render_plane_model.build_render_model(
+                    base.base.as_ref(),
+                    &mut base.allocator.lock().expect("failed to lock"),
+                    &descriptor_pool,
+                    &descriptor_set_layouts,
+                )
+            })
+            .collect::<Vec<_>>();
         let mut vertex_spv_file = Cursor::new(include_bytes!("../../shaders/bin/push.vert.glsl"));
         let mut frag_spv_file = Cursor::new(include_bytes!("../../shaders/bin/push.frag.glsl"));
         let vertex_code =
@@ -309,7 +330,7 @@ impl OutputPass {
             vertex_shader_module,
             graphics_pipeline,
             pipeline_layout,
-            render_plane: Some(render_plane),
+            render_planes,
             viewports,
             scissors,
             present_index: None,
@@ -335,6 +356,15 @@ impl VulkanPass for OutputPass {
     }
 
     fn process(&mut self, base: &PassBase, input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
+        if input.len() != self.render_planes.len() {
+            panic!("number of inputs not equal to size of output pass")
+        }
+        for pass in input.iter() {
+            match pass {
+                &VulkanOutput::Framebuffer { descriptor_set, .. } => (),
+                _ => panic!("invalid dependency"),
+            };
+        }
         let mut depedency_semaphores = get_semaphores(&input);
         let (present_index, _) = unsafe {
             base.base
@@ -348,10 +378,6 @@ impl VulkanPass for OutputPass {
                 .expect("failed to acquire image")
         };
         self.present_index = Some(present_index);
-        let diffuse_descriptor_set = match input[1] {
-            &VulkanOutput::Framebuffer { descriptor_set, .. } => descriptor_set,
-            _ => panic!("invalid dependency"),
-        };
 
         let mut scene_state = base.scene_state.as_ref().borrow_mut();
         self.imgui_platform
@@ -422,21 +448,7 @@ impl VulkanPass for OutputPass {
                         &renderpass_begin_info,
                         vk::SubpassContents::INLINE,
                     );
-                    let transform_mat = self
-                        .render_plane
-                        .as_ref()
-                        .unwrap()
-                        .animation
-                        .build_transform_mat(0);
 
-                    device.cmd_bind_descriptor_sets(
-                        draw_command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.pipeline_layout,
-                        0,
-                        &[diffuse_descriptor_set],
-                        &[],
-                    );
                     device.cmd_bind_pipeline(
                         draw_command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
@@ -444,33 +456,44 @@ impl VulkanPass for OutputPass {
                     );
                     device.cmd_set_viewport(draw_command_buffer, 0, &self.viewports);
                     device.cmd_set_scissor(draw_command_buffer, 0, &self.scissors);
-                    device.cmd_bind_vertex_buffers(
-                        draw_command_buffer,
-                        0,
-                        &[self.render_plane.as_ref().unwrap().vertex_buffer],
-                        &[0],
-                    );
-                    device.cmd_push_constants(
-                        draw_command_buffer,
-                        self.pipeline_layout,
-                        vk::ShaderStageFlags::VERTEX,
-                        0,
-                        mat4_to_bytes(&transform_mat),
-                    );
-                    device.cmd_bind_index_buffer(
-                        draw_command_buffer,
-                        self.render_plane.as_ref().unwrap().index_buffer,
-                        0,
-                        vk::IndexType::UINT32,
-                    );
-                    device.cmd_draw_indexed(
-                        draw_command_buffer,
-                        self.render_plane.as_ref().unwrap().num_indices,
-                        1,
-                        0,
-                        0,
-                        1,
-                    );
+                    for (plane, plane_descriptor_set) in
+                        self.render_planes
+                            .iter()
+                            .zip(input.iter().map(|input| match input {
+                                VulkanOutput::Framebuffer { descriptor_set, .. } => descriptor_set,
+                                _ => panic!("invalid input type"),
+                            }))
+                    {
+                        let transform_mat = plane.animation.build_transform_mat(0);
+                        device.cmd_bind_descriptor_sets(
+                            draw_command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.pipeline_layout,
+                            0,
+                            &[*plane_descriptor_set],
+                            &[],
+                        );
+                        device.cmd_bind_vertex_buffers(
+                            draw_command_buffer,
+                            0,
+                            &[plane.vertex_buffer],
+                            &[0],
+                        );
+                        device.cmd_push_constants(
+                            draw_command_buffer,
+                            self.pipeline_layout,
+                            vk::ShaderStageFlags::VERTEX,
+                            0,
+                            mat4_to_bytes(&transform_mat),
+                        );
+                        device.cmd_bind_index_buffer(
+                            draw_command_buffer,
+                            plane.index_buffer,
+                            0,
+                            vk::IndexType::UINT32,
+                        );
+                        device.cmd_draw_indexed(draw_command_buffer, plane.num_indices, 1, 0, 0, 1);
+                    }
 
                     self.imgui_renderer
                         .cmd_draw(draw_command_buffer, scene_state.imgui_context.render())
@@ -513,11 +536,12 @@ impl VulkanPass for OutputPass {
             base.base
                 .device
                 .destroy_shader_module(self.fragment_shader_module, None);
-            let plane = self.render_plane.take().expect("resource already freed");
-            plane.free_resources(
-                base.base.as_ref(),
-                &mut base.allocator.lock().expect("failed to get lock"),
-            );
+            self.render_planes.drain(..).for_each(|plane| {
+                plane.free_resources(
+                    base.base.as_ref(),
+                    &mut base.allocator.lock().expect("failed to get lock"),
+                );
+            });
 
             for &descriptor_set_layout in self.descriptor_set_layouts.iter() {
                 base.base

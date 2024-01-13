@@ -1,4 +1,6 @@
 mod mesh;
+pub mod voxel;
+
 use crate::Base;
 use ash::vk;
 use cgmath::{
@@ -465,11 +467,12 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
                 base_lib::Material::Light(texture) => base_lib_to_texture(&texture),
                 base_lib::Material::Lambertian(texture) => base_lib_to_texture(&texture),
             };
-            let (mesh, animation) = match object.shape {
+            let (mesh, animation) = match &object.shape {
                 base_lib::Shape::Sphere { radius, origin } => {
                     let mesh = Mesh::sphere(64, 64);
+                    let radius = *radius;
                     let transform = AnimationList::new(vec![
-                        Rc::new(StaticPosition { position: origin }),
+                        Rc::new(StaticPosition { position: *origin }),
                         Rc::new(Scale {
                             scale: Vector3::new(radius, radius, radius),
                         }),
@@ -541,6 +544,7 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
                     ];
                     (mesh, AnimationList::new(transform))
                 }
+                base_lib::Shape::Voxels(v) => todo!("voxels"),
             };
             Model {
                 animation,

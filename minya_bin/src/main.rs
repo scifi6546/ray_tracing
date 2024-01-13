@@ -16,6 +16,7 @@ use log::info;
 use std::{
     sync::mpsc::{channel, Receiver},
     thread,
+    thread::JoinHandle,
 };
 pub enum Message {
     LoadScenario(String),
@@ -36,7 +37,7 @@ struct Handler {
     pipeline: Pipeline,
     bindings: Bindings,
     image_reciever: Receiver<Image>,
-
+    join_handle: JoinHandle<()>,
     gui: GuiCtx,
 }
 impl Handler {
@@ -91,7 +92,7 @@ impl Handler {
         let (message_sender, message_reciever) = channel();
         let (image_sender, image_reciever) = channel();
         let info = ray_tracer.get_info();
-        thread::spawn(move || {
+        let join_handle = thread::spawn(move || {
             let mut par_img = ParallelImage::new_black(1000, 1000);
             let mut receiver = ray_tracer
                 .clone()
@@ -123,16 +124,21 @@ impl Handler {
                     .expect("channel failed");
             }
         });
+
         Self {
             pipeline,
             bindings,
             image_reciever,
+            join_handle,
             gui: GuiCtx::new(ctx, &info, message_sender),
         }
     }
 }
 impl EventHandler for Handler {
     fn update(&mut self, ctx: &mut Context) {
+        if self.join_handle.is_finished() {
+            println!("FINISHED!!!");
+        }
         if let Ok(img) = self.image_reciever.try_recv() {
             let tex = img.make_texture(ctx);
             self.bindings.images = vec![tex];

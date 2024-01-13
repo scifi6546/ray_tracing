@@ -6,6 +6,7 @@ mod rt_pass;
 mod solid_texture;
 
 use super::{prelude::*, Base, GraphicsApp};
+use crate::prelude::voxel::{Voxel, VoxelChunk};
 use crate::render_graph::mesh_descriptors::MeshDescriptors;
 use ash::{extensions::khr::AccelerationStructure, vk};
 use diffuse_pass::DiffusePass;
@@ -137,9 +138,11 @@ pub struct RenderPassApp {
     scene_state: Rc<RefCell<SceneState>>,
     raytracing_state: Rc<RayTracingState>,
     engine_entities: Rc<RefCell<EngineEntities>>,
+    voxels: VoxelChunk,
 }
 impl RenderPassApp {
     pub fn new(base: Rc<Base>) -> Self {
+        let voxels = VoxelChunk::new(|x, y, z| Voxel::Solid);
         let mut graph = RenderGraph::new();
         let allocator = Arc::new(Mutex::new(
             Allocator::new(&AllocatorCreateDesc {
@@ -167,7 +170,7 @@ impl RenderPassApp {
             Box::new(solid_texture::SolidTexturePass::new(&pass_base));
 
         let (_solid_pass_id, solid_pass_output) = graph.insert_pass(solid_texture, Vec::new());
-        let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base));
+        let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base, 2));
         let diffuse_pass: Box<dyn VulkanPass> = Box::new(DiffusePass::new(pass_base.clone()));
         let (_pass_id, rt_output) = graph.insert_pass(
             Box::new(RtPass::new(&pass_base).expect("failed to build renderpass")),
@@ -176,11 +179,7 @@ impl RenderPassApp {
         let (_diffuse_pass_id, diffuse_pass_deps) = graph.insert_pass(diffuse_pass, vec![]);
         graph.insert_output_pass(
             pass,
-            vec![
-                solid_pass_output[0].clone(),
-                diffuse_pass_deps[0].clone(),
-                rt_output[0].clone(),
-            ],
+            vec![solid_pass_output[0].clone(), diffuse_pass_deps[0].clone()],
         );
 
         Self {
@@ -189,6 +188,7 @@ impl RenderPassApp {
             scene_state,
             engine_entities,
             raytracing_state,
+            voxels,
         }
     }
 }

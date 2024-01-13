@@ -106,10 +106,10 @@ impl World {
                         },
                     }),
                 };
-                let obj_out: Box<dyn Hittable + Send> = match obj.shape {
+                let obj_out: Box<dyn Hittable + Send> = match &obj.shape {
                     base_lib::Shape::Sphere { radius, origin } => Box::new(Sphere {
-                        radius,
-                        origin,
+                        radius: *radius,
+                        origin: *origin,
                         material,
                     }),
 
@@ -163,6 +163,7 @@ impl World {
                         Point3::new(center.x + size_x, center.y + size_y, center.z + size_z),
                         material,
                     )),
+                    base_lib::Shape::Voxels(voxel_grid) => todo!("voxel grid"),
                 };
                 let mut obj_out = obj_out;
                 for modifier in obj.modifiers.iter() {
