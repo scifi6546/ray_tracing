@@ -385,7 +385,7 @@ impl VoxelWorld {
         normal: Vector3<f32>,
     ) -> Option<CheckRes> {
         let t = (x - ray.origin.x) / ray.direction.x;
-        if (t >= t_min && t <= t_max) || t >= 0.0 {
+        if (t >= t_min && t <= t_max) {
             let pos = ray.origin + ray.direction * t;
 
             if pos.y >= 0.0 && pos.y <= self.y as f32 && pos.z >= 0.0 && pos.z <= self.z as f32 {
@@ -437,7 +437,7 @@ impl VoxelWorld {
         normal: Vector3<f32>,
     ) -> Option<CheckRes> {
         let t = (z - ray.origin.z) / ray.direction.z;
-        if (t > t_min && t < t_max) || t >= 0.0 {
+        if (t > t_min && t < t_max) {
             let pos = ray.at(t);
             if (pos.z - z).abs() > 0.0001 {
                 panic!()
@@ -495,7 +495,6 @@ impl VoxelWorld {
             HitResult::DidNotHit => None,
         }
     }
-
 }
 
 impl Hittable for VoxelWorld {

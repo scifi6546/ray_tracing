@@ -25,7 +25,7 @@ use super::{
 mod world_prelude {
     pub use super::super::background::{ConstantColor as ConstantColorBackground, Sky, SunSky};
     pub use super::super::hittable::voxel_world::{
-        CubeMaterial, CubeMaterialIndex, PerlinBuilder, PerlinNoise, VoxelModel,
+        CubeMaterial, CubeMaterialIndex, PerlinBuilder, PerlinNoise, VoxelModel, VoxelWorld,
     };
     pub use super::super::sun::Sun;
 }
@@ -41,6 +41,7 @@ pub use random_scene::random_scene;
 
 use std::{collections::HashMap, ops::Deref};
 
+use crate::ray_tracer::hittable::voxel_world::CubeMaterialIndex;
 pub use two_spheres::two_spheres;
 
 pub struct WorldInfo {
@@ -164,8 +165,39 @@ impl World {
                         material,
                     )),
                     base_lib::Shape::Voxels(voxel_grid) => {
-                        error!("todo load voxel grid");
-                        todo!("voxel grid")
+                        let solid_materials = match &obj.material {
+                            base_lib::Material::Lambertian(texture) => match texture {
+                                base_lib::Texture::ConstantColor(c) => {
+                                    vec![world_prelude::CubeMaterial::new(*c)]
+                                }
+                                _ => {
+                                    panic!("invalid texture: {:#?}", texture)
+                                }
+                            },
+                            _ => panic!("invalid material: {:#?}", obj.material),
+                        };
+                        let mut voxel_world = world_prelude::VoxelWorld::new(
+                            solid_materials,
+                            Vec::new(),
+                            voxel_grid.size_x() as i32,
+                            voxel_grid.size_y() as i32,
+                            voxel_grid.size_z() as i32,
+                        );
+                        for x in 0..voxel_grid.size_x() {
+                            for y in 0..voxel_grid.size_y() {
+                                for z in 0..voxel_grid.size_z() {
+                                    if voxel_grid.get_tile(Point3::new(x, y, z)) {
+                                        voxel_world.update(
+                                            x as isize,
+                                            y as isize,
+                                            z as isize,
+                                            CubeMaterialIndex::Solid { index: 0 },
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        Box::new(voxel_world)
                     }
                 };
                 let mut obj_out = obj_out;

@@ -318,12 +318,17 @@ pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
             name: "Voxel Grid".into(),
             objects: vec![Object {
                 shape: Shape::Voxels(VoxelGrid::new(
-                    Vector3::new(32, 32, 32),
-                    Vector3::new(0.0, 0.0, 0.0),
-                    |x, y, z| {
-                        let center = Vector3::new(16.0, 16.0, 16.0);
-                        let current_pos = Vector3::new(x as f32, y as f32, z as f32);
-                        center.distance(current_pos) < 5.0
+                    Vector3::new(320, 320, 320),
+                    Point3::new(0.0, 0.0, 0.0),
+                    |current_pos| {
+                        let center = Point3::new(160.0, 160.0, 160.0);
+                        let current_pos = Point3::new(
+                            current_pos.x as f32,
+                            current_pos.y as f32,
+                            current_pos.z as f32,
+                        );
+
+                        center.distance(current_pos) < 50.0
                     },
                 )),
                 material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
@@ -331,16 +336,16 @@ pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
                 ))),
                 modifiers: vec![],
             }],
-            background: Background::ConstantColor(RgbColor::new(0.0, 0.0, 0.0)),
+            background: Background::ConstantColor(RgbColor::new(1.0, 0.1, 0.1)),
             camera: Camera {
                 aspect_ratio: 1.0,
                 fov: 40.0,
-                origin: Point3::new(-20.0, 5.0, 0.0),
+                origin: Point3::new(500.0, 500.0, 100.0),
                 look_at: Point3::new(0.0, 0.0, 0.0),
                 up_vector: Vector3::new(0.0, 1.0, 0.0),
                 aperture: 0.00001,
                 focus_distance: {
-                    let t = Point3::new(0.0f32, 0.0, 0.0) - Point3::new(-20.0, 5.0, 0.0);
+                    let t = Point3::new(0.0f32, 0.0, 0.0) - Point3::new(500.0, 500.0, 100.0);
                     (t.dot(t)).sqrt()
                 },
                 start_time: 0.0,

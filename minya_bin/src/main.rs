@@ -138,6 +138,7 @@ impl EventHandler for Handler {
     fn update(&mut self, ctx: &mut Context) {
         if self.join_handle.is_finished() {
             println!("FINISHED!!!");
+            ctx.quit();
         }
         if let Ok(img) = self.image_reciever.try_recv() {
             let tex = img.make_texture(ctx);
