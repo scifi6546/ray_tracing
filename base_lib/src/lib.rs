@@ -1,6 +1,7 @@
 mod voxel;
 
 use cgmath::{InnerSpace, MetricSpace, Point3, Vector3};
+use rand::prelude::*;
 use std::{
     fmt::{Display, Formatter},
     ops::{Add, AddAssign, Div, Mul, Sub},
@@ -355,6 +356,62 @@ pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
                 near_clip: 1.0,
                 far_clip: 10000.0,
             },
+        }),
+        ("Baselib Voxel landscape".to_string(), || {
+            let dimensions = Vector3::new(300, 200, 300);
+            let mut rng = rand::rngs::StdRng::seed_from_u64(129811);
+            let tree_map = (0..dimensions.x)
+                .map(|x| {
+                    (0..dimensions.z)
+                        .map(|z| rng.gen_range(0..1000) == 0)
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            Scene {
+                name: "Voxel Grid".into(),
+
+                objects: vec![
+                    Object {
+                        shape: Shape::Voxels(VoxelGrid::new(
+                            dimensions,
+                            Point3::new(0.0, 0.0, 0.0),
+                            |current_pos| {
+                                current_pos.y < 50 || tree_map[current_pos.x][current_pos.z]
+                            },
+                        )),
+                        material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
+                            0.2, 0.73, 0.2,
+                        ))),
+                        modifiers: vec![],
+                    },
+                    Object {
+                        shape: Shape::Sphere {
+                            radius: 2.0,
+                            origin: Point3::new(-100.0, -300.0, -200.0),
+                        },
+                        material: Material::Light(Texture::ConstantColor(RgbColor::WHITE * 10.0)),
+                        modifiers: vec![],
+                    },
+                ],
+
+                background: Background::ConstantColor(RgbColor::new(0.5, 0.5, 0.5)),
+                camera: Camera {
+                    aspect_ratio: 1.0,
+                    fov: 40.0,
+                    origin: Point3::new(-500.0, 500.0, -100.0),
+                    look_at: Point3::new(300.0, 0.0, 300.0),
+                    up_vector: Vector3::new(0.0, 1.0, 0.0),
+                    aperture: 0.00001,
+                    focus_distance: {
+                        let t = Point3::new(0.0f32, 0.0, 0.0) - Point3::new(500.0, 500.0, 100.0);
+                        (t.dot(t)).sqrt()
+                    },
+                    start_time: 0.0,
+                    end_time: 0.0,
+                    near_clip: 1.0,
+                    far_clip: 10000.0,
+                },
+            }
         }),
     ]
 }

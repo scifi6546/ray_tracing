@@ -14,7 +14,7 @@ impl MeshDescriptors {
         }];
         let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&descriptor_sizes)
-            .max_sets(100);
+            .max_sets(1000);
         let descriptor_pool = unsafe {
             base.device
                 .create_descriptor_pool(&descriptor_pool_info, None)

@@ -439,9 +439,7 @@ impl VoxelWorld {
         let t = (z - ray.origin.z) / ray.direction.z;
         if (t > t_min && t < t_max) {
             let pos = ray.at(t);
-            if (pos.z - z).abs() > 0.0001 {
-                panic!()
-            }
+
             if pos.x >= 0.0 && pos.x <= self.x as f32 && pos.y >= 0.0 && pos.y <= self.y as f32 {
                 Some(CheckRes {
                     direction: ray.direction,

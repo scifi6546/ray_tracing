@@ -9,14 +9,14 @@ pub enum Voxel {
     Solid,
 }
 pub struct VoxelChunk {
-    voxels: [Voxel; Self::SIZE_X * Self::SIZE_Y * Self::SIZE_Z],
+    voxels: Box<[Voxel; Self::SIZE_X * Self::SIZE_Y * Self::SIZE_Z]>,
 }
 impl VoxelChunk {
-    pub const SIZE_X: usize = 32;
+    pub const SIZE_X: usize = 64;
     pub const SIZE_Y: usize = Self::SIZE_X;
     pub const SIZE_Z: usize = Self::SIZE_X;
     pub fn new(ctor: impl Fn(i32, i32, i32) -> Voxel) -> Self {
-        let mut voxels = [Voxel::Air; Self::SIZE_X * Self::SIZE_Y * Self::SIZE_Z];
+        let mut voxels = Box::new([Voxel::Air; Self::SIZE_X * Self::SIZE_Y * Self::SIZE_Z]);
         for x in 0..Self::SIZE_X {
             for y in 0..Self::SIZE_Y {
                 for z in 0..Self::SIZE_Z {
