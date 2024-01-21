@@ -19,7 +19,7 @@ impl SolidTexturePass {
         }];
         let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&descriptor_sizes)
-            .max_sets(100);
+            .max_sets(600);
         let descriptor_pool = unsafe {
             base.base
                 .device

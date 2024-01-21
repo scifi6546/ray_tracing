@@ -316,19 +316,20 @@ pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
         }),
         ("Baselib Voxel Sphere".to_string(), || Scene {
             name: "Voxel Grid".into(),
+
             objects: vec![Object {
                 shape: Shape::Voxels(VoxelGrid::new(
-                    Vector3::new(320, 320, 320),
+                    Vector3::new(64, 64, 64),
                     Point3::new(0.0, 0.0, 0.0),
                     |current_pos| {
-                        let center = Point3::new(160.0, 160.0, 160.0);
+                        let center = Point3::new(32.0, 32.0, 32.0);
                         let current_pos = Point3::new(
                             current_pos.x as f32,
                             current_pos.y as f32,
                             current_pos.z as f32,
                         );
 
-                        center.distance(current_pos) < 50.0
+                        center.distance(current_pos) < 14.0
                     },
                 )),
                 material: Material::Lambertian(Texture::ConstantColor(RgbColor::new(
@@ -336,6 +337,7 @@ pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
                 ))),
                 modifiers: vec![],
             }],
+
             background: Background::ConstantColor(RgbColor::new(1.0, 0.1, 0.1)),
             camera: Camera {
                 aspect_ratio: 1.0,

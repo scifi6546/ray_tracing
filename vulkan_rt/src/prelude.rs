@@ -66,9 +66,12 @@ pub struct Vertex {
     pub uv: Vector2,
 }
 impl Vertex {
+    pub const fn position_format() -> vk::Format {
+        vk::Format::R32G32B32A32_SFLOAT
+    }
     pub const fn format() -> VertexFormat {
         VertexFormat {
-            position: vk::Format::R32G32B32A32_SFLOAT,
+            position: Self::position_format(),
             uv: vk::Format::R32G32_SFLOAT,
         }
     }
@@ -244,7 +247,7 @@ impl Mesh {
             if *idx >= vertices.len() as u32 {
                 let vert_idx = idx / num_horizontal_segments;
                 let horiz_idx = idx % num_horizontal_segments;
-                println!(
+                panic!(
                     "idx out of range: {}, vert_idx: {}, horiz_idx: {}, len: {}",
                     idx,
                     vert_idx,
@@ -423,8 +426,8 @@ impl Mesh {
         ];
         #[rustfmt::skip]
         let indices = vec![
-            0, 2, 3,
-            0, 1, 2,
+            0, 1,2,
+            1,3,2,
 
             4, 5, 6,
             4, 6, 7,
@@ -437,10 +440,34 @@ impl Mesh {
 
             16,17,20,
             17,18,20,
-
+/*
             21,24,22,
             22,24,23
+            */
+
         ];
+        Self::new(vertices, indices)
+    }
+    pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Self {
+        #[cfg(feature = "validate_models")]
+        {
+            for index in indices.iter() {
+                if *index >= vertices.len() as u32 {
+                    panic!(
+                        "index: {} is out of range, [0,{}]",
+                        index,
+                        vertices.len() - 1
+                    )
+                }
+            }
+        }
+
+        if vertices.is_empty() {
+            panic!("vertex buffer len is zero")
+        }
+        if indices.is_empty() {
+            panic!("index buffer is empty")
+        }
         Self { vertices, indices }
     }
 }
@@ -462,12 +489,12 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
     let models = scene
         .objects
         .iter()
-        .map(|object| {
+        .flat_map(|object| {
             let texture = match object.material.clone() {
                 base_lib::Material::Light(texture) => base_lib_to_texture(&texture),
                 base_lib::Material::Lambertian(texture) => base_lib_to_texture(&texture),
             };
-            let (mesh, animation) = match &object.shape {
+            match &object.shape {
                 base_lib::Shape::Sphere { radius, origin } => {
                     let mesh = Mesh::sphere(64, 64);
                     let radius = *radius;
@@ -477,7 +504,7 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
                             scale: Vector3::new(radius, radius, radius),
                         }),
                     ]);
-                    (mesh, transform)
+                    vec![(mesh, transform)]
                 }
                 base_lib::Shape::XYRect {
                     center,
@@ -493,7 +520,7 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
                             position: Point3::new(center.x, center.y, center.z),
                         }),
                     ];
-                    (mesh, AnimationList::new(transform))
+                    vec![(mesh, AnimationList::new(transform))]
                 }
                 base_lib::Shape::YZRect {
                     center,
@@ -509,7 +536,7 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
                             position: Point3::new(center.x, center.y, center.z),
                         }),
                     ];
-                    (mesh, AnimationList::new(transform))
+                    vec![(mesh, AnimationList::new(transform))]
                 }
                 base_lib::Shape::XZRect {
                     center,
@@ -525,7 +552,7 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
                             position: Point3::new(center.x, center.y, center.z),
                         }),
                     ];
-                    (mesh, AnimationList::new(transform))
+                    vec![(mesh, AnimationList::new(transform))]
                 }
                 base_lib::Shape::RenderBox {
                     center,
@@ -542,15 +569,17 @@ pub fn meshes_from_scene(scene: &base_lib::Scene) -> (Vec<Model>, Camera) {
                             position: Point3::new(center.x, center.y, center.z),
                         }),
                     ];
-                    (mesh, AnimationList::new(transform))
+                    vec![(mesh, AnimationList::new(transform))]
                 }
-                base_lib::Shape::Voxels(v) => todo!("voxels"),
-            };
-            Model {
+                base_lib::Shape::Voxels(v) => voxel::VoxelWorld::from_voxel_grid(v).build_model(),
+            }
+            .drain(..)
+            .map(|(mesh, animation)| Model {
                 animation,
                 mesh,
-                texture,
-            }
+                texture: texture.clone(),
+            })
+            .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
     (

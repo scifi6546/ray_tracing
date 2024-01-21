@@ -322,6 +322,13 @@ impl Model {
             | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
             | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR;
         let max_index = self.mesh.indices.iter().max().unwrap_or(&0).clone() as usize;
+        if max_index > self.mesh.vertices.len() - 1 {
+            panic!(
+                "max index , max_index: {}, vertices len: {}",
+                max_index,
+                self.mesh.vertices.len()
+            )
+        }
 
         let index_buffer_info = vk::BufferCreateInfo::builder()
             .size(size_of::<u32>() as u64 * self.mesh.indices.len() as u64)

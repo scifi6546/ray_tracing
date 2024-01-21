@@ -57,7 +57,7 @@ impl ModelAccelerationStructure {
             let index_address = get_addr_const(&base.device, &model.index_buffer);
 
             let triangles = vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
-                .vertex_format(vk::Format::R32G32B32_SFLOAT)
+                .vertex_format(Vertex::position_format())
                 .vertex_data(vertex_address)
                 .vertex_stride(Vertex::stride() as vk::DeviceSize)
                 .max_vertex(model.max_index as u32)
