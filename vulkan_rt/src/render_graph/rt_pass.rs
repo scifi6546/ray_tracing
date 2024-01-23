@@ -4,6 +4,7 @@ use crate::{
     prelude::{RenderModel, Vertex},
     record_submit_commandbuffer,
 };
+use cgmath::Matrix4;
 
 use ash::vk;
 use generational_arena::Index as ArenaIndex;
@@ -11,9 +12,11 @@ use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
     MemoryLocation,
 };
-use std::ffi::c_void;
+
+use ash::vk::AccelerationStructureReferenceKHR;
 use std::{
     collections::HashMap,
+    ffi::c_void,
     sync::{Arc, Mutex},
 };
 
@@ -42,6 +45,8 @@ struct ModelAccelerationStructure {
     buffer: vk::Buffer,
     allocation: Option<Allocation>,
     acceleration_structure: vk::AccelerationStructureKHR,
+    transform_matrix: Matrix4<f32>,
+    number_triangles: u32,
 }
 
 impl ModelAccelerationStructure {
@@ -162,8 +167,6 @@ impl ModelAccelerationStructure {
 
             base.device.device_wait_idle().expect("failed to wait??");
 
-            // todo incorporate vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR
-
             record_submit_commandbuffer(
                 &base.device,
                 base.setup_command_buffer,
@@ -219,8 +222,13 @@ impl ModelAccelerationStructure {
                 buffer: acceleration_structure_buffer,
                 allocation: Some(allocation),
                 acceleration_structure,
+                transform_matrix: model.animation.build_transform_mat(0),
+                number_triangles: model.num_triangles(),
             })
         }
+    }
+    fn number_triangles(&self) -> u32 {
+        self.number_triangles
     }
     fn free(&mut self, base: &PassBase) {
         unsafe {
@@ -240,52 +248,101 @@ impl ModelAccelerationStructure {
         }
     }
 }
-pub struct RtPass {
+struct TopLevelAccelerationStructure {
     allocation: Option<Allocation>,
-    buffer: vk::Buffer,
-    acceleration_structure: vk::AccelerationStructureKHR,
-    model_acceleration_structures: HashMap<ArenaIndex, ModelAccelerationStructure>,
+    buffer: Option<vk::Buffer>,
+    acceleration_structure: Option<vk::AccelerationStructureKHR>,
 }
-impl RtPass {
-    pub fn new(pass_base: &PassBase) -> Result<Self, vk::Result> {
-        const ALLOC_SIZE: usize = 20 * 256;
+impl TopLevelAccelerationStructure {
+    const ALLOC_SIZE: usize = 20 * 256;
+    pub fn new<'a>(
+        acceleration_structures: impl Iterator<Item = &'a ModelAccelerationStructure>,
+        base: &Base,
+        allocator: Arc<Mutex<Allocator>>,
+        raytracing_state: &RayTracingState,
+    ) -> Self {
+        let queue_family_indicies = [base.queue_family_index];
 
         unsafe {
-            let queue_family_indicies = [pass_base.base.queue_family_index];
-            let model_acceleration_structures = pass_base
-                .engine_entities
-                .borrow()
-                .iter_models()
-                .map(|(idx, model)| {
+            let (instance_array, number_primitives) = acceleration_structures
+                .map(|acceleration_structure| {
+                    let info = vk::AccelerationStructureDeviceAddressInfoKHR::builder()
+                        .acceleration_structure(acceleration_structure.acceleration_structure)
+                        .build();
+                    let acceleration_structure_reference = raytracing_state
+                        .acceleration_structure
+                        .get_acceleration_structure_device_address(&info);
                     (
-                        idx,
-                        ModelAccelerationStructure::new(
-                            &pass_base.base,
-                            pass_base.allocator.clone(),
-                            &pass_base.raytracing_state,
-                            model,
-                        )
-                        .expect("failed to build acceleration structure"),
+                        vk::AccelerationStructureInstanceKHR {
+                            transform: vk::TransformMatrixKHR {
+                                matrix: [
+                                    acceleration_structure.transform_matrix.x[0],
+                                    acceleration_structure.transform_matrix.y[0],
+                                    acceleration_structure.transform_matrix.z[0],
+                                    acceleration_structure.transform_matrix.w[0],
+                                    acceleration_structure.transform_matrix.x[1],
+                                    acceleration_structure.transform_matrix.y[1],
+                                    acceleration_structure.transform_matrix.z[1],
+                                    acceleration_structure.transform_matrix.w[1],
+                                    acceleration_structure.transform_matrix.x[2],
+                                    acceleration_structure.transform_matrix.y[2],
+                                    acceleration_structure.transform_matrix.z[2],
+                                    acceleration_structure.transform_matrix.w[2],
+                                ],
+                            },
+                            instance_custom_index_and_mask: vk::Packed24_8::new(0, u8::MAX),
+                            instance_shader_binding_table_record_offset_and_flags:
+                                vk::Packed24_8::new(
+                                    0,
+                                    vk::GeometryInstanceFlagsKHR::TRIANGLE_CULL_DISABLE_NV.as_raw()
+                                        as u8,
+                                ),
+                            acceleration_structure_reference: AccelerationStructureReferenceKHR {
+                                device_handle: acceleration_structure_reference,
+                            },
+                        },
+                        acceleration_structure.number_triangles(),
                     )
                 })
-                .collect();
+                .unzip::<_, _, Vec<_>, Vec<_>>();
+            let instances = vk::AccelerationStructureGeometryInstancesDataKHR::builder()
+                .array_of_pointers(false)
+                .data(vk::DeviceOrHostAddressConstKHR {
+                    host_address: instance_array.as_ptr() as *const c_void,
+                })
+                .build();
 
+            let geometries = vk::AccelerationStructureGeometryKHR::builder()
+                .geometry(vk::AccelerationStructureGeometryDataKHR { instances })
+                .geometry_type(vk::GeometryTypeKHR::INSTANCES)
+                .flags(vk::GeometryFlagsKHR::empty())
+                .build();
+            let build_type = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+                .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL_NV)
+                .flags(vk::BuildAccelerationStructureFlagsKHR::empty())
+                .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
+                .geometries(&[geometries])
+                .build();
+            let number_primitives = [instance_array.len() as u32];
+            let build_size = raytracing_state
+                .acceleration_structure
+                .get_acceleration_structure_build_sizes(
+                    vk::AccelerationStructureBuildTypeKHR::DEVICE,
+                    &build_type,
+                    &number_primitives,
+                );
             let info = vk::BufferCreateInfo::builder()
-                .size(ALLOC_SIZE as vk::DeviceSize)
+                .size(build_size.acceleration_structure_size)
                 .queue_family_indices(&queue_family_indicies)
                 .sharing_mode(vk::SharingMode::EXCLUSIVE)
                 .usage(vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR);
-            let acceleration_structure_buffer = pass_base
-                .base
+            let buffer = base
                 .device
                 .create_buffer(&info, None)
                 .expect("failed to create buffer for top level acceleration structure");
-            let memory_reqs = pass_base
-                .base
-                .device
-                .get_buffer_memory_requirements(acceleration_structure_buffer);
-            let allocation = pass_base
-                .allocator
+
+            let memory_reqs = base.device.get_buffer_memory_requirements(buffer);
+            let allocation = allocator
                 .lock()
                 .expect("failed to get lock")
                 .allocate(&AllocationCreateDesc {
@@ -293,37 +350,161 @@ impl RtPass {
                     requirements: memory_reqs,
                     location: MemoryLocation::GpuOnly,
                     linear: true,
-                    allocation_scheme: AllocationScheme::DedicatedBuffer(
-                        acceleration_structure_buffer,
-                    ),
+                    allocation_scheme: AllocationScheme::DedicatedBuffer(buffer),
                 })
                 .expect("failed to get allocation");
-
-            pass_base
-                .base
+            base.device
+                .bind_buffer_memory(buffer, allocation.memory(), allocation.offset())
+                .expect("failed to allocate memory");
+            let scratch_info = vk::BufferCreateInfo::builder()
+                .size(build_size.build_scratch_size)
+                .queue_family_indices(&queue_family_indicies)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE)
+                .usage(
+                    vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
+                        | vk::BufferUsageFlags::STORAGE_BUFFER
+                        | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+                );
+            let scratch_buffer = base
                 .device
+                .create_buffer(&scratch_info, None)
+                .expect("failed to create scratch buffer for top level acceleration structure");
+
+            let memory_reqs = base.device.get_buffer_memory_requirements(scratch_buffer);
+            let scratch_allocation = allocator
+                .lock()
+                .expect("failed to get lock")
+                .allocate(&AllocationCreateDesc {
+                    name: "Top Level Acceleration Structure Buffer",
+                    requirements: memory_reqs,
+                    location: MemoryLocation::GpuOnly,
+                    linear: true,
+                    allocation_scheme: AllocationScheme::DedicatedBuffer(scratch_buffer),
+                })
+                .expect("failed to get allocation");
+            base.device
                 .bind_buffer_memory(
-                    acceleration_structure_buffer,
-                    allocation.memory(),
-                    allocation.offset(),
+                    scratch_buffer,
+                    scratch_allocation.memory(),
+                    scratch_allocation.offset(),
                 )
                 .expect("failed to bind memory");
             let info = vk::AccelerationStructureCreateInfoKHR::builder()
-                .buffer(acceleration_structure_buffer)
+                .buffer(buffer)
                 .offset(0)
-                .size(allocation.size())
+                .size(build_size.acceleration_structure_size)
                 .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL);
-            let acceleration_structure = pass_base
-                .raytracing_state
+
+            let acceleration_structure = raytracing_state
                 .acceleration_structure
                 .create_acceleration_structure(&info, None)
                 .expect("failed to create structure");
+            record_submit_commandbuffer(
+                &base.device,
+                base.setup_command_buffer,
+                base.setup_commands_reuse_fence,
+                base.present_queue,
+                &[],
+                &[],
+                &[],
+                |device, command_buffer| {
+                    let build_type = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+                        .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL_NV)
+                        .flags(vk::BuildAccelerationStructureFlagsKHR::empty())
+                        .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
+                        .dst_acceleration_structure(acceleration_structure)
+                        .geometries(&[geometries])
+                        .scratch_data(get_device_or_host_address(&base.device, &scratch_buffer))
+                        .build();
+                    let build_range_infos = [vk::AccelerationStructureBuildRangeInfoKHR::builder()
+                        .primitive_count(0)
+                        .primitive_offset(0)
+                        .transform_offset(0)
+                        .build()];
 
-            Ok(Self {
+                    raytracing_state
+                        .acceleration_structure
+                        .cmd_build_acceleration_structures(
+                            command_buffer,
+                            &[build_type],
+                            &[&build_range_infos],
+                        );
+                },
+            );
+            base.device
+                .wait_for_fences(&[base.setup_commands_reuse_fence], true, u64::MAX)
+                .expect("failed to wait");
+            base.device.destroy_buffer(scratch_buffer, None);
+            allocator
+                .lock()
+                .expect("failed to lock allocator")
+                .free(scratch_allocation)
+                .expect("failed to free scratch allocation");
+            Self {
+                buffer: Some(buffer),
                 allocation: Some(allocation),
-                buffer: acceleration_structure_buffer,
-                acceleration_structure,
+                acceleration_structure: Some(acceleration_structure),
+            }
+        }
+    }
+    pub fn free(
+        &mut self,
+        base: &Base,
+        allocator: Arc<Mutex<Allocator>>,
+        raytracing_state: &RayTracingState,
+    ) {
+        unsafe {
+            raytracing_state
+                .acceleration_structure
+                .destroy_acceleration_structure(self.acceleration_structure.take().unwrap(), None);
+        }
+        allocator
+            .lock()
+            .expect("failed to get allocator")
+            .free(self.allocation.take().expect("allocator is already freed"));
+        unsafe {
+            base.device.destroy_buffer(
+                self.buffer
+                    .take()
+                    .expect("top level acceleration structure is already freed"),
+                None,
+            )
+        }
+    }
+}
+pub struct RtPass {
+    top_level_acceleration_structure: TopLevelAccelerationStructure,
+    model_acceleration_structures: HashMap<ArenaIndex, ModelAccelerationStructure>,
+}
+impl RtPass {
+    pub fn new(pass_base: &PassBase) -> Result<Self, vk::Result> {
+        let model_acceleration_structures = pass_base
+            .engine_entities
+            .borrow()
+            .iter_models()
+            .map(|(idx, model)| {
+                (
+                    idx,
+                    ModelAccelerationStructure::new(
+                        &pass_base.base,
+                        pass_base.allocator.clone(),
+                        &pass_base.raytracing_state,
+                        model,
+                    )
+                    .expect("failed to build acceleration structure"),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+        unsafe {
+            let top_level_acceleration_structure = TopLevelAccelerationStructure::new(
+                model_acceleration_structures.iter().map(|(a, b)| b),
+                &pass_base.base,
+                pass_base.allocator.clone(),
+                pass_base.raytracing_state.as_ref(),
+            );
+            Ok(Self {
                 model_acceleration_structures,
+                top_level_acceleration_structure,
             })
         }
     }
@@ -343,16 +524,12 @@ impl VulkanPass for RtPass {
 
     fn free(&mut self, base: &PassBase) {
         unsafe {
-            base.raytracing_state
-                .acceleration_structure
-                .destroy_acceleration_structure(self.acceleration_structure, None);
-            base.base.device.destroy_buffer(self.buffer, None);
+            self.top_level_acceleration_structure.free(
+                base.base.as_ref(),
+                base.allocator.clone(),
+                base.raytracing_state.as_ref(),
+            );
 
-            base.allocator
-                .lock()
-                .expect("failed to get allocator")
-                .free(self.allocation.take().unwrap())
-                .expect("failed to free memory");
             for (_idx, accel) in self.model_acceleration_structures.iter_mut() {
                 accel.free(base);
             }

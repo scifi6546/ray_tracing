@@ -358,7 +358,7 @@ pub fn get_scenarios() -> Vec<(String, fn() -> Scene)> {
             },
         }),
         ("Baselib Voxel landscape".to_string(), || {
-            let dimensions = Vector3::new(300, 200, 300);
+            let dimensions = Vector3::new(100, 200, 100);
             let mut rng = rand::rngs::StdRng::seed_from_u64(129811);
             let tree_map = (0..dimensions.x)
                 .map(|x| {
