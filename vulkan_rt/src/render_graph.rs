@@ -8,7 +8,11 @@ mod solid_texture;
 use super::{prelude::*, Base, GraphicsApp};
 use crate::prelude::voxel::{Voxel, VoxelChunk};
 use crate::render_graph::mesh_descriptors::MeshDescriptors;
-use ash::{extensions::khr::AccelerationStructure, vk};
+
+use ash::{
+    extensions::khr::{AccelerationStructure, RayTracingPipeline},
+    vk,
+};
 use diffuse_pass::DiffusePass;
 use gpu_allocator::{vulkan::*, AllocationSizes, AllocatorDebugSettings};
 use graph::{RenderGraph, RenderPass};
@@ -89,12 +93,15 @@ impl RenderPass for Box<dyn VulkanPass> {
 }
 pub struct RayTracingState {
     pub acceleration_structure: AccelerationStructure,
+    pub raytracing_pipeline: RayTracingPipeline,
 }
 impl RayTracingState {
     pub fn new(base: Rc<Base>) -> Self {
         let acceleration_structure = AccelerationStructure::new(&base.instance, &base.device);
+        let raytracing_pipeline = RayTracingPipeline::new(&base.instance, &base.device);
         Self {
             acceleration_structure,
+            raytracing_pipeline,
         }
     }
 }
@@ -172,10 +179,13 @@ impl RenderPassApp {
         let (_solid_pass_id, solid_pass_output) = graph.insert_pass(solid_texture, Vec::new());
         let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base, 2));
         let diffuse_pass: Box<dyn VulkanPass> = Box::new(DiffusePass::new(pass_base.clone()));
+        /*
         let (_pass_id, rt_output) = graph.insert_pass(
             Box::new(RtPass::new(&pass_base).expect("failed to build renderpass")),
             Vec::new(),
         );
+
+         */
         let (_diffuse_pass_id, diffuse_pass_deps) = graph.insert_pass(diffuse_pass, vec![]);
         graph.insert_output_pass(
             pass,

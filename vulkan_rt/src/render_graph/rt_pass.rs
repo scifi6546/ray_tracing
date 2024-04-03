@@ -1,10 +1,13 @@
-use super::{Base, PassBase, RayTracingState, VulkanOutput, VulkanOutputType, VulkanPass};
+mod pipeline;
+mod shader;
 
+use super::{Base, PassBase, RayTracingState, VulkanOutput, VulkanOutputType, VulkanPass};
 use crate::{
     prelude::{RenderModel, Vertex},
     record_submit_commandbuffer,
 };
 use cgmath::Matrix4;
+use pipeline::RayTracingPipeline;
 
 use ash::vk;
 use generational_arena::Index as ArenaIndex;
@@ -475,6 +478,7 @@ impl TopLevelAccelerationStructure {
 pub struct RtPass {
     top_level_acceleration_structure: TopLevelAccelerationStructure,
     model_acceleration_structures: HashMap<ArenaIndex, ModelAccelerationStructure>,
+    pipeline: RayTracingPipeline,
 }
 impl RtPass {
     pub fn new(pass_base: &PassBase) -> Result<Self, vk::Result> {
@@ -502,9 +506,14 @@ impl RtPass {
                 pass_base.allocator.clone(),
                 pass_base.raytracing_state.as_ref(),
             );
+            let pipeline = RayTracingPipeline::new(
+                pass_base.base.as_ref(),
+                pass_base.raytracing_state.as_ref(),
+            );
             Ok(Self {
                 model_acceleration_structures,
                 top_level_acceleration_structure,
+                pipeline,
             })
         }
     }
@@ -534,5 +543,6 @@ impl VulkanPass for RtPass {
                 accel.free(base);
             }
         }
+        self.pipeline.free(&base.base);
     }
 }
