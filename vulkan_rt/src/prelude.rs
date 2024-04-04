@@ -11,6 +11,9 @@ use generational_arena::{Arena, Index as ArenaIndex};
 use gpu_allocator::vulkan::*;
 pub use mesh::*;
 
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 use std::{
     collections::HashMap,
     rc::Rc,
@@ -811,4 +814,32 @@ impl EngineEntities {
             iter: self.meshes.iter(),
         }
     }
+}
+/// loads bytes at the path
+pub fn load_bytes(path: impl AsRef<Path>) -> Vec<u8> {
+    if !(path.as_ref()).exists() {
+        panic!(
+            "failed to load path: {:#?}, path does not exist",
+            path.as_ref()
+        )
+    }
+    let mut file = File::open(&path).expect("failed to find path");
+    let file_size = file.metadata().expect("failed to get file_metadata").len();
+    let mut file_data = vec![0u8; file_size as usize];
+
+    let read_size = file.read(&mut file_data).expect("failed to read");
+    if file_size != read_size as u64 {
+        panic!(
+            "failed to read full length of file: {:?}. file length: {}, read_length: {}",
+            path.as_ref(),
+            file_size,
+            read_size
+        )
+    }
+    println!(
+        "file_size: {}, file_data size: {}",
+        file_size,
+        file_data.len()
+    );
+    return file_data;
 }

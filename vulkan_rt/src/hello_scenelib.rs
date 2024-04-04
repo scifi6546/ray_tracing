@@ -166,8 +166,10 @@ impl App {
             &descriptor_pool,
             &descriptor_set_layouts,
         );
-        let mut vertex_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.vert.glsl"));
-        let mut frag_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.frag.glsl"));
+        let mut vertex_spv_file =
+            Cursor::new(load_bytes("./vulkan_rt/shaders/bin/push/push.vert.spv"));
+        let mut frag_spv_file =
+            Cursor::new(load_bytes("./vulkan_rt/shaders/bin/push/push.frag.spv"));
         let vertex_code =
             read_spv(&mut vertex_spv_file).expect("failed tp read vertex shader code");
         let vert_shader_info = vk::ShaderModuleCreateInfo::builder().code(&vertex_code);

@@ -1,6 +1,6 @@
 use super::{
     find_memory_type_index,
-    prelude::{mat4_to_bytes, Mat4, Mesh, Vector4, Vertex},
+    prelude::{load_bytes, mat4_to_bytes, Mat4, Mesh, Vector4, Vertex},
     record_submit_commandbuffer, Base,
 };
 use ash::{
@@ -482,8 +482,9 @@ pub fn run(base: &Base) {
     unsafe {
         base.device.update_descriptor_sets(&write_desc_sets, &[]);
     }
-    let mut vertex_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.vert.glsl"));
-    let mut frag_spv_file = Cursor::new(include_bytes!("../shaders/bin/push.frag.glsl"));
+    let mut vertex_spv_file = Cursor::new(load_bytes("./vulkan_rt/shaders/bin/push/push.vert.spv"));
+    let mut frag_spv_file = Cursor::new(load_bytes("./vulkan_rt/shaders/bin/push/push.frag.spv"));
+
     let vertex_code = read_spv(&mut vertex_spv_file).expect("failed tp read vertex shader code");
     let vert_shader_info = vk::ShaderModuleCreateInfo::builder().code(&vertex_code);
     let frag_code = read_spv(&mut frag_spv_file).expect("failed to read fragment spv file");
