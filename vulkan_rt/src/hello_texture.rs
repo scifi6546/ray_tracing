@@ -1,5 +1,5 @@
 use super::{find_memory_type_index, Base};
-use crate::record_submit_commandbuffer;
+use crate::{prelude::load_bytes, record_submit_commandbuffer};
 use ash::{
     util::{read_spv, Align},
     vk,
@@ -548,8 +548,12 @@ pub fn run(base: &Base) {
     unsafe {
         base.device.update_descriptor_sets(&write_desc_sets, &[]);
     }
-    let mut vertex_spv_file = Cursor::new(include_bytes!("../shaders/bin/texture.vert.glsl"));
-    let mut frag_spv_file = Cursor::new(include_bytes!("../shaders/bin/texture.frag.glsl"));
+    let mut vertex_spv_file = Cursor::new(load_bytes(
+        "./vulkan_rt/shaders/bin/texture/texture.vert.spv",
+    ));
+    let mut frag_spv_file = Cursor::new(load_bytes(
+        "./vulkan_rt/shaders/bin/texture/texture.frag.spv",
+    ));
     let vertex_code = read_spv(&mut vertex_spv_file).expect("failed tp read vertex shader code");
     let vert_shader_info = vk::ShaderModuleCreateInfo::builder().code(&vertex_code);
     let frag_code = read_spv(&mut frag_spv_file).expect("failed to read fragment spv file");
