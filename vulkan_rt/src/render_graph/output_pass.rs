@@ -133,20 +133,6 @@ impl OutputPass {
                 .expect("failed to create descriptor set layout")]
         };
 
-        let render_plane = {
-            let render_plane_mesh = Mesh::plane();
-            let render_plane_model = Model {
-                animation: AnimationList::new(vec![]),
-                mesh: render_plane_mesh,
-                texture: image::RgbaImage::from_pixel(100, 100, image::Rgba([100, 100, 100, 0xff])),
-            };
-            render_plane_model.build_render_model(
-                base.base.as_ref(),
-                &mut base.allocator.lock().expect("failed to lock"),
-                &descriptor_pool,
-                &descriptor_set_layouts,
-            )
-        };
         let render_planes = (0..number_of_passes)
             .map(|_i| {
                 let render_plane_mesh = Mesh::plane();

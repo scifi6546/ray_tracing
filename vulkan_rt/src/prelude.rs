@@ -836,10 +836,6 @@ pub fn load_bytes(path: impl AsRef<Path>) -> Vec<u8> {
             read_size
         )
     }
-    println!(
-        "file_size: {}, file_data size: {}",
-        file_size,
-        file_data.len()
-    );
+
     return file_data;
 }
