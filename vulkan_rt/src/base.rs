@@ -17,7 +17,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-
+const PRINT_FEATURES: bool = false;
 #[derive(Debug)]
 struct ExtensionInfo {
     #[allow(dead_code)]
@@ -247,6 +247,8 @@ impl Base {
         );
         device_extension_manager
             .add_extension(CStr::from_bytes_with_nul(b"VK_KHR_acceleration_structure\0").unwrap());
+        device_extension_manager
+            .add_extension(CStr::from_bytes_with_nul(b"VK_KHR_ray_tracing_pipeline\0").unwrap());
         #[cfg(feature = "aftermath")]
         device_extension_manager.add_extension(
             CStr::from_bytes_with_nul(b"VK_NV_device_diagnostics_config\0").unwrap(),
@@ -275,11 +277,12 @@ impl Base {
                 .push_next(&mut vk_13_features)
                 .build();
             instance.get_physical_device_features2(p_device, &mut f);
-
-            println!("Available features:\n{:#?}", f);
-            println!("{:#?}", vk_13_features.build());
-            println!("{:#?}", rt_pipeline.build());
-            println!("{:#?}", accel.build());
+            if PRINT_FEATURES {
+                println!("Available features:\n{:#?}", f);
+                println!("{:#?}", vk_13_features.build());
+                println!("{:#?}", rt_pipeline.build());
+                println!("{:#?}", accel.build());
+            }
         }
 
         let features = vk::PhysicalDeviceFeatures::builder().shader_clip_distance(true);

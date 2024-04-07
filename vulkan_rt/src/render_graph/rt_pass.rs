@@ -1,5 +1,5 @@
+mod descriptor_sets;
 mod pipeline;
-mod shader;
 
 use super::{Base, PassBase, RayTracingState, VulkanOutput, VulkanOutputType, VulkanPass};
 use crate::{
