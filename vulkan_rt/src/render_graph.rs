@@ -1,4 +1,5 @@
 mod diffuse_pass;
+mod framebuffer_texture;
 mod graph;
 mod mesh_descriptors;
 mod output_pass;
@@ -177,7 +178,7 @@ impl RenderPassApp {
             Box::new(solid_texture::SolidTexturePass::new(&pass_base));
 
         let (_solid_pass_id, solid_pass_output) = graph.insert_pass(solid_texture, Vec::new());
-        let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base, 2));
+        let pass: Box<dyn VulkanPass> = Box::new(OutputPass::new(&mut pass_base, 3));
         let diffuse_pass: Box<dyn VulkanPass> = Box::new(DiffusePass::new(pass_base.clone()));
 
         let (_pass_id, rt_output) = graph.insert_pass(
@@ -188,7 +189,11 @@ impl RenderPassApp {
         let (_diffuse_pass_id, diffuse_pass_deps) = graph.insert_pass(diffuse_pass, vec![]);
         graph.insert_output_pass(
             pass,
-            vec![solid_pass_output[0].clone(), diffuse_pass_deps[0].clone()],
+            vec![
+                solid_pass_output[0].clone(),
+                diffuse_pass_deps[0].clone(),
+                rt_output[0].clone(),
+            ],
         );
 
         Self {
