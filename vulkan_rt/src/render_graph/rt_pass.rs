@@ -16,18 +16,26 @@ use generational_arena::Index as ArenaIndex;
 use crate::prelude::{mat4_to_bytes, EngineEntities};
 use crate::record_submit_commandbuffer;
 use std::collections::HashMap;
-
+/// Contains data that is directly in use by the gpu when rendering a frame.
+/// Kept separate from main `RtPass` so that multiple frames can be rendered at the same time
+struct FrameData {
+    fence: vk::Fence,
+    draw_command_buffer: vk::CommandBuffer,
+    render_complete_semaphore: vk::Semaphore,
+    framebuffer_texture: FramebufferTexture,
+}
 pub struct RtPass {
     top_level_acceleration_structure: TopLevelAccelerationStructure,
     model_acceleration_structures: HashMap<ArenaIndex, ModelAccelerationStructure>,
     pipeline: RayTracingPipeline,
-    framebuffer_textures: Vec<FramebufferTexture>,
+
     /// index of framebuffer to use
     current_framebuffer_index: usize,
-    render_complete_semaphore: Option<vk::Semaphore>,
+
     renderpass: Option<vk::RenderPass>,
-    draw_fence: Option<vk::Fence>,
+
     draw_command_buffer: Option<vk::CommandBuffer>,
+    frame_data: Vec<FrameData>,
 }
 impl RtPass {
     pub fn new(pass_base: &PassBase) -> Result<Self, vk::Result> {
@@ -64,13 +72,43 @@ impl RtPass {
                 .create_render_pass(&renderpass_create_info, None)
                 .unwrap()
         };
-        let framebuffer_textures = pass_base
+
+        let frame_data = pass_base
             .base
             .present_image_views
             .iter()
-            .map(|_| FramebufferTexture::new(pass_base.clone(), renderpass.clone()))
-            .collect::<Vec<_>>();
+            .map(|_| FrameData {
+                fence: {
+                    let fence_create_info =
+                        vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+                    unsafe { pass_base.base.device.create_fence(&fence_create_info, None) }
+                        .expect("failed to create draw fence")
+                },
+                draw_command_buffer: {
+                    let command_buffer_alloc_info = vk::CommandBufferAllocateInfo::builder()
+                        .command_buffer_count(1)
+                        .command_pool(pass_base.base.pool)
+                        .level(vk::CommandBufferLevel::PRIMARY);
 
+                    unsafe {
+                        pass_base
+                            .base
+                            .device
+                            .allocate_command_buffers(&command_buffer_alloc_info)
+                            .unwrap()[0]
+                    }
+                },
+                render_complete_semaphore: unsafe {
+                    let create_info = vk::SemaphoreCreateInfo::builder();
+                    pass_base
+                        .base
+                        .device
+                        .create_semaphore(&create_info, None)
+                        .expect("failed to create rendering complete semaphore")
+                },
+                framebuffer_texture: FramebufferTexture::new(pass_base.clone(), renderpass.clone()),
+            })
+            .collect::<Vec<_>>();
         let model_acceleration_structures = pass_base
             .engine_entities
             .borrow()
@@ -110,28 +148,17 @@ impl RtPass {
                 .allocate_command_buffers(&command_buffer_alloc_info)
                 .unwrap()
         }[0];
-        let rendering_complete_semaphore = unsafe {
-            let create_info = vk::SemaphoreCreateInfo::builder();
-            pass_base
-                .base
-                .device
-                .create_semaphore(&create_info, None)
-                .expect("failed to create rendering complete semaphore")
-        };
-        let fence_create_info =
-            vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
-        let draw_fence = unsafe { pass_base.base.device.create_fence(&fence_create_info, None) }
-            .expect("failed to create draw fence");
+
         Ok(Self {
             model_acceleration_structures,
             top_level_acceleration_structure,
             pipeline,
-            framebuffer_textures,
             current_framebuffer_index: 0,
-            render_complete_semaphore: Some(rendering_complete_semaphore),
+
             renderpass: Some(renderpass),
-            draw_fence: Some(draw_fence),
+
             draw_command_buffer: Some(draw_command_buffer),
+            frame_data,
         })
     }
 }
@@ -145,32 +172,39 @@ impl VulkanPass for RtPass {
     }
 
     fn process(&mut self, base: &PassBase, _input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
+        /*
         unsafe {
             base.base
                 .device
                 .device_wait_idle()
                 .expect("failed to wait idle");
         }
+
+        */
         unsafe {
             record_submit_commandbuffer(
                 &base.base.device,
-                self.draw_command_buffer.unwrap(),
-                self.draw_fence.unwrap(),
+                self.frame_data[self.current_framebuffer_index].draw_command_buffer,
+                self.frame_data[self.current_framebuffer_index].fence,
                 base.base.present_queue,
                 &[],
                 &[],
-                &[self.render_complete_semaphore.unwrap()],
+                &[self.frame_data[self.current_framebuffer_index].render_complete_semaphore],
                 |device, draw_command_buffer| {},
             );
         }
-        let engine_entities: std::cell::Ref<EngineEntities> = base.engine_entities.borrow();
+
+        let output = vec![VulkanOutput::Framebuffer {
+            descriptor_set: self.frame_data[self.current_framebuffer_index]
+                .framebuffer_texture
+                .descriptor_set,
+            write_semaphore: Some(
+                self.frame_data[self.current_framebuffer_index].render_complete_semaphore,
+            ),
+        }];
         self.current_framebuffer_index =
             (self.current_framebuffer_index + 1) % base.base.num_swapchain_images();
-        vec![VulkanOutput::Framebuffer {
-            descriptor_set: self.framebuffer_textures[self.current_framebuffer_index]
-                .descriptor_set,
-            write_semaphore: Some(self.render_complete_semaphore.unwrap()),
-        }]
+        output
     }
 
     fn free(&mut self, base: &PassBase) {
@@ -186,24 +220,20 @@ impl VulkanPass for RtPass {
             }
         }
         self.pipeline.free(&base.base);
-        for mut texture in self.framebuffer_textures.drain(..) {
-            unsafe {
-                texture.free_resources(base);
-            }
-        }
+
         unsafe {
-            base.base.device.destroy_semaphore(
-                self.render_complete_semaphore
-                    .take()
-                    .expect("rt_pass already freed once"),
-                None,
-            );
             base.base
                 .device
                 .destroy_render_pass(self.renderpass.take().expect("rt_pass already freed"), None);
-            base.base
-                .device
-                .destroy_fence(self.draw_fence.take().expect("rt_pass already freed"), None);
+        }
+        for mut frame_data in self.frame_data.drain(..) {
+            unsafe {
+                base.base
+                    .device
+                    .destroy_semaphore(frame_data.render_complete_semaphore, None);
+                base.base.device.destroy_fence(frame_data.fence, None);
+                frame_data.framebuffer_texture.free_resources(base);
+            }
         }
     }
 }
