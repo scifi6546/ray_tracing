@@ -1,4 +1,5 @@
 use super::Base;
+use crate::render_graph::rt_pass::descriptor_sets::RayTracingDescriptorSets;
 use crate::{
     prelude::{RenderModel, Vertex},
     record_submit_commandbuffer,
@@ -14,6 +15,7 @@ use std::{
     ffi::c_void,
     sync::{Arc, Mutex},
 };
+
 unsafe fn get_device_address(device: &ash::Device, buffer: &vk::Buffer) -> vk::DeviceAddress {
     let buffer_device_address_info = vk::BufferDeviceAddressInfo::builder().buffer(*buffer);
     device.get_buffer_device_address(&buffer_device_address_info)
@@ -254,6 +256,7 @@ impl TopLevelAccelerationStructure {
         base: &Base,
         allocator: Arc<Mutex<Allocator>>,
         raytracing_state: &RayTracingState,
+        descriptor_pool: &RayTracingDescriptorSets,
     ) -> Self {
         let queue_family_indicies = [base.queue_family_index];
 
@@ -441,6 +444,9 @@ impl TopLevelAccelerationStructure {
                 acceleration_structure: Some(acceleration_structure),
             }
         }
+    }
+    pub fn descriptor_set(&self) -> Option<vk::DescriptorSet> {
+        todo!()
     }
     pub fn free(
         &mut self,

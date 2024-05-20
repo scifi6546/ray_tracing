@@ -9,7 +9,7 @@ const RAY_SIZE: usize = size_of::<f32>() * 4;
 pub struct RayTracingPipeline {
     pipeline: Option<vk::Pipeline>,
     pipeline_layout: Option<vk::PipelineLayout>,
-    descriptor_sets: RayTracingDescriptorSets,
+    descriptor_set_layout: RayTracingDescriptorSets,
     raygen_module: Option<vk::ShaderModule>,
     closest_hit_module: Option<vk::ShaderModule>,
     any_miss_module: Option<vk::ShaderModule>,
@@ -68,16 +68,9 @@ impl RayTracingPipeline {
         closest_hit_shader_group.closest_hit_shader = 1;
         closest_hit_shader_group.ty = vk::RayTracingShaderGroupTypeKHR::TRIANGLES_HIT_GROUP;
 
-        let miss_shader_group = vk::RayTracingShaderGroupCreateInfoKHR::builder()
-            .ty(vk::RayTracingShaderGroupTypeKHR::GENERAL)
-            .general_shader(2)
-            .build();
-
         let mut miss_shader_group = default_shader_group.clone();
         miss_shader_group.general_shader = 2;
-        let dynamic_state = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
-        let dynamic_state_info =
-            vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state);
+
         let push_constant_range = [vk::PushConstantRange::builder()
             .size(RAY_SIZE as u32)
             .stage_flags(
@@ -107,7 +100,6 @@ impl RayTracingPipeline {
                 closest_hit_shader_group,
                 miss_shader_group,
             ])
-            // .dynamic_state(&dynamic_state_info)
             .layout(pipeline_layout)
             .max_pipeline_ray_recursion_depth(3)
             .build()];
@@ -124,7 +116,7 @@ impl RayTracingPipeline {
             Self {
                 pipeline: Some(pipeline),
                 pipeline_layout: Some(pipeline_layout),
-                descriptor_sets,
+                descriptor_set_layout: descriptor_sets,
                 raygen_module: Some(raygen_module),
                 closest_hit_module: Some(closest_hit_module),
                 any_miss_module: Some(any_miss_module),
@@ -163,8 +155,20 @@ impl RayTracingPipeline {
                     .expect("raytracing pipeline already freed"),
                 None,
             );
-            self.descriptor_sets.free(base);
+            self.descriptor_set_layout.free(base);
         }
+    }
+    pub fn pipeline(&self) -> vk::Pipeline {
+        self.pipeline.unwrap()
+    }
+    pub fn pipeline_bind_point(&self) -> vk::PipelineBindPoint {
+        vk::PipelineBindPoint::RAY_TRACING_KHR
+    }
+    pub fn descriptor_set_layout(&self) -> vk::DescriptorSetLayout {
+        self.descriptor_set_layout.get_layout()
+    }
+    pub fn pipeline_layout(&self) -> vk::PipelineLayout {
+        self.pipeline_layout.unwrap()
     }
 }
 impl Drop for RayTracingPipeline {

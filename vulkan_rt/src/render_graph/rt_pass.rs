@@ -28,7 +28,7 @@ pub struct RtPass {
     top_level_acceleration_structure: TopLevelAccelerationStructure,
     model_acceleration_structures: HashMap<ArenaIndex, ModelAccelerationStructure>,
     pipeline: RayTracingPipeline,
-
+    descriptor_pool: Option<vk::DescriptorPool>,
     /// index of framebuffer to use
     current_framebuffer_index: usize,
 
@@ -126,16 +126,32 @@ impl RtPass {
                 )
             })
             .collect::<HashMap<_, _>>();
-
+        let descriptor_pool = Some({
+            let descriptor_sizes = [vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
+                descriptor_count: 1,
+            }];
+            let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
+                .pool_sizes(&descriptor_sizes)
+                .max_sets(100);
+            unsafe {
+                pass_base
+                    .base
+                    .device
+                    .create_descriptor_pool(&descriptor_pool_info, None)
+                    .expect("failed to crate pool")
+            }
+        });
+        let pipeline =
+            RayTracingPipeline::new(pass_base.base.as_ref(), pass_base.raytracing_state.as_ref());
         let top_level_acceleration_structure = TopLevelAccelerationStructure::new(
             model_acceleration_structures.iter().map(|(a, b)| b),
             &pass_base.base,
             pass_base.allocator.clone(),
             pass_base.raytracing_state.as_ref(),
+            todo!(),
         );
 
-        let pipeline =
-            RayTracingPipeline::new(pass_base.base.as_ref(), pass_base.raytracing_state.as_ref());
         let command_buffer_alloc_info = vk::CommandBufferAllocateInfo::builder()
             .command_buffer_count(1)
             .command_pool(pass_base.base.pool)
@@ -158,6 +174,7 @@ impl RtPass {
             renderpass: Some(renderpass),
 
             draw_command_buffer: Some(draw_command_buffer),
+            descriptor_pool,
             frame_data,
         })
     }
@@ -172,15 +189,6 @@ impl VulkanPass for RtPass {
     }
 
     fn process(&mut self, base: &PassBase, _input: Vec<&VulkanOutput>) -> Vec<VulkanOutput> {
-        /*
-        unsafe {
-            base.base
-                .device
-                .device_wait_idle()
-                .expect("failed to wait idle");
-        }
-
-        */
         unsafe {
             record_submit_commandbuffer(
                 &base.base.device,
@@ -190,7 +198,30 @@ impl VulkanPass for RtPass {
                 &[],
                 &[],
                 &[self.frame_data[self.current_framebuffer_index].render_complete_semaphore],
-                |device, draw_command_buffer| {},
+                |device, draw_command_buffer| {
+                    device.cmd_bind_pipeline(
+                        draw_command_buffer,
+                        vk::PipelineBindPoint::RAY_TRACING_KHR,
+                        self.pipeline.pipeline(),
+                    );
+                    device.cmd_bind_descriptor_sets(
+                        draw_command_buffer,
+                        self.pipeline.pipeline_bind_point(),
+                        self.pipeline.pipeline_layout(),
+                        0,
+                        &[
+                            self.frame_data[self.current_framebuffer_index]
+                                .framebuffer_texture
+                                .descriptor_set,
+                            self.top_level_acceleration_structure
+                                .descriptor_set()
+                                .expect(
+                                    "descriptor set not found for top level acceleration structure",
+                                ),
+                        ],
+                        &[],
+                    )
+                },
             );
         }
 
@@ -234,6 +265,14 @@ impl VulkanPass for RtPass {
                 base.base.device.destroy_fence(frame_data.fence, None);
                 frame_data.framebuffer_texture.free_resources(base);
             }
+        }
+        unsafe {
+            base.base.device.destroy_descriptor_pool(
+                self.descriptor_pool
+                    .take()
+                    .expect("descriptor pool already freed"),
+                None,
+            );
         }
     }
 }

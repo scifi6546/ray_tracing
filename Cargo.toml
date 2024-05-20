@@ -1,5 +1,5 @@
 [workspace]
-members = ["minya_bin","base_lib","vulkan_rt","choose_vulkan","lib_minya", "real_time_engine"]
+members = ["minya_bin","base_lib","vulkan_rt","choose_vulkan","lib_minya", "real_time_engine", "voxel_tree"]
 resolver = "2"
 [profile.dev]
 opt-level=0
