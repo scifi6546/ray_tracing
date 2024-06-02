@@ -232,7 +232,271 @@ impl OctTree {
             size,
         }
     }
-    pub fn combine(&self, other: &Self, offset: [i32; 3]) -> Self {
+    pub fn combine(self, other: &Self, offset: [i32; 3]) -> Self {
+        let other_size = offset
+            .iter()
+            .map(|s| s.abs() as u32 + other.size)
+            .max()
+            .unwrap();
+
+        let size = Self::get_next_power(max(self.size, other_size));
+        if size > self.size {
+            self.combine_resize(other, offset)
+        } else {
+            self.combine_no_resize(other, offset)
+        }
+    }
+    /// gets the node at the given position, position must be a power of 2 and position must point to a valid node,
+    /// if a parent is a leaf then this should panic
+    fn get_node(&self, position: [u32; 3]) -> OctTreeNode {
+        todo!()
+    }
+    // gets offsets of children
+    fn get_children_offsets() -> [[u32; 3]; 8] {
+        [
+            [0, 0, 0],
+            [0, 0, 1],
+            [0, 1, 0],
+            [0, 1, 1],
+            [1, 0, 0],
+            [1, 0, 1],
+            [1, 1, 0],
+            [1, 1, 1],
+        ]
+    }
+    fn combine_no_resize(self, other: &Self, offset: [i32; 3]) -> Self {
+        // from https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_aabb.html
+        fn aabb_intersect(
+            a_min: [i32; 3],
+            a_max: [i32; 3],
+            b_min: [i32; 3],
+            b_max: [i32; 3],
+        ) -> bool {
+            (a_min[0] <= b_max[0] && a_max[0] >= b_min[0])
+                && (a_min[1] <= b_max[1] && a_max[1] >= b_min[1])
+                && (a_min[2] <= b_max[2] && a_max[2] >= b_min[2])
+        }
+        /// checks if AABB a is fully inside of b
+        fn a_fully_in_b(
+            a_min: [i32; 3],
+            a_max: [i32; 3],
+            b_min: [i32; 3],
+            b_max: [i32; 3],
+        ) -> bool {
+            (a_min[0] >= b_min[0] && a_min[1] >= b_min[1] && a_min[2] >= b_min[2])
+                && (a_max[0] <= b_max[0] && a_max[1] <= b_max[1] && a_max[2] <= b_max[2])
+        }
+        fn modify_node(
+            node: OctTreeNode,
+            node_offset: [i32; 3],
+            other: &OctTree,
+            other_offset: [i32; 3],
+        ) -> OctTreeNode {
+            assert!(node.size >= 1);
+            // building aabb for checking if current selection colides
+            let other_min = other_offset;
+            let other_max = [
+                other_min[0] + other.size as i32 - 1,
+                other_min[1] + other.size as i32 - 1,
+                other_min[2] + other.size as i32 - 1,
+            ];
+            let node_min = node_offset;
+            let node_max = [
+                node_min[0] + node.size as i32 - 1,
+                node_min[1] + node.size as i32 - 1,
+                node_min[2] + node.size as i32 - 1,
+            ];
+            if aabb_intersect(other_min, other_max, node_min, node_max) {
+                match node.children {
+                    OctTreeChildren::Leaf(v) => {
+                        if a_fully_in_b(node_min, node_max, other_min, other_max) {
+                            let start = [
+                                node_offset[0] - other_offset[0],
+                                node_offset[1] - other_offset[1],
+                                node_offset[2] - other_offset[2],
+                            ];
+                            let end = [
+                                node_offset[0] - other_offset[0] + node.size as i32,
+                                node_offset[1] - other_offset[1] + node.size as i32,
+                                node_offset[2] - other_offset[2] + node.size as i32,
+                            ];
+
+                            let mut val = v;
+                            if node.size == 1 {
+                                return OctTreeNode {
+                                    children: OctTreeChildren::Leaf(
+                                        v || other.get_contents(
+                                            start[0] as u32,
+                                            start[1] as u32,
+                                            start[2] as u32,
+                                        ),
+                                    ),
+                                    size: 1,
+                                };
+                            }
+                            for x in start[0]..end[0] {
+                                for y in start[1]..end[1] {
+                                    for z in start[2]..end[2] {
+                                        let get_val =
+                                            other.get_contents(x as u32, y as u32, z as u32);
+                                        if get_val != val && node.size >= 2 {
+                                            let offsets = OctTree::get_children_offsets();
+                                            let children = offsets.map(|offset| {
+                                                modify_node(
+                                                    OctTreeNode {
+                                                        children: OctTreeChildren::Leaf(v),
+                                                        size: node.size / 2,
+                                                    },
+                                                    [
+                                                        node_offset[0]
+                                                            + offset[0] as i32 * node.size as i32
+                                                                / 2,
+                                                        node_offset[1]
+                                                            + offset[1] as i32 * node.size as i32
+                                                                / 2,
+                                                        node_offset[2]
+                                                            + offset[2] as i32 * node.size as i32
+                                                                / 2,
+                                                    ],
+                                                    other,
+                                                    other_offset,
+                                                )
+                                            });
+                                            let mut val: Option<bool> = None;
+                                            for (i, child) in children.iter().enumerate() {
+                                                if i == 0 {
+                                                    match &child.children {
+                                                        OctTreeChildren::Leaf(v) => val = Some(*v),
+                                                        OctTreeChildren::ParentNode(_) => {
+                                                            return OctTreeNode {
+                                                                children:
+                                                                    OctTreeChildren::ParentNode(
+                                                                        Box::new(children),
+                                                                    ),
+                                                                size: node.size,
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    match &child.children {
+                                                        OctTreeChildren::Leaf(v) => {
+                                                            if Some(*v) != val {
+                                                                return OctTreeNode {
+                                                                    children:
+                                                                        OctTreeChildren::ParentNode(
+                                                                            Box::new(children),
+                                                                        ),
+                                                                    size: node.size,
+                                                                };
+                                                            }
+                                                        }
+                                                        OctTreeChildren::ParentNode(_) => {
+                                                            return OctTreeNode {
+                                                                children:
+                                                                    OctTreeChildren::ParentNode(
+                                                                        Box::new(children),
+                                                                    ),
+                                                                size: node.size,
+                                                            };
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            return OctTreeNode {
+                                                children: OctTreeChildren::Leaf(val.unwrap()),
+                                                size: node.size,
+                                            };
+                                        } else {
+                                            val = val || get_val;
+                                        }
+                                    }
+                                }
+                            }
+                            OctTreeNode {
+                                children: OctTreeChildren::Leaf(val),
+                                size: node.size,
+                            }
+                        } else {
+                            let offsets = OctTree::get_children_offsets();
+                            let children = offsets.map(|offset| {
+                                modify_node(
+                                    OctTreeNode {
+                                        children: OctTreeChildren::Leaf(v),
+                                        size: node.size / 2,
+                                    },
+                                    [
+                                        node_offset[0] + offset[0] as i32 * node.size as i32 / 2,
+                                        node_offset[1] + offset[1] as i32 * node.size as i32 / 2,
+                                        node_offset[2] + offset[2] as i32 * node.size as i32 / 2,
+                                    ],
+                                    other,
+                                    other_offset,
+                                )
+                            });
+                            let mut val: Option<bool> = Some(v);
+                            for (i, child) in children.iter().enumerate() {
+                                match &child.children {
+                                    OctTreeChildren::Leaf(v) => {
+                                        if Some(*v) != val {
+                                            return OctTreeNode {
+                                                children: OctTreeChildren::ParentNode(Box::new(
+                                                    children,
+                                                )),
+                                                size: node.size,
+                                            };
+                                        }
+                                    }
+                                    OctTreeChildren::ParentNode(_) => {
+                                        return OctTreeNode {
+                                            children: OctTreeChildren::ParentNode(Box::new(
+                                                children,
+                                            )),
+                                            size: node.size,
+                                        };
+                                    }
+                                }
+                            }
+                            return OctTreeNode {
+                                children: OctTreeChildren::Leaf(val.unwrap()),
+                                size: node.size,
+                            };
+                        }
+                    }
+                    OctTreeChildren::ParentNode(children) => {
+                        let offsets = OctTree::get_children_offsets();
+                        let mut i = 0;
+                        let children = offsets.map(|offset| {
+                            let out = modify_node(
+                                children[i].clone(),
+                                [
+                                    (offset[0] * node.size / 2) as i32 + node_offset[0],
+                                    (offset[1] * node.size / 2) as i32 + node_offset[1],
+                                    (offset[2] * node.size / 2) as i32 + node_offset[2],
+                                ],
+                                other,
+                                other_offset,
+                            );
+                            i += 1;
+                            out
+                        });
+                        OctTreeNode {
+                            children: OctTreeChildren::ParentNode(Box::new(children)),
+                            size: node.size,
+                        }
+                    }
+                }
+            } else {
+                //nothing needs to be done as no intersection
+                node
+            }
+        }
+
+        Self {
+            root_node: modify_node(self.root_node, [0, 0, 0], other, offset),
+            size: self.size,
+        }
+    }
+    fn combine_resize(self, other: &Self, offset: [i32; 3]) -> Self {
         fn build_nodes(
             size: u32,
             a: &OctTree,
@@ -332,12 +596,9 @@ impl OctTree {
             .unwrap();
 
         let size = Self::get_next_power(max(self.size, other_size));
-        println!(
-            "new size: {}, self size: {}, other size: {}, offset: [{},{},{}]",
-            size, self.size, other.size, offset[0], offset[1], offset[2]
-        );
+
         Self {
-            root_node: build_nodes(size, self, other, offset, [0, 0, 0]),
+            root_node: build_nodes(size, &self, other, offset, [0, 0, 0]),
             size,
         }
     }
@@ -611,17 +872,29 @@ fn main() {
     let sphere = OctTree::sphere(64);
     println!("*************SPHERE*************");
     sphere.render("sphere.png");
+    println!("*************COMBINED 1/2*************");
+    let combined = OctTree::sphere(32).combine(&OctTree::sphere(20), [32, 32, 32]);
+    println!("rendering");
+    combined.render("combined_1_2.png");
+    println!("*************COMBINED REORDER*************");
+    let combined = OctTree::sphere(32)
+        .combine(&OctTree::sphere(20), [32, 32, 32])
+        .combine(&OctTree::sphere(32), [64, 64, 0]);
+    println!("rendering");
+    combined.render("combined_reorder.png");
     println!("*************COMBINED*************");
     let combined = OctTree::sphere(32)
         .combine(&OctTree::sphere(32), [64, 64, 0])
         .combine(&OctTree::sphere(20), [32, 32, 32]);
     println!("rendering");
     combined.render("combined.png");
+
     {
         println!("*************BIG*************");
         let mut tree = OctTree::sphere(4);
         for x in 0..100 {
             for y in 0..100 {
+                println!("x: {}, y: {}", x, y);
                 tree = tree.combine(&OctTree::sphere(6), [x * 10, 0, y * 10]);
             }
         }
