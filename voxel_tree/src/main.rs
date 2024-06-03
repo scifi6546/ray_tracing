@@ -980,7 +980,24 @@ fn main() {
     println!("rendering");
     combined.render("combined.png");
     assert!(combined.is_optimal());
+    {
+        println!("************* VERY BIG *************");
+        let sphere_radius = 100;
+        let big_sphere = OctTree::sphere(sphere_radius);
+        let mut tree = OctTree::sphere(4);
+        let center = 10_000;
+        let z_max = 10;
+        for z in 0..z_max {
+            println!("z: {}", z);
+            let step_size = center / z_max;
 
+            tree = tree
+                .combine(&big_sphere, [step_size * z, 0, z * 1000])
+                .combine(&big_sphere, [step_size * (z_max - z), 0, z * 1000]);
+        }
+        println!("rendering");
+        tree.render("very_big.png");
+    }
     {
         println!("*************BIG*************");
         let mut tree = OctTree::sphere(4);
