@@ -264,18 +264,13 @@ impl OctTree {
             [1, 1, 1],
         ]
     }
+    // from https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_aabb.html
+    fn aabb_intersect(a_min: [i32; 3], a_max: [i32; 3], b_min: [i32; 3], b_max: [i32; 3]) -> bool {
+        (a_min[0] <= b_max[0] && a_max[0] >= b_min[0])
+            && (a_min[1] <= b_max[1] && a_max[1] >= b_min[1])
+            && (a_min[2] <= b_max[2] && a_max[2] >= b_min[2])
+    }
     fn combine_no_resize(self, other: &Self, offset: [i32; 3]) -> Self {
-        // from https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_aabb.html
-        fn aabb_intersect(
-            a_min: [i32; 3],
-            a_max: [i32; 3],
-            b_min: [i32; 3],
-            b_max: [i32; 3],
-        ) -> bool {
-            (a_min[0] <= b_max[0] && a_max[0] >= b_min[0])
-                && (a_min[1] <= b_max[1] && a_max[1] >= b_min[1])
-                && (a_min[2] <= b_max[2] && a_max[2] >= b_min[2])
-        }
         /// checks if AABB a is fully inside of b
         fn a_fully_in_b(
             a_min: [i32; 3],
@@ -328,7 +323,7 @@ impl OctTree {
                 node_min[1] + node.size as i32 - 1,
                 node_min[2] + node.size as i32 - 1,
             ];
-            if aabb_intersect(other_min, other_max, node_min, node_max) {
+            if OctTree::aabb_intersect(other_min, other_max, node_min, node_max) {
                 match node.children {
                     OctTreeChildren::Leaf(v) => {
                         if a_fully_in_b(node_min, node_max, other_min, other_max) {
@@ -555,90 +550,129 @@ impl OctTree {
             size: u32,
             a: &OctTree,
             b: &OctTree,
-            offset: [i32; 3],
+            b_offset: [i32; 3],
             // lower left corner of current cube
             cube_position: [u32; 3],
         ) -> OctTreeNode {
-            if size >= 2 {
-                let x0 = cube_position[0];
-                let y0 = cube_position[1];
-                let z0 = cube_position[2];
+            let cube_position_i32 = cube_position.map(|d| d as i32);
+            let current_max = cube_position.map(|d| d as i32 + size as i32 - 1);
+            let a_intersects = OctTree::aabb_intersect(
+                cube_position_i32,
+                current_max,
+                [0, 0, 0],
+                [
+                    0 + a.size as i32 - 1,
+                    0 + a.size as i32 - 1,
+                    0 + a.size as i32 - 1,
+                ],
+            );
+            let b_intersects = OctTree::aabb_intersect(
+                cube_position_i32,
+                current_max,
+                b_offset,
+                b_offset.map(|p| p + b.size as i32 - 1),
+            );
+            if OctTree::aabb_intersect(
+                cube_position_i32,
+                current_max,
+                [0, 0, 0],
+                [
+                    0 + a.size as i32 - 1,
+                    0 + a.size as i32 - 1,
+                    0 + a.size as i32 - 1,
+                ],
+            ) || OctTree::aabb_intersect(
+                cube_position_i32,
+                current_max,
+                b_offset,
+                b_offset.map(|p| p + b.size as i32 - 1),
+            ) {
+                if size >= 2 {
+                    let x0 = cube_position[0];
+                    let y0 = cube_position[1];
+                    let z0 = cube_position[2];
 
-                let x1 = x0 + size / 2;
-                let y1 = y0 + size / 2;
-                let z1 = z0 + size / 2;
+                    let x1 = x0 + size / 2;
+                    let y1 = y0 + size / 2;
+                    let z1 = z0 + size / 2;
 
-                let cubes = [
-                    build_nodes(size / 2, a, b, offset, [x0, y0, z0]),
-                    build_nodes(size / 2, a, b, offset, [x0, y0, z1]),
-                    build_nodes(size / 2, a, b, offset, [x0, y1, z0]),
-                    build_nodes(size / 2, a, b, offset, [x0, y1, z1]),
-                    // top x
-                    build_nodes(size / 2, a, b, offset, [x1, y0, z0]),
-                    build_nodes(size / 2, a, b, offset, [x1, y0, z1]),
-                    build_nodes(size / 2, a, b, offset, [x1, y1, z0]),
-                    build_nodes(size / 2, a, b, offset, [x1, y1, z1]),
-                ];
+                    let cubes = [
+                        build_nodes(size / 2, a, b, b_offset, [x0, y0, z0]),
+                        build_nodes(size / 2, a, b, b_offset, [x0, y0, z1]),
+                        build_nodes(size / 2, a, b, b_offset, [x0, y1, z0]),
+                        build_nodes(size / 2, a, b, b_offset, [x0, y1, z1]),
+                        // top x
+                        build_nodes(size / 2, a, b, b_offset, [x1, y0, z0]),
+                        build_nodes(size / 2, a, b, b_offset, [x1, y0, z1]),
+                        build_nodes(size / 2, a, b, b_offset, [x1, y1, z0]),
+                        build_nodes(size / 2, a, b, b_offset, [x1, y1, z1]),
+                    ];
 
-                let mut same = true;
-                let mut cube_val: Option<bool> = None;
-                for cube in cubes.iter() {
-                    match cube.children {
-                        OctTreeChildren::Leaf(val) => {
-                            if let Some(cube) = cube_val {
-                                if val != cube {
-                                    same = false;
-                                    break;
+                    let mut same = true;
+                    let mut cube_val: Option<bool> = None;
+                    for cube in cubes.iter() {
+                        match cube.children {
+                            OctTreeChildren::Leaf(val) => {
+                                if let Some(cube) = cube_val {
+                                    if val != cube {
+                                        same = false;
+                                        break;
+                                    }
+                                } else {
+                                    cube_val = Some(val);
                                 }
-                            } else {
-                                cube_val = Some(val);
+                            }
+                            OctTreeChildren::ParentNode(_) => {
+                                same = false;
+
+                                break;
                             }
                         }
-                        OctTreeChildren::ParentNode(_) => {
-                            same = false;
-
-                            break;
+                    }
+                    if same {
+                        OctTreeNode {
+                            children: OctTreeChildren::Leaf(cube_val.unwrap()),
+                            size,
+                        }
+                    } else {
+                        OctTreeNode {
+                            children: OctTreeChildren::ParentNode(Box::new(cubes)),
+                            size,
                         }
                     }
-                }
-                if same {
-                    OctTreeNode {
-                        children: OctTreeChildren::Leaf(cube_val.unwrap()),
-                        size,
-                    }
                 } else {
+                    let a_val = if cube_position[0] < a.size
+                        && cube_position[1] < a.size
+                        && cube_position[2] < a.size
+                    {
+                        a.get_contents(cube_position[0], cube_position[1], cube_position[2])
+                    } else {
+                        false
+                    };
+                    let b_pos = [
+                        cube_position[0] as i32 - b_offset[0],
+                        cube_position[1] as i32 - b_offset[1],
+                        cube_position[2] as i32 - b_offset[2],
+                    ];
+                    let b_val = if b_pos[0] >= 0
+                        && b_pos[0] < b.size as i32
+                        && b_pos[1] >= 0
+                        && b_pos[1] < b.size as i32
+                        && b_pos[2] >= 0
+                        && b_pos[2] < b.size as i32
+                    {
+                        b.get_contents(b_pos[0] as u32, b_pos[1] as u32, b_pos[2] as u32)
+                    } else {
+                        false
+                    };
                     OctTreeNode {
-                        children: OctTreeChildren::ParentNode(Box::new(cubes)),
+                        children: OctTreeChildren::Leaf(a_val || b_val),
                         size,
                     }
                 }
             } else {
-                let a_val = if cube_position[0] < a.size
-                    && cube_position[1] < a.size
-                    && cube_position[2] < a.size
-                {
-                    a.get_contents(cube_position[0], cube_position[1], cube_position[2])
-                } else {
-                    false
-                };
-                let b_pos = [
-                    cube_position[0] as i32 - offset[0],
-                    cube_position[1] as i32 - offset[1],
-                    cube_position[2] as i32 - offset[2],
-                ];
-                let b_val = if b_pos[0] >= 0
-                    && b_pos[0] < b.size as i32
-                    && b_pos[1] >= 0
-                    && b_pos[1] < b.size as i32
-                    && b_pos[2] >= 0
-                    && b_pos[2] < b.size as i32
-                {
-                    b.get_contents(b_pos[0] as u32, b_pos[1] as u32, b_pos[2] as u32)
-                } else {
-                    false
-                };
                 OctTreeNode {
-                    children: OctTreeChildren::Leaf(a_val || b_val),
+                    children: OctTreeChildren::Leaf(false),
                     size,
                 }
             }
