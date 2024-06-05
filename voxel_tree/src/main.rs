@@ -1,16 +1,29 @@
 use image::{Rgb, RgbImage};
 use std::cmp::max;
+mod prelude {
+    // from https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_aabb.html
+    pub fn aabb_intersect(
+        a_min: [i32; 3],
+        a_max: [i32; 3],
+        b_min: [i32; 3],
+        b_max: [i32; 3],
+    ) -> bool {
+        (a_min[0] <= b_max[0] && a_max[0] >= b_min[0])
+            && (a_min[1] <= b_max[1] && a_max[1] >= b_min[1])
+            && (a_min[2] <= b_max[2] && a_max[2] >= b_min[2])
+    }
+}
 #[derive(Clone, Debug)]
-struct OctTree {
-    root_node: OctTreeNode,
+struct OctTree<T: Leafable> {
+    root_node: OctTreeNode<T>,
     size: u32,
 }
-impl OctTree {
-    pub fn cube() -> Self {
+impl<T: Leafable> OctTree<T> {
+    pub fn cube(hit_val: T) -> Self {
         let size = 2u32.pow(2);
         Self {
             root_node: OctTreeNode {
-                children: OctTreeChildren::Leaf(true),
+                children: OctTreeChildren::Leaf(LeafType::Solid(hit_val)),
                 size,
             },
             size,
@@ -29,7 +42,8 @@ impl OctTree {
         v1 + 1
     }
     /// Creates a sphere with the given radius
-    pub fn sphere(radius: u32) -> Self {
+    pub fn sphere(radius: u32, hit_val: T) -> Self {
+        #[allow(dead_code)]
         ///from https://web.archive.org/web/20100323053111/http://www.ics.uci.edu/%7Earvo/code/BoxSphereIntersect.c
         fn sphere_box_intersection(
             sphere_center: Vector3,
@@ -48,7 +62,13 @@ impl OctTree {
             }
             d_min <= r2
         }
-        fn handle_leaf(size: u32, radius: u32, center: u32, corner: [u32; 3]) -> OctTreeNode {
+        fn handle_leaf<T: Leafable>(
+            size: u32,
+            radius: u32,
+            center: u32,
+            corner: [u32; 3],
+            hit_val: T,
+        ) -> OctTreeNode<T> {
             fn distance(x: u32, y: u32, z: u32, center: u32) -> f32 {
                 ((x as f32 - center as f32).powi(2)
                     + (y as f32 - center as f32).powi(2)
@@ -90,7 +110,11 @@ impl OctTree {
                 if d0 == d1 && d1 == d2 && d2 == d3 && d3 == d4 && d4 == d5 && d5 == d6 && d6 == d7
                 {
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(d0),
+                        children: OctTreeChildren::Leaf(if d0 {
+                            LeafType::Solid(hit_val)
+                        } else {
+                            LeafType::Empty
+                        }),
                         size,
                     }
                 } else {
@@ -101,42 +125,49 @@ impl OctTree {
                                 radius,
                                 center,
                                 [corner[0], corner[1], corner[2]],
+                                hit_val,
                             ),
                             handle_leaf(
                                 size / 2,
                                 radius,
                                 center,
                                 [corner[0], corner[1], corner[2] + size / 2],
+                                hit_val,
                             ),
                             handle_leaf(
                                 size / 2,
                                 radius,
                                 center,
                                 [corner[0], corner[1] + size / 2, corner[2]],
+                                hit_val,
                             ),
                             handle_leaf(
                                 size / 2,
                                 radius,
                                 center,
                                 [corner[0], corner[1] + size / 2, corner[2] + size / 2],
+                                hit_val,
                             ),
                             handle_leaf(
                                 size / 2,
                                 radius,
                                 center,
                                 [corner[0] + size / 2, corner[1], corner[2]],
+                                hit_val,
                             ),
                             handle_leaf(
                                 size / 2,
                                 radius,
                                 center,
                                 [corner[0] + size / 2, corner[1], corner[2] + size / 2],
+                                hit_val,
                             ),
                             handle_leaf(
                                 size / 2,
                                 radius,
                                 center,
                                 [corner[0] + size / 2, corner[1] + size / 2, corner[2]],
+                                hit_val,
                             ),
                             handle_leaf(
                                 size / 2,
@@ -147,6 +178,7 @@ impl OctTree {
                                     corner[1] + size / 2,
                                     corner[2] + size / 2,
                                 ],
+                                hit_val,
                             ),
                         ])),
                         size,
@@ -155,7 +187,11 @@ impl OctTree {
             } else {
                 OctTreeNode {
                     children: OctTreeChildren::Leaf(
-                        distance(corner[0], corner[1], corner[2], center) <= (radius as f32),
+                        if distance(corner[0], corner[1], corner[2], center) <= (radius as f32) {
+                            LeafType::Solid(hit_val)
+                        } else {
+                            LeafType::Empty
+                        },
                     ),
                     size: 1,
                 }
@@ -168,14 +204,20 @@ impl OctTree {
             Self {
                 root_node: OctTreeNode {
                     children: OctTreeChildren::ParentNode(Box::new([
-                        handle_leaf(size / 2, radius, center, [0, 0, 0]),
-                        handle_leaf(size / 2, radius, center, [0, 0, size / 2]),
-                        handle_leaf(size / 2, radius, center, [0, size / 2, 0]),
-                        handle_leaf(size / 2, radius, center, [0, size / 2, size / 2]),
-                        handle_leaf(size / 2, radius, center, [size / 2, 0, 0]),
-                        handle_leaf(size / 2, radius, center, [size / 2, 0, size / 2]),
-                        handle_leaf(size / 2, radius, center, [size / 2, size / 2, 0]),
-                        handle_leaf(size / 2, radius, center, [size / 2, size / 2, size / 2]),
+                        handle_leaf::<T>(size / 2, radius, center, [0, 0, 0], hit_val),
+                        handle_leaf::<T>(size / 2, radius, center, [0, 0, size / 2], hit_val),
+                        handle_leaf::<T>(size / 2, radius, center, [0, size / 2, 0], hit_val),
+                        handle_leaf(size / 2, radius, center, [0, size / 2, size / 2], hit_val),
+                        handle_leaf(size / 2, radius, center, [size / 2, 0, 0], hit_val),
+                        handle_leaf(size / 2, radius, center, [size / 2, 0, size / 2], hit_val),
+                        handle_leaf(size / 2, radius, center, [size / 2, size / 2, 0], hit_val),
+                        handle_leaf(
+                            size / 2,
+                            radius,
+                            center,
+                            [size / 2, size / 2, size / 2],
+                            hit_val,
+                        ),
                     ])),
                     size,
                 },
@@ -184,48 +226,48 @@ impl OctTree {
         } else {
             Self {
                 root_node: OctTreeNode {
-                    children: OctTreeChildren::Leaf(true),
+                    children: OctTreeChildren::Leaf(LeafType::Solid(hit_val)),
                     size,
                 },
                 size,
             }
         }
     }
-    pub fn half_cube() -> Self {
+    pub fn half_cube(hit_val: T) -> Self {
         let size = 32;
         Self {
             root_node: OctTreeNode {
                 children: OctTreeChildren::ParentNode(Box::new([
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(true),
+                        children: OctTreeChildren::Leaf(LeafType::Solid(hit_val)),
                         size: size / 2,
                     },
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(true),
+                        children: OctTreeChildren::Leaf(LeafType::Solid(hit_val)),
                         size: size / 2,
                     },
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(false),
+                        children: OctTreeChildren::Leaf(LeafType::Empty),
                         size: size / 2,
                     },
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(false),
+                        children: OctTreeChildren::Leaf(LeafType::Empty),
                         size: size / 2,
                     },
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(true),
+                        children: OctTreeChildren::Leaf(LeafType::Solid(hit_val)),
                         size: size / 2,
                     },
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(true),
+                        children: OctTreeChildren::Leaf(LeafType::Solid(hit_val)),
                         size: size / 2,
                     },
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(false),
+                        children: OctTreeChildren::Leaf(LeafType::Empty),
                         size: size / 2,
                     },
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(false),
+                        children: OctTreeChildren::Leaf(LeafType::Empty),
                         size: size / 2,
                     },
                 ])),
@@ -264,14 +306,9 @@ impl OctTree {
             [1, 1, 1],
         ]
     }
-    // from https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_aabb.html
-    fn aabb_intersect(a_min: [i32; 3], a_max: [i32; 3], b_min: [i32; 3], b_max: [i32; 3]) -> bool {
-        (a_min[0] <= b_max[0] && a_max[0] >= b_min[0])
-            && (a_min[1] <= b_max[1] && a_max[1] >= b_min[1])
-            && (a_min[2] <= b_max[2] && a_max[2] >= b_min[2])
-    }
+
     fn combine_no_resize(self, other: &Self, offset: [i32; 3]) -> Self {
-        /// checks if AABB a is fully inside of b
+        /// checks if AABB a is fully inside b
         fn a_fully_in_b(
             a_min: [i32; 3],
             a_max: [i32; 3],
@@ -282,9 +319,9 @@ impl OctTree {
                 && (a_max[0] <= b_max[0] && a_max[1] <= b_max[1] && a_max[2] <= b_max[2])
         }
         /// takes in children of a node and if possible simplifies the node
-        fn try_simplify(nodes: [OctTreeNode; 8]) -> OctTreeChildren {
+        fn try_simplify<T: Leafable>(nodes: [OctTreeNode<T>; 8]) -> OctTreeChildren<T> {
             let first_value = match &nodes[0].children {
-                OctTreeChildren::Leaf(leaf_value) => *leaf_value,
+                OctTreeChildren::Leaf(leaf_value) => leaf_value.clone(),
                 OctTreeChildren::ParentNode(_) => {
                     return OctTreeChildren::ParentNode(Box::new(nodes))
                 }
@@ -303,12 +340,12 @@ impl OctTree {
             }
             OctTreeChildren::Leaf(first_value)
         }
-        fn modify_node(
-            node: OctTreeNode,
+        fn modify_node<T: Leafable>(
+            node: OctTreeNode<T>,
             node_offset: [i32; 3],
-            other: &OctTree,
+            other: &OctTree<T>,
             other_offset: [i32; 3],
-        ) -> OctTreeNode {
+        ) -> OctTreeNode<T> {
             assert!(node.size >= 1);
             // building aabb for checking if current selection colides
             let other_min = other_offset;
@@ -323,9 +360,9 @@ impl OctTree {
                 node_min[1] + node.size as i32 - 1,
                 node_min[2] + node.size as i32 - 1,
             ];
-            if OctTree::aabb_intersect(other_min, other_max, node_min, node_max) {
+            if prelude::aabb_intersect(other_min, other_max, node_min, node_max) {
                 match node.children {
-                    OctTreeChildren::Leaf(v) => {
+                    OctTreeChildren::Leaf(leaf_value) => {
                         if a_fully_in_b(node_min, node_max, other_min, other_max) {
                             let start = [
                                 node_offset[0] - other_offset[0],
@@ -338,16 +375,22 @@ impl OctTree {
                                 node_offset[2] - other_offset[2] + node.size as i32,
                             ];
 
-                            let mut val = v;
+                            let mut val = leaf_value;
                             if node.size == 1 {
+                                let other_child = other.get_contents(
+                                    start[0] as u32,
+                                    start[1] as u32,
+                                    start[2] as u32,
+                                );
+                                let child_leaf = if leaf_value.is_solid() {
+                                    leaf_value
+                                } else if other_child.is_solid() {
+                                    other_child
+                                } else {
+                                    LeafType::Empty
+                                };
                                 return OctTreeNode {
-                                    children: OctTreeChildren::Leaf(
-                                        v || other.get_contents(
-                                            start[0] as u32,
-                                            start[1] as u32,
-                                            start[2] as u32,
-                                        ),
-                                    ),
+                                    children: OctTreeChildren::Leaf(child_leaf),
                                     size: 1,
                                 };
                             }
@@ -358,11 +401,11 @@ impl OctTree {
                                         let get_val =
                                             other.get_contents(x as u32, y as u32, z as u32);
                                         if get_val != val && node.size >= 2 {
-                                            let offsets = OctTree::get_children_offsets();
+                                            let offsets = OctTree::<T>::get_children_offsets();
                                             let children = offsets.map(|offset| {
                                                 modify_node(
                                                     OctTreeNode {
-                                                        children: OctTreeChildren::Leaf(v),
+                                                        children: OctTreeChildren::Leaf(leaf_value),
                                                         size: node.size / 2,
                                                     },
                                                     [
@@ -380,7 +423,7 @@ impl OctTree {
                                                     other_offset,
                                                 )
                                             });
-                                            let mut val: Option<bool> = None;
+                                            let mut val: Option<LeafType<T>> = None;
                                             for (i, child) in children.iter().enumerate() {
                                                 if i == 0 {
                                                     match &child.children {
@@ -425,7 +468,13 @@ impl OctTree {
                                                 size: node.size,
                                             };
                                         } else {
-                                            val = val || get_val;
+                                            val = if val.is_solid() {
+                                                val
+                                            } else if get_val.is_solid() {
+                                                get_val
+                                            } else {
+                                                LeafType::Empty
+                                            };
                                         }
                                     }
                                 }
@@ -435,47 +484,47 @@ impl OctTree {
                                 size: node.size,
                             }
                         } else {
-                            let offsets = OctTree::get_children_offsets();
+                            let offsets = OctTree::<T>::get_children_offsets();
                             let mut nodes = [
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(true),
+                                    children: OctTreeChildren::Leaf(LeafType::Empty),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(true),
+                                    children: OctTreeChildren::Leaf(LeafType::Empty),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(true),
+                                    children: OctTreeChildren::Leaf(LeafType::Empty),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(true),
+                                    children: OctTreeChildren::Leaf(LeafType::Empty),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(true),
+                                    children: OctTreeChildren::Leaf(LeafType::Empty),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(true),
+                                    children: OctTreeChildren::Leaf(LeafType::Empty),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(true),
+                                    children: OctTreeChildren::Leaf(LeafType::Empty),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(true),
+                                    children: OctTreeChildren::Leaf(LeafType::Empty),
                                     size: 0,
                                 },
                             ];
-                            let mut val: Option<bool> = Some(v);
+                            let mut val = Some(leaf_value);
 
                             for (i, offset) in offsets.iter().enumerate() {
                                 let node = modify_node(
                                     OctTreeNode {
-                                        children: OctTreeChildren::Leaf(v),
+                                        children: OctTreeChildren::Leaf(leaf_value),
                                         size: node.size / 2,
                                     },
                                     [
@@ -512,7 +561,7 @@ impl OctTree {
                         }
                     }
                     OctTreeChildren::ParentNode(children) => {
-                        let offsets = OctTree::get_children_offsets();
+                        let offsets = OctTree::<T>::get_children_offsets();
                         let mut i = 0;
                         let children = offsets.map(|offset| {
                             let out = modify_node(
@@ -546,17 +595,17 @@ impl OctTree {
         }
     }
     fn combine_resize(self, other: &Self, offset: [i32; 3]) -> Self {
-        fn build_nodes(
+        fn build_nodes<T: Leafable>(
             size: u32,
-            a: &OctTree,
-            b: &OctTree,
+            a: &OctTree<T>,
+            b: &OctTree<T>,
             b_offset: [i32; 3],
             // lower left corner of current cube
             cube_position: [u32; 3],
-        ) -> OctTreeNode {
+        ) -> OctTreeNode<T> {
             let cube_position_i32 = cube_position.map(|d| d as i32);
             let current_max = cube_position.map(|d| d as i32 + size as i32 - 1);
-            let a_intersects = OctTree::aabb_intersect(
+            let a_intersects = prelude::aabb_intersect(
                 cube_position_i32,
                 current_max,
                 [0, 0, 0],
@@ -566,27 +615,13 @@ impl OctTree {
                     0 + a.size as i32 - 1,
                 ],
             );
-            let b_intersects = OctTree::aabb_intersect(
+            let b_intersects = prelude::aabb_intersect(
                 cube_position_i32,
                 current_max,
                 b_offset,
                 b_offset.map(|p| p + b.size as i32 - 1),
             );
-            if OctTree::aabb_intersect(
-                cube_position_i32,
-                current_max,
-                [0, 0, 0],
-                [
-                    0 + a.size as i32 - 1,
-                    0 + a.size as i32 - 1,
-                    0 + a.size as i32 - 1,
-                ],
-            ) || OctTree::aabb_intersect(
-                cube_position_i32,
-                current_max,
-                b_offset,
-                b_offset.map(|p| p + b.size as i32 - 1),
-            ) {
+            if a_intersects || b_intersects {
                 if size >= 2 {
                     let x0 = cube_position[0];
                     let y0 = cube_position[1];
@@ -609,7 +644,7 @@ impl OctTree {
                     ];
 
                     let mut same = true;
-                    let mut cube_val: Option<bool> = None;
+                    let mut cube_val: Option<LeafType<T>> = None;
                     for cube in cubes.iter() {
                         match cube.children {
                             OctTreeChildren::Leaf(val) => {
@@ -647,7 +682,7 @@ impl OctTree {
                     {
                         a.get_contents(cube_position[0], cube_position[1], cube_position[2])
                     } else {
-                        false
+                        LeafType::Empty
                     };
                     let b_pos = [
                         cube_position[0] as i32 - b_offset[0],
@@ -663,16 +698,23 @@ impl OctTree {
                     {
                         b.get_contents(b_pos[0] as u32, b_pos[1] as u32, b_pos[2] as u32)
                     } else {
-                        false
+                        LeafType::Empty
                     };
+
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(a_val || b_val),
+                        children: OctTreeChildren::Leaf(if a_val.is_solid() {
+                            a_val
+                        } else if b_val.is_solid() {
+                            b_val
+                        } else {
+                            LeafType::Empty
+                        }),
                         size,
                     }
                 }
             } else {
                 OctTreeNode {
-                    children: OctTreeChildren::Leaf(false),
+                    children: OctTreeChildren::Leaf(LeafType::Empty),
                     size,
                 }
             }
@@ -690,12 +732,12 @@ impl OctTree {
             size,
         }
     }
-    pub fn get_contents(&self, x: u32, y: u32, z: u32) -> bool {
+    pub fn get_contents(&self, x: u32, y: u32, z: u32) -> LeafType<T> {
         self.root_node.get(x, y, z)
     }
     fn trace_xyz(&self, x: u32, y: u32, z: u32) -> Option<u32> {
         if z < self.size {
-            if self.get_contents(x, y, z) {
+            if self.get_contents(x, y, z).is_solid() {
                 Some(z)
             } else {
                 self.trace_xyz(x, y, z + 1)
@@ -732,11 +774,11 @@ impl OctTree {
     }
 }
 #[derive(Clone, Debug)]
-struct OctTreeNode {
-    children: OctTreeChildren,
+struct OctTreeNode<T: Leafable> {
+    children: OctTreeChildren<T>,
     size: u32,
 }
-impl OctTreeNode {
+impl<T: Leafable> OctTreeNode<T> {
     pub fn is_optimal(&self) -> bool {
         match &self.children {
             OctTreeChildren::Leaf(_) => true,
@@ -780,7 +822,7 @@ impl OctTreeNode {
 
         match &self.children {
             OctTreeChildren::Leaf(val) => {
-                if *val {
+                if val.is_solid() {
                     let (axis, time) = (0..3)
                         .map(|idx| {
                             (
@@ -903,7 +945,7 @@ impl OctTreeNode {
         assert!(z < 2);
         x as usize * 4 + y as usize * 2 + z as usize
     }
-    pub fn get(&self, x: u32, y: u32, z: u32) -> bool {
+    pub fn get(&self, x: u32, y: u32, z: u32) -> LeafType<T> {
         match &self.children {
             OctTreeChildren::Leaf(val) => *val,
             OctTreeChildren::ParentNode(children) => {
@@ -921,8 +963,32 @@ impl OctTreeNode {
         }
     }
 }
+#[derive(Clone, Debug)]
+enum OctTreeChildren<T: Leafable> {
+    Leaf(LeafType<T>),
+    ParentNode(Box<[OctTreeNode<T>; 8]>),
+}
+/// Leaf of tree
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LeafType<T: Leafable> {
+    /// Leaf has something in it
+    Solid(T),
+    /// leaf is empty
+    Empty,
+}
+impl<T: Leafable> LeafType<T> {
+    fn is_solid(&self) -> bool {
+        match self {
+            Self::Solid(_) => true,
+            Self::Empty => false,
+        }
+    }
+}
+pub trait Leafable: Clone + Copy + PartialEq + Eq {}
+impl Leafable for bool {}
+impl Leafable for () {}
 #[derive(Clone, Copy, Debug)]
-struct Vector3([f32; 3]);
+pub struct Vector3(pub [f32; 3]);
 impl Vector3 {
     pub fn map_arr<T, F: Fn(f32) -> T>(self, f: F) -> [T; 3] {
         [f(self.0[0]), f(self.0[1]), f(self.0[2])]
@@ -980,45 +1046,41 @@ impl Ray {
         ])
     }
 }
-#[derive(Clone, Debug)]
-enum OctTreeChildren {
-    Leaf(bool),
-    ParentNode(Box<[OctTreeNode; 8]>),
-}
+
 fn main() {
     println!("*************CUBE*************");
-    let cube = OctTree::cube();
+    let cube = OctTree::cube(());
     cube.render("cube.png");
     println!("*************HALF CUBE*************");
-    let tree = OctTree::half_cube();
+    let tree = OctTree::half_cube(());
     tree.render("flat_cube.png");
-    let sphere = OctTree::sphere(64);
+    let sphere = OctTree::sphere(64, ());
     println!("*************SPHERE*************");
     sphere.render("sphere.png");
     println!("*************COMBINED 1/2*************");
-    let combined = OctTree::sphere(32).combine(&OctTree::sphere(20), [32, 32, 32]);
+    let combined = OctTree::sphere(32, ()).combine(&OctTree::sphere(20, ()), [32, 32, 32]);
     assert!(combined.is_optimal());
     println!("rendering");
     combined.render("combined_1_2.png");
     println!("*************COMBINED REORDER*************");
-    let combined = OctTree::sphere(32)
-        .combine(&OctTree::sphere(20), [32, 32, 32])
-        .combine(&OctTree::sphere(32), [64, 64, 0]);
+    let combined = OctTree::sphere(32, ())
+        .combine(&OctTree::sphere(20, ()), [32, 32, 32])
+        .combine(&OctTree::sphere(32, ()), [64, 64, 0]);
     assert!(combined.is_optimal());
     println!("rendering");
     combined.render("combined_reorder.png");
     println!("*************COMBINED*************");
-    let combined = OctTree::sphere(32)
-        .combine(&OctTree::sphere(32), [64, 64, 0])
-        .combine(&OctTree::sphere(20), [32, 32, 32]);
+    let combined = OctTree::sphere(32, ())
+        .combine(&OctTree::sphere(32, ()), [64, 64, 0])
+        .combine(&OctTree::sphere(20, ()), [32, 32, 32]);
     println!("rendering");
     combined.render("combined.png");
     assert!(combined.is_optimal());
     {
         println!("************* VERY BIG *************");
         let sphere_radius = 100;
-        let big_sphere = OctTree::sphere(sphere_radius);
-        let mut tree = OctTree::sphere(4);
+        let big_sphere = OctTree::sphere(sphere_radius, ());
+        let mut tree = OctTree::sphere(4, ());
         let center = 10_000;
         let z_max = 10;
         for z in 0..z_max {
@@ -1034,8 +1096,8 @@ fn main() {
     }
     {
         println!("*************BIG*************");
-        let mut tree = OctTree::sphere(4);
-        let sphere = OctTree::sphere(20);
+        let mut tree = OctTree::sphere(4, true);
+        let sphere = OctTree::sphere(20, true);
         for x in 0..100 {
             println!("x: {}", x);
             for y in 0..100 {
@@ -1058,7 +1120,7 @@ mod tests {
     #[test]
     fn get_index() {
         let t = OctTreeNode {
-            children: OctTreeChildren::Leaf(false),
+            children: OctTreeChildren::Leaf(LeafType::Solid(true)),
             size: 16,
         };
         assert_eq!(t.get_child_index(0, 0, 0), 0);
