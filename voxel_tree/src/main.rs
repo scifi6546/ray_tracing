@@ -1,6 +1,14 @@
 use image::{Rgb, RgbImage};
 use std::cmp::max;
+fn f32_min(a: f32, b: f32) -> f32 {
+    if a <= b {
+        a
+    } else {
+        b
+    }
+}
 mod prelude {
+    use super::Leafable;
     // from https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_aabb.html
     pub fn aabb_intersect(
         a_min: [i32; 3],
@@ -11,6 +19,21 @@ mod prelude {
         (a_min[0] <= b_max[0] && a_max[0] >= b_min[0])
             && (a_min[1] <= b_max[1] && a_max[1] >= b_min[1])
             && (a_min[2] <= b_max[2] && a_max[2] >= b_min[2])
+    }
+    #[derive(Copy, Clone, PartialEq, Eq)]
+    pub struct RgbColor(pub [u8; 3]);
+    impl Leafable for RgbColor {}
+    pub fn get_children_offsets() -> [[u32; 3]; 8] {
+        [
+            [0, 0, 0],
+            [0, 0, 1],
+            [0, 1, 0],
+            [0, 1, 1],
+            [1, 0, 0],
+            [1, 0, 1],
+            [1, 1, 0],
+            [1, 1, 1],
+        ]
     }
 }
 #[derive(Clone, Debug)]
@@ -30,6 +53,217 @@ impl<T: Leafable> OctTree<T> {
         }
     }
 
+    /// fun takes in aabb and returns whether the box collides
+    pub fn build_from_fn(
+        fun: &dyn Fn([u32; 3], u32) -> CollideResult,
+        size: u32,
+        hit_value: T,
+    ) -> Self {
+        fn build_leaf<T: Leafable>(
+            fun: &dyn Fn([u32; 3], u32) -> CollideResult,
+            offset: [u32; 3],
+            size: u32,
+            hit_value: T,
+        ) -> OctTreeNode<T> {
+            if size >= 2 {
+                match fun(offset, size - 1) {
+                    CollideResult::FullyIn => todo!("fully in"),
+                    CollideResult::FullyOut => OctTreeNode {
+                        children: OctTreeChildren::Leaf(LeafType::Empty),
+                        size,
+                    },
+                    CollideResult::PartialInOut => {
+                        let child_offsets = prelude::get_children_offsets().map(|child| {
+                            println!("child: [{},{},{}]", child[0], child[1], child[2]);
+                            [
+                                child[0] * size / 2 + offset[0],
+                                child[1] * size / 2 + offset[1],
+                                child[2] * size / 2 + offset[2],
+                            ]
+                        });
+                        OctTreeNode {
+                            children: OctTreeChildren::ParentNode(Box::new(
+                                child_offsets
+                                    .map(|offset| build_leaf(fun, offset, size / 2, hit_value)),
+                            )),
+                            size: size / 2,
+                        }
+                    }
+                }
+            } else {
+                OctTreeNode {
+                    children: OctTreeChildren::Leaf(match fun(offset, 1) {
+                        CollideResult::FullyIn => LeafType::Solid(hit_value),
+                        CollideResult::FullyOut => LeafType::Empty,
+                        CollideResult::PartialInOut => LeafType::Solid(hit_value),
+                    }),
+                    size: 1,
+                }
+            }
+        }
+        Self {
+            root_node: build_leaf(fun, [0, 0, 0], size, hit_value),
+            size,
+        }
+    }
+    pub fn cone(radius: u32, height: u32, hit_val: T) -> Self {
+        fn cone_point_intercept(
+            radius: u32,
+            height: u32,
+            point: [u32; 3],
+            box_size: u32,
+        ) -> CollideResult {
+            fn distance(point: [f32; 3], center: f32) -> f32 {
+                ((point[0] - center).powi(2)
+                    + (point[1] - center).powi(2)
+                    + (point[2] - center).powi(2))
+                .sqrt()
+            }
+            fn is_fully_inside(radius: u32, height: u32, point: [u32; 3], box_size: u32) -> bool {
+                let slope = radius as f32 / height as f32;
+                let expected_radius_bottom = (height as f32 - point[1] as f32) * slope;
+                let expected_radius_top =
+                    (height as f32 - (point[1] as f32 + box_size as f32)) * slope;
+                let x0y0z0 = distance(
+                    [point[0] as f32, point[1] as f32, point[2] as f32],
+                    radius as f32,
+                ) <= expected_radius_bottom;
+                let x0y0z1 = distance(
+                    [
+                        point[0] as f32,
+                        point[1] as f32,
+                        point[2] as f32 + box_size as f32,
+                    ],
+                    radius as f32,
+                ) <= expected_radius_bottom;
+                let x0y1z0 = distance(
+                    [
+                        point[0] as f32,
+                        point[1] as f32 + box_size as f32,
+                        point[2] as f32,
+                    ],
+                    radius as f32,
+                ) <= expected_radius_top;
+                let x0y1z1 = distance(
+                    [
+                        point[0] as f32,
+                        point[1] as f32 + box_size as f32,
+                        point[2] as f32 + box_size as f32,
+                    ],
+                    radius as f32,
+                ) <= expected_radius_top;
+                // x==1
+                let x1y0z0 = distance(
+                    [
+                        point[0] as f32 + box_size as f32,
+                        point[1] as f32,
+                        point[2] as f32,
+                    ],
+                    radius as f32,
+                ) <= expected_radius_bottom;
+                let x1y0z1 = distance(
+                    [
+                        point[0] as f32 + box_size as f32,
+                        point[1] as f32,
+                        point[2] as f32 + box_size as f32,
+                    ],
+                    radius as f32,
+                ) <= expected_radius_bottom;
+                let x1y1z0 = distance(
+                    [
+                        point[0] as f32 + box_size as f32,
+                        point[1] as f32 + box_size as f32,
+                        point[2] as f32,
+                    ],
+                    radius as f32,
+                ) <= expected_radius_top;
+                let x1y1z1 = distance(
+                    [
+                        point[0] as f32 + box_size as f32,
+                        point[1] as f32 + box_size as f32,
+                        point[2] as f32 + box_size as f32,
+                    ],
+                    radius as f32,
+                ) <= expected_radius_top;
+                x0y0z0 && x0y0z1 && x0y1z0 && x0y1z1 && x1y0z0 && x1y0z1 && x1y1z0 && x1y1z1
+            }
+            if point[0] <= radius
+                && point[0] + box_size >= box_size
+                && point[2] <= radius
+                && point[2] + box_size >= box_size
+            {
+                // box surrounds center in some way
+
+                if is_fully_inside(radius, height, point, box_size) {
+                    CollideResult::FullyIn
+                } else {
+                    CollideResult::PartialInOut
+                }
+            } else {
+                if is_fully_inside(radius, height, point, box_size) {
+                    todo!("fully inside")
+                } else {
+                    let slope = radius as f32 / height as f32;
+
+                    let distance_x = if point[0] as f32 <= radius as f32
+                        && (point[0] as f32 + box_size as f32) >= radius as f32
+                    {
+                        f32_min(
+                            (point[2] as f32 - radius as f32).abs(),
+                            (point[2] as f32 + box_size as f32 - radius as f32).abs(),
+                        )
+                    } else {
+                        f32_min(
+                            distance(point.map(|n| n as f32), radius as f32),
+                            distance(
+                                [
+                                    point[0] as f32 + box_size as f32,
+                                    point[1] as f32,
+                                    point[2] as f32,
+                                ],
+                                radius as f32,
+                            ),
+                        )
+                    };
+                    let distance_z = if point[2] as f32 <= radius as f32
+                        && (point[2] as f32 + box_size as f32 >= radius as f32)
+                    {
+                        f32_min(
+                            (point[0] as f32 - radius as f32).abs(),
+                            (point[0] as f32 + box_size as f32 - radius as f32).abs(),
+                        )
+                    } else {
+                        f32_min(
+                            distance(point.map(|n| n as f32), radius as f32),
+                            distance(
+                                [
+                                    point[0] as f32,
+                                    point[1] as f32,
+                                    point[2] as f32 + box_size as f32,
+                                ],
+                                radius as f32,
+                            ),
+                        )
+                    };
+
+                    let radius_top = (height as f32 - point[1] as f32) * slope;
+                    let radius_bottom =
+                        (height as f32 - (point[1] as f32 + box_size as f32)) * slope;
+                    if radius_bottom < f32_min(distance_x, distance_z) {
+                        CollideResult::PartialInOut
+                    } else {
+                        CollideResult::FullyOut
+                    }
+                }
+            }
+        }
+
+        Self::build_from_fn(
+            &|offset, box_size| cone_point_intercept(radius, height, offset, box_size),
+            Self::get_next_power(radius * 2),
+            hit_val,
+        )
+    }
     /// Gets the next powr of 2 that is closest to the given value, if the value is already a power of 2 it returns the same value
     /// using https://stackoverflow.com/questions/1322510/given-an-integer-how-do-i-find-the-next-largest-power-of-two-using-bit-twiddlin/1322548#1322548
     fn get_next_power(v: u32) -> u32 {
@@ -294,18 +528,6 @@ impl<T: Leafable> OctTree<T> {
         self.root_node.is_optimal()
     }
     // gets offsets of children
-    fn get_children_offsets() -> [[u32; 3]; 8] {
-        [
-            [0, 0, 0],
-            [0, 0, 1],
-            [0, 1, 0],
-            [0, 1, 1],
-            [1, 0, 0],
-            [1, 0, 1],
-            [1, 1, 0],
-            [1, 1, 1],
-        ]
-    }
 
     fn combine_no_resize(self, other: &Self, offset: [i32; 3]) -> Self {
         /// checks if AABB a is fully inside b
@@ -401,7 +623,7 @@ impl<T: Leafable> OctTree<T> {
                                         let get_val =
                                             other.get_contents(x as u32, y as u32, z as u32);
                                         if get_val != val && node.size >= 2 {
-                                            let offsets = OctTree::<T>::get_children_offsets();
+                                            let offsets = prelude::get_children_offsets();
                                             let children = offsets.map(|offset| {
                                                 modify_node(
                                                     OctTreeNode {
@@ -484,7 +706,7 @@ impl<T: Leafable> OctTree<T> {
                                 size: node.size,
                             }
                         } else {
-                            let offsets = OctTree::<T>::get_children_offsets();
+                            let offsets = prelude::get_children_offsets();
                             let mut nodes = [
                                 OctTreeNode {
                                     children: OctTreeChildren::Leaf(LeafType::Empty),
@@ -542,7 +764,7 @@ impl<T: Leafable> OctTree<T> {
                                                 val = None
                                             }
                                         }
-                                        OctTreeChildren::ParentNode(v) => val = None,
+                                        OctTreeChildren::ParentNode(_v) => val = None,
                                     };
                                 }
                                 nodes[i] = node;
@@ -561,7 +783,7 @@ impl<T: Leafable> OctTree<T> {
                         }
                     }
                     OctTreeChildren::ParentNode(children) => {
-                        let offsets = OctTree::<T>::get_children_offsets();
+                        let offsets = prelude::get_children_offsets();
                         let mut i = 0;
                         let children = offsets.map(|offset| {
                             let out = modify_node(
@@ -735,17 +957,7 @@ impl<T: Leafable> OctTree<T> {
     pub fn get_contents(&self, x: u32, y: u32, z: u32) -> LeafType<T> {
         self.root_node.get(x, y, z)
     }
-    fn trace_xyz(&self, x: u32, y: u32, z: u32) -> Option<u32> {
-        if z < self.size {
-            if self.get_contents(x, y, z).is_solid() {
-                Some(z)
-            } else {
-                self.trace_xyz(x, y, z + 1)
-            }
-        } else {
-            None
-        }
-    }
+
     pub fn render(&self, path: impl AsRef<std::path::Path>) {
         let image_size = 1024 * 4;
         let mut image_render = RgbImage::new(image_size, image_size);
@@ -754,7 +966,7 @@ impl<T: Leafable> OctTree<T> {
             for y in 0..image_size {
                 let x_f = (x as f32 / image_size as f32) * self.size as f32;
                 let y_f = (y as f32 / image_size as f32) * self.size as f32;
-                let pixel_color = if let Some(depth) = self.trace_ray(Ray {
+                let pixel_color = if let Some((depth, color)) = self.trace_ray(Ray {
                     direction: Vector3([0.0, 0.0, 1.0]),
                     origin: Vector3([x_f, y_f, 0.0]),
                 }) {
@@ -769,8 +981,37 @@ impl<T: Leafable> OctTree<T> {
         }
         image_render.save(path).expect("failed to save");
     }
-    pub fn trace_ray(&self, ray: Ray) -> Option<f32> {
+    pub fn trace_ray(&self, ray: Ray) -> Option<(f32, T)> {
         self.root_node.trace_ray(ray)
+    }
+}
+enum CollideResult {
+    FullyIn,
+    FullyOut,
+    PartialInOut,
+}
+impl OctTree<prelude::RgbColor> {
+    pub fn render_rgb(&self, path: impl AsRef<std::path::Path>) {
+        let image_size = 1024 * 4;
+        let mut image_render = RgbImage::new(image_size, image_size);
+
+        for x in 0..image_size {
+            for y in 0..image_size {
+                let x_f = (x as f32 / image_size as f32) * self.size as f32;
+                let y_f = (y as f32 / image_size as f32) * self.size as f32;
+                let pixel_color = if let Some((depth, color)) = self.trace_ray(Ray {
+                    direction: Vector3([0.0, 0.0, 1.0]),
+                    origin: Vector3([x_f, y_f, 0.0]),
+                }) {
+                    Rgb(color.0.map(|c| (c as f32 * depth / self.size as f32) as u8))
+                } else {
+                    Rgb([255, 0, 0])
+                };
+
+                image_render.put_pixel(x, image_size - y - 1, pixel_color);
+            }
+        }
+        image_render.save(path).expect("failed to save");
     }
 }
 #[derive(Clone, Debug)]
@@ -814,7 +1055,7 @@ impl<T: Leafable> OctTreeNode<T> {
             }
         }
     }
-    pub fn trace_ray(&self, ray: Ray) -> Option<f32> {
+    pub fn trace_ray(&self, ray: Ray) -> Option<(f32, T)> {
         if ray.origin[0] > self.size as f32 || ray.origin[1] > self.size as f32 {
             println!("larger??, ray: {}", ray.origin);
         }
@@ -850,7 +1091,7 @@ impl<T: Leafable> OctTreeNode<T> {
                             ];
                             pos_good[0] && pos_good[1] && pos_good[2]
                         })
-                        .filter(|(idx, time)| ray.distance(ray.at(*time)).is_finite())
+                        .filter(|(_idx, time)| ray.distance(ray.at(*time)).is_finite())
                         .fold((4, f32::MAX), |acc, x| if acc.1 < x.1 { acc } else { x });
                     if axis != 4 {
                         let d = ray.distance(ray.at(time));
@@ -860,7 +1101,7 @@ impl<T: Leafable> OctTreeNode<T> {
                             panic!()
                         }
 
-                        Some(d)
+                        Some((d, val.unwrap()))
                     } else {
                         None
                     }
@@ -891,7 +1132,7 @@ impl<T: Leafable> OctTreeNode<T> {
                 intersection.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
                 let tiles = intersection
                     .iter()
-                    .map(|(_idx, dist, pos)| {
+                    .map(|(_idx, _dist, pos)| {
                         let [x, y, z] =
                             pos.map_arr(|v| (2.0 * v / self.size as f32).floor() as u32);
                         (Self::get_child_index_size2(x, y, z), pos)
@@ -902,7 +1143,7 @@ impl<T: Leafable> OctTreeNode<T> {
 
                 let mut last_pos = ray.origin;
                 for (index, pos) in tiles {
-                    if let Some(ray_dist) = children[index].trace_ray(Ray {
+                    if let Some((ray_dist, hit_cube)) = children[index].trace_ray(Ray {
                         origin: Vector3([
                             if pos[0] >= self.size as f32 / 2.0 {
                                 pos[0] - self.size as f32 / 2.0
@@ -922,7 +1163,10 @@ impl<T: Leafable> OctTreeNode<T> {
                         ]),
                         direction: ray.direction,
                     }) {
-                        return Some(total_distance + ray_dist + distance(*pos, last_pos));
+                        return Some((
+                            total_distance + ray_dist + distance(*pos, last_pos),
+                            hit_cube,
+                        ));
                     } else {
                         total_distance += distance(last_pos, *pos);
                         last_pos = *pos;
@@ -981,6 +1225,12 @@ impl<T: Leafable> LeafType<T> {
         match self {
             Self::Solid(_) => true,
             Self::Empty => false,
+        }
+    }
+    fn unwrap(&self) -> T {
+        match self {
+            Self::Solid(T) => *T,
+            Self::Empty => panic!("leaf empty"),
         }
     }
 }
@@ -1048,39 +1298,55 @@ impl Ray {
 }
 
 fn main() {
+    use prelude::RgbColor;
+    /*
+    {
+        println!("************* CONE *************");
+        let cone = OctTree::cone(64, 64, RgbColor([15, 255, 0]));
+        cone.render_rgb("cone.png");
+    }
+
+     */
     println!("*************CUBE*************");
-    let cube = OctTree::cube(());
-    cube.render("cube.png");
+    let cube = OctTree::cube(RgbColor([0, 255, 0]));
+    cube.render_rgb("cube.png");
     println!("*************HALF CUBE*************");
-    let tree = OctTree::half_cube(());
-    tree.render("flat_cube.png");
-    let sphere = OctTree::sphere(64, ());
+    let tree = OctTree::half_cube(RgbColor([0, 255, 0]));
+    tree.render_rgb("flat_cube.png");
+    let sphere = OctTree::sphere(64, RgbColor([0, 255, 0]));
     println!("*************SPHERE*************");
-    sphere.render("sphere.png");
+    sphere.render_rgb("sphere.png");
+    {
+        println!("*************SPHERE HUGE*************");
+        let sphere = OctTree::sphere(10_000, RgbColor([0, 255, 0]));
+        sphere.render_rgb("sphere_huge.png");
+    }
     println!("*************COMBINED 1/2*************");
-    let combined = OctTree::sphere(32, ()).combine(&OctTree::sphere(20, ()), [32, 32, 32]);
+    let combined = OctTree::sphere(32, RgbColor([255, 25, 0]))
+        .combine(&OctTree::sphere(20, RgbColor([0, 255, 0])), [32, 32, 32]);
     assert!(combined.is_optimal());
     println!("rendering");
     combined.render("combined_1_2.png");
     println!("*************COMBINED REORDER*************");
-    let combined = OctTree::sphere(32, ())
-        .combine(&OctTree::sphere(20, ()), [32, 32, 32])
-        .combine(&OctTree::sphere(32, ()), [64, 64, 0]);
+    let combined = OctTree::sphere(32, RgbColor([0, 255, 0]))
+        .combine(&OctTree::sphere(20, RgbColor([0, 255, 255])), [32, 32, 32])
+        .combine(&OctTree::sphere(32, RgbColor([255, 255, 0])), [64, 64, 0]);
     assert!(combined.is_optimal());
     println!("rendering");
-    combined.render("combined_reorder.png");
+    combined.render_rgb("combined_reorder.png");
     println!("*************COMBINED*************");
-    let combined = OctTree::sphere(32, ())
-        .combine(&OctTree::sphere(32, ()), [64, 64, 0])
-        .combine(&OctTree::sphere(20, ()), [32, 32, 32]);
+    let combined = OctTree::sphere(32, RgbColor([0, 255, 0]))
+        .combine(&OctTree::sphere(32, RgbColor([0, 255, 0])), [64, 64, 0])
+        .combine(&OctTree::sphere(20, RgbColor([0, 255, 0])), [32, 32, 32]);
     println!("rendering");
     combined.render("combined.png");
     assert!(combined.is_optimal());
+
     {
         println!("************* VERY BIG *************");
         let sphere_radius = 100;
-        let big_sphere = OctTree::sphere(sphere_radius, ());
-        let mut tree = OctTree::sphere(4, ());
+        let big_sphere = OctTree::sphere(sphere_radius, RgbColor([0, 255, 0]));
+        let mut tree = OctTree::sphere(4, RgbColor([0, 255, 0]));
         let center = 10_000;
         let z_max = 10;
         for z in 0..z_max {
@@ -1092,12 +1358,12 @@ fn main() {
                 .combine(&big_sphere, [step_size * (z_max - z), 0, z * 1000]);
         }
         println!("rendering");
-        tree.render("very_big.png");
+        tree.render_rgb("very_big.png");
     }
     {
         println!("*************BIG*************");
-        let mut tree = OctTree::sphere(4, true);
-        let sphere = OctTree::sphere(20, true);
+        let mut tree = OctTree::sphere(4, RgbColor([0, 255, 0]));
+        let sphere = OctTree::sphere(20, RgbColor([0, 255, 0]));
         for x in 0..100 {
             println!("x: {}", x);
             for y in 0..100 {
@@ -1111,7 +1377,7 @@ fn main() {
             }
         }
         println!("rendering");
-        tree.render("big.png");
+        tree.render_rgb("big.png");
     }
 }
 #[cfg(test)]
