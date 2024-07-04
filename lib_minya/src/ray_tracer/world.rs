@@ -9,6 +9,7 @@ mod easy_scene;
 mod empty_scene;
 mod light_demo;
 mod load_vox_model;
+mod oct_tree_world;
 mod one_sphere;
 mod random_scene;
 mod sinnoh;
@@ -36,9 +37,9 @@ use dyn_clone::{clone_box, DynClone};
 pub use cornell_smoke::cornell_smoke;
 pub use easy_cornell_box::easy_cornell_box;
 pub use easy_scene::easy_scene;
+
 pub use one_sphere::one_sphere;
 pub use random_scene::random_scene;
-
 use std::{collections::HashMap, ops::Deref};
 
 use crate::ray_tracer::hittable::voxel_world::CubeMaterialIndex;
@@ -389,6 +390,30 @@ pub fn get_scenarios() -> Scenarios {
         Box::new(ScenarioFn {
             name: "Twinleaf Town Map".to_string(),
             f: sinnoh::twinleaf_map,
+        }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Sphere".to_string(),
+            f: oct_tree_world::basic_sphere,
+        }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Temple".to_string(),
+            f: oct_tree_world::temple,
+        }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Below".to_string(),
+            f: oct_tree_world::temple_below,
+        }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Cube".to_string(),
+            f: oct_tree_world::cube,
+        }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Debug Cube".to_string(),
+            f: oct_tree_world::debug_cube,
+        }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Back".to_string(),
+            f: oct_tree_world::cube_back,
         }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes

@@ -1,4 +1,5 @@
 mod constant_medium;
+mod oct_tree;
 mod rect;
 mod render_box;
 mod sphere;
@@ -13,6 +14,7 @@ use crate::ray_tracer::pdf::ScatterRecord;
 use base_lib::RgbColor;
 pub use constant_medium::ConstantMedium;
 use dyn_clone::{clone_box, DynClone};
+pub use oct_tree::{OctTree, VoxelMaterial};
 pub use rect::{XYRect, XZRect, YZRect};
 pub use render_box::RenderBox;
 pub use sphere::{MovingSphere, Sphere};
