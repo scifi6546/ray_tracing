@@ -23,6 +23,7 @@ use super::{
     bvh::BvhTree, hittable::hittable_objects, hittable::*, material::*, texture::*, Background,
     Camera, ConstantColor, HitRecord, Hittable, Sky,
 };
+use crate::ray_tracer::background::SunSky;
 mod world_prelude {
     pub use super::super::background::SunSky;
     pub use super::super::hittable::voxel_world::{

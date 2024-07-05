@@ -58,6 +58,16 @@ pub struct OctTree<T: Leafable> {
     size: u32,
 }
 impl<T: Leafable> OctTree<T> {
+    /// returns an empty Oct Tree
+    pub fn empty() -> Self {
+        Self {
+            root_node: OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Empty),
+                size: 1,
+            },
+            size: 1,
+        }
+    }
     pub fn cube(power_value: u32, hit_val: T) -> Self {
         let size = 2u32.pow(power_value);
         Self {

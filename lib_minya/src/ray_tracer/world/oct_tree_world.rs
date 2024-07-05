@@ -1,6 +1,6 @@
 use super::{
-    Camera, ConstantColor, DiffuseLight, OctTree, SolidColor, Sphere, Transform, VoxelMaterial,
-    WorldInfo,
+    Camera, ConstantColor, DiffuseLight, OctTree, SolidColor, Sphere, Sun, SunSky, Transform,
+    VoxelMaterial, WorldInfo,
 };
 use crate::prelude::*;
 use crate::ray_tracer::hittable::Object;
@@ -57,6 +57,15 @@ pub fn basic_sphere() -> WorldInfo {
     }
 }
 pub fn temple() -> WorldInfo {
+    fn make_brick(size: Vector3<u32>, material: VoxelMaterial) -> OctTree<VoxelMaterial> {
+        OctTree::rectangle(size, material)
+    }
+    let sun = Sun {
+        phi: std::f32::consts::FRAC_PI_4,
+        theta: 0.1,
+        radius: 1.0,
+    };
+    let sun_sky = SunSky::new(sun, 0.1, 10.);
     let origin = Point3::new(-100.0f32, 100.0, -800.0);
     let look_at = Point3::new(64.0f32, 64.0, 64.0);
     let focus_distance = {
@@ -75,30 +84,43 @@ pub fn temple() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let temple = OctTree::rectangle(
-        Vector3::new(5, 100, 100),
+    let mut temple = OctTree::rectangle(
+        Vector3::new(1000, 10, 1000),
         VoxelMaterial {
-            color: RgbColor::new(0.5, 0.1, 0.3),
+            color: RgbColor::new(0.0, 0.1, 0.0),
         },
-    )
-    .combine(
-        &OctTree::rectangle(
-            Vector3::new(100, 5, 100),
-            VoxelMaterial {
-                color: RgbColor::new(0.1, 0.5, 0.5),
-            },
-        ),
-        Point3::new(0, 0, 0),
     );
+    let mut temple_wall = OctTree::empty();
+    let box_x_size = 40;
+    let box_y_size = 20;
+    let box_z_size = 20;
+    let mortar = 1;
+    for x in 0..5 {
+        for y in 0..10 {
+            let brick = make_brick(
+                Vector3::new(box_x_size, box_y_size, box_z_size),
+                VoxelMaterial {
+                    color: RgbColor::new(0.3, 0.3, 0.3),
+                },
+            );
+            temple_wall = temple_wall.combine(
+                &brick,
+                Point3::new(
+                    (x * (box_x_size + mortar) + (y % 2) * (box_x_size / 2)) as i32,
+                    (y * (box_y_size + mortar)) as i32,
+                    0,
+                ),
+            );
+        }
+    }
+    temple = temple.combine(&temple_wall, Point3::new(0, 0, 800));
     WorldInfo {
         objects: vec![
             Object::new(Box::new(temple), Transform::identity()),
             top_light.clone(),
         ],
         lights: vec![top_light],
-        background: Box::new(ConstantColor {
-            color: RgbColor::new(0.5, 0.5, 0.5),
-        }),
+        background: Box::new(sun_sky),
         camera: Camera::new(
             1.0,
             20.0,
