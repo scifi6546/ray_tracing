@@ -8,19 +8,15 @@ use crate::ray_tracer::pdf::ScatterRecord;
 
 use crate::ray_tracer::hittable::oct_tree::prelude::get_children_offsets;
 use base_lib::RgbColor;
-use cgmath::num_traits::Signed;
-use cgmath::{num_traits::FloatConst, prelude::*, InnerSpace, Point2, Point3, Vector3};
-use image::{Rgb, RgbImage};
+
+use cgmath::{
+    num_traits::{FloatConst, Signed},
+    InnerSpace, Point2, Point3, Vector3,
+};
+
 use log::{error, info};
 use std::{cmp::max, rc::Rc};
 
-fn f32_min(a: f32, b: f32) -> f32 {
-    if a <= b {
-        a
-    } else {
-        b
-    }
-}
 mod prelude {
     use super::Leafable;
     use cgmath::Point3;
@@ -52,8 +48,8 @@ mod prelude {
     }
 }
 #[derive(Debug)]
-pub struct OctTreeHitInfo<T: Leafable> {
-    pub hit_value: T,
+pub struct OctTreeHitInfo<'a, T: Leafable> {
+    pub hit_value: &'a T,
     pub depth: f32,
     pub hit_position: Point3<f32>,
     pub normal: Vector3<f32>,
@@ -484,7 +480,7 @@ impl<T: Leafable> OctTree<T> {
             other_offset: [i32; 3],
         ) -> OctTreeNode<T> {
             assert!(node.size >= 1);
-            // building aabb for checking if current selection colides
+            // building aabb for checking if current selection collides
             let other_min = other_offset;
             let other_max = [
                 other_min[0] + other.size as i32 - 1,
@@ -982,7 +978,7 @@ impl<T: Leafable> OctTreeNode<T> {
                             let ray_pos = ray.local_at(closest_time);
                             Some(OctTreeHitInfo {
                                 depth: 0.0,
-                                hit_value: val.unwrap(),
+                                hit_value: val.unwrap_ref(),
                                 hit_position: Point3::new(ray_pos.x, ray_pos.y, ray_pos.z),
                                 normal,
                                 hit_positions: vec![],
@@ -1048,7 +1044,7 @@ impl<T: Leafable> OctTreeNode<T> {
                                 ];
                                 pos_good[0] && pos_good[1] && pos_good[2]
                             })
-                            .filter(|(_idx, time, normal)| {
+                            .filter(|(_idx, time, _normal)| {
                                 ray.distance(ray.local_at(*time)).is_finite()
                             })
                             .fold((4, f32::MAX, Vector3::new(0.0f32, 0.0, 0.0)), |acc, x| {
@@ -1069,7 +1065,7 @@ impl<T: Leafable> OctTreeNode<T> {
 
                             Some(OctTreeHitInfo {
                                 depth: d,
-                                hit_value: val.unwrap(),
+                                hit_value: val.unwrap_ref(),
                                 hit_position: Point3::new(pos.x, pos.y, pos.z),
                                 normal,
                                 hit_positions: vec![(self.size, Vector3::new(0, 0, 0))],
@@ -1233,9 +1229,10 @@ impl<T: Leafable> LeafType<T> {
             Self::Empty => false,
         }
     }
-    fn unwrap(&self) -> T {
+    /// gets reference to underlying data
+    fn unwrap_ref(&self) -> &T {
         match self {
-            Self::Solid(T) => *T,
+            Self::Solid(data) => data,
             Self::Empty => panic!("leaf empty"),
         }
     }
@@ -1295,7 +1292,7 @@ impl Material for VoxelMaterial {
         "Voxel Material"
     }
 
-    fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
+    fn scatter(&self, _ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
         Some(ScatterRecord {
             specular_ray: None,
             attenuation: RgbColor::new(0.5, 0.5, 0.5),
@@ -1306,11 +1303,11 @@ impl Material for VoxelMaterial {
 
     fn scattering_pdf(
         &self,
-        ray_in: Ray,
-        record_in: &HitRecord,
-        scattered_ray: Ray,
+        _ray_in: Ray,
+        _record_in: &HitRecord,
+        _scattered_ray: Ray,
     ) -> Option<f32> {
-        todo!()
+        None
     }
 }
 impl Hittable for OctTree<VoxelMaterial> {
@@ -1328,7 +1325,7 @@ impl Hittable for OctTree<VoxelMaterial> {
                     hit_info.normal,
                     hit_info.depth,
                     Point2::new(0.5, 0.5),
-                    &self.material,
+                    hit_info.hit_value,
                 ))
             } else {
                 None
@@ -1349,7 +1346,7 @@ impl Hittable for OctTree<VoxelMaterial> {
         todo!()
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, _origin: Point3<f32>, _time: f32) -> RayAreaInfo {
         todo!()
     }
 }
