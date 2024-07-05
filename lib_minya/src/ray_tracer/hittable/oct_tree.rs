@@ -31,9 +31,7 @@ mod prelude {
             && (a_min[1] <= b_max[1] && a_max[1] >= b_min[1])
             && (a_min[2] <= b_max[2] && a_max[2] >= b_min[2])
     }
-    #[derive(Copy, Clone, PartialEq, Eq)]
-    pub struct RgbColor(pub [u8; 3]);
-    impl Leafable for RgbColor {}
+
     pub fn get_children_offsets() -> [Point3<u32>; 8] {
         [
             Point3::new(0, 0, 0),
@@ -59,7 +57,6 @@ pub struct OctTreeHitInfo<'a, T: Leafable> {
 pub struct OctTree<T: Leafable> {
     root_node: OctTreeNode<T>,
     size: u32,
-    material: VoxelMaterial,
 }
 impl<T: Leafable> OctTree<T> {
     pub fn cube(power_value: u32, hit_val: T) -> Self {
@@ -70,7 +67,6 @@ impl<T: Leafable> OctTree<T> {
                 size,
             },
             size,
-            material: VoxelMaterial {},
         }
     }
     pub fn rectangle(rectangle_size: Vector3<u32>, hit_val: T) -> Self {
@@ -140,7 +136,6 @@ impl<T: Leafable> OctTree<T> {
         Self {
             root_node: rectangle_recurse(rectangle_size, hit_val, Point3::new(0, 0, 0), size),
             size,
-            material: VoxelMaterial {},
         }
     }
 
@@ -338,7 +333,6 @@ impl<T: Leafable> OctTree<T> {
                     size,
                 },
                 size,
-                material: VoxelMaterial {},
             }
         } else {
             Self {
@@ -347,7 +341,6 @@ impl<T: Leafable> OctTree<T> {
                     size,
                 },
                 size,
-                material: VoxelMaterial {},
             }
         }
     }
@@ -392,7 +385,6 @@ impl<T: Leafable> OctTree<T> {
                 size,
             },
             size,
-            material: VoxelMaterial {},
         }
     }
     /// for debug purposes
@@ -417,7 +409,6 @@ impl<T: Leafable> OctTree<T> {
                 size,
             },
             size,
-            material: VoxelMaterial {},
         }
     }
     pub fn combine(self, other: &Self, offset: Point3<i32>) -> Self {
@@ -725,7 +716,6 @@ impl<T: Leafable> OctTree<T> {
         Self {
             root_node: modify_node(self.root_node, [0, 0, 0], other, offset),
             size: self.size,
-            material: VoxelMaterial {},
         }
     }
     fn combine_resize(self, other: &Self, offset: [i32; 3]) -> Self {
@@ -864,7 +854,6 @@ impl<T: Leafable> OctTree<T> {
         Self {
             root_node: build_nodes(size, &self, other, offset, [0, 0, 0]),
             size,
-            material: VoxelMaterial {},
         }
     }
     fn get_contents(&self, x: u32, y: u32, z: u32) -> LeafType<T> {
@@ -1237,7 +1226,7 @@ impl<T: Leafable> LeafType<T> {
         }
     }
 }
-pub trait Leafable: Clone + Copy + PartialEq + Eq {}
+pub trait Leafable: Clone + Copy + PartialEq {}
 impl Leafable for bool {}
 impl Leafable for () {}
 
@@ -1274,8 +1263,10 @@ impl Ray {
         )
     }
 }
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct VoxelMaterial {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct VoxelMaterial {
+    pub color: RgbColor,
+}
 impl Leafable for VoxelMaterial {}
 impl VoxelMaterial {
     fn scattering_pdf_fn(_ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> Option<f32> {
@@ -1295,7 +1286,7 @@ impl Material for VoxelMaterial {
     fn scatter(&self, _ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
         Some(ScatterRecord {
             specular_ray: None,
-            attenuation: RgbColor::new(0.5, 0.5, 0.5),
+            attenuation: self.color,
             pdf: Some(Rc::new(LambertianPDF::new(record_in.normal()))),
             scattering_pdf: Self::scattering_pdf_fn,
         })

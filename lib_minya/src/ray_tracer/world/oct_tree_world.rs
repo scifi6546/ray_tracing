@@ -28,7 +28,12 @@ pub fn basic_sphere() -> WorldInfo {
     WorldInfo {
         objects: vec![
             Object::new(
-                Box::new(OctTree::sphere(10, VoxelMaterial {})),
+                Box::new(OctTree::sphere(
+                    10,
+                    VoxelMaterial {
+                        color: RgbColor::new(0.5, 0.5, 0.5),
+                    },
+                )),
                 Transform::identity(),
             ),
             top_light.clone(),
@@ -70,8 +75,19 @@ pub fn temple() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let temple = OctTree::rectangle(Vector3::new(5, 100, 100), VoxelMaterial {}).combine(
-        &OctTree::rectangle(Vector3::new(100, 5, 100), VoxelMaterial {}),
+    let temple = OctTree::rectangle(
+        Vector3::new(5, 100, 100),
+        VoxelMaterial {
+            color: RgbColor::new(0.5, 0.1, 0.3),
+        },
+    )
+    .combine(
+        &OctTree::rectangle(
+            Vector3::new(100, 5, 100),
+            VoxelMaterial {
+                color: RgbColor::new(0.1, 0.5, 0.5),
+            },
+        ),
         Point3::new(0, 0, 0),
     );
     WorldInfo {
@@ -115,8 +131,19 @@ pub fn temple_below() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let temple = OctTree::rectangle(Vector3::new(5, 100, 100), VoxelMaterial {}).combine(
-        &OctTree::rectangle(Vector3::new(100, 5, 100), VoxelMaterial {}),
+    let temple = OctTree::rectangle(
+        Vector3::new(5, 100, 100),
+        VoxelMaterial {
+            color: RgbColor::new(0.5, 0.5, 0.5),
+        },
+    )
+    .combine(
+        &OctTree::rectangle(
+            Vector3::new(100, 5, 100),
+            VoxelMaterial {
+                color: RgbColor::new(0.5, 0.5, 0.5),
+            },
+        ),
         Point3::new(0, 0, 0),
     );
     let bg_color = RgbColor::new(0.02, 0.02, 0.02);
@@ -160,7 +187,12 @@ pub fn cube() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let temple = OctTree::cube(4, VoxelMaterial {});
+    let temple = OctTree::cube(
+        4,
+        VoxelMaterial {
+            color: RgbColor::new(0.5, 0.5, 0.5),
+        },
+    );
     WorldInfo {
         objects: vec![
             Object::new(Box::new(temple), Transform::identity()),
@@ -203,7 +235,9 @@ pub fn debug_cube() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let temple = OctTree::suboptimal_cube(VoxelMaterial {});
+    let temple = OctTree::suboptimal_cube(VoxelMaterial {
+        color: RgbColor::new(0.5, 0.5, 0.5),
+    });
     WorldInfo {
         objects: vec![
             Object::new(Box::new(temple), Transform::identity()),
@@ -246,10 +280,15 @@ pub fn cube_back() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let temple = OctTree::cube(4, VoxelMaterial {});
+    let cube = OctTree::cube(
+        4,
+        VoxelMaterial {
+            color: RgbColor::new(0.5, 0.5, 0.5),
+        },
+    );
     WorldInfo {
         objects: vec![
-            Object::new(Box::new(temple), Transform::identity()),
+            Object::new(Box::new(cube), Transform::identity()),
             top_light.clone(),
         ],
         lights: vec![top_light],
