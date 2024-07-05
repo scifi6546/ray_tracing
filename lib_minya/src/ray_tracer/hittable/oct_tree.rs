@@ -51,7 +51,14 @@ mod prelude {
         ]
     }
 }
-
+#[derive(Debug)]
+pub struct OctTreeHitInfo<T: Leafable> {
+    pub hit_value: T,
+    pub depth: f32,
+    pub hit_position: Point3<f32>,
+    pub normal: Vector3<f32>,
+    pub hit_positions: Vec<(u32, Vector3<u32>)>,
+}
 #[derive(Clone, Debug)]
 pub struct OctTree<T: Leafable> {
     root_node: OctTreeNode<T>,
@@ -219,6 +226,7 @@ impl<T: Leafable> OctTree<T> {
                     corner[2] + size - 1,
                     center,
                 ) < radius as f32;
+
                 if d0 == d1 && d1 == d2 && d2 == d3 && d3 == d4 && d4 == d5 && d5 == d6 && d6 == d7
                 {
                     OctTreeNode {
@@ -867,7 +875,7 @@ impl<T: Leafable> OctTree<T> {
         self.root_node.get(x, y, z)
     }
 
-    pub fn trace_ray(&self, ray: Ray) -> Option<(f32, T, Vector3<f32>, Vector3<f32>)> {
+    pub fn trace_ray(&self, ray: Ray) -> Option<OctTreeHitInfo<T>> {
         self.root_node.trace_ray(ray)
     }
 }
@@ -914,39 +922,39 @@ impl<T: Leafable> OctTreeNode<T> {
         }
     }
     /// returns ray in distance it hit
-    pub fn trace_ray(&self, ray: Ray) -> Option<(f32, T, Vector3<f32>, Vector3<f32>)> {
+    pub fn trace_ray(&self, ray: Ray) -> Option<OctTreeHitInfo<T>> {
         // getting the min distances
 
         match &self.children {
             OctTreeChildren::Leaf(val) => {
                 if val.is_solid() {
-                    let (axis, time, pos, normal) = (0..3)
-                        .map(|idx| {
-                            if ray.direction[idx] >= 0.0 {
+                    let t = vec![(0, Vector3::new(0u32, 0, 0))];
+                    let (axis, time, normal) = (0..3)
+                        .map(|axis| {
+                            if ray.direction[axis] >= 0.0 {
                                 (
-                                    idx,
-                                    ray.intersect_axis(idx, 0.0),
+                                    axis,
+                                    ray.intersect_axis(axis, 0.0),
                                     Vector3::new(
-                                        if idx == 0 { -1.0f32 } else { 0.0 },
-                                        if idx == 1 { -1.0 } else { 0.0 },
-                                        if idx == 2 { -1.0 } else { 0.0 },
+                                        if axis == 0 { -1.0f32 } else { 0.0 },
+                                        if axis == 1 { -1.0 } else { 0.0 },
+                                        if axis == 2 { -1.0 } else { 0.0 },
                                     ),
                                 )
                             } else {
                                 (
-                                    idx,
-                                    ray.intersect_axis(idx, self.size as f32),
+                                    axis,
+                                    ray.intersect_axis(axis, self.size as f32),
                                     Vector3::new(
-                                        if idx == 0 { 1.0 } else { 0.0 },
-                                        if idx == 1 { 1.0 } else { 0.0 },
-                                        if idx == 2 { 1.0 } else { 0.0 },
+                                        if axis == 0 { 1.0 } else { 0.0 },
+                                        if axis == 1 { 1.0 } else { 0.0 },
+                                        if axis == 2 { 1.0 } else { 0.0 },
                                     ),
                                 )
                             }
                         })
-                        .filter(|(idx, t, _position)| *t >= 0.)
-                        .map(|(idx, time, normal)| (idx, time, ray.local_at(time), normal))
-                        .filter(|(idx, time, pos, _normal)| {
+                        .filter(|(_idx, t, _normal)| *t >= 0.)
+                        .filter(|(idx, time, _normal)| {
                             let pos = ray.local_at(*time);
                             let pos_good = [
                                 *idx == 0 || (pos[0] >= 0. && pos[0] <= self.size as f32),
@@ -955,24 +963,16 @@ impl<T: Leafable> OctTreeNode<T> {
                             ];
                             pos_good[0] && pos_good[1] && pos_good[2]
                         })
-                        .filter(|(_idx, time, pos, normal)| {
+                        .filter(|(_idx, time, normal)| {
                             ray.distance(ray.local_at(*time)).is_finite()
                         })
-                        .fold(
-                            (
-                                4,
-                                f32::MAX,
-                                Vector3::new(0.0f32, 0.0, 0.0),
-                                Vector3::new(0.0f32, 0.0, 0.0),
-                            ),
-                            |acc, x| {
-                                if acc.1 < x.1 {
-                                    acc
-                                } else {
-                                    x
-                                }
-                            },
-                        );
+                        .fold((4, f32::MAX, Vector3::new(0.0f32, 0.0, 0.0)), |acc, x| {
+                            if acc.1 < x.1 {
+                                acc
+                            } else {
+                                x
+                            }
+                        });
                     if axis != 4 {
                         let d = ray.distance(ray.local_at(time));
                         if d.is_infinite() {
@@ -980,8 +980,16 @@ impl<T: Leafable> OctTreeNode<T> {
                             println!("time: {}, idx: {}", time, axis);
                             panic!()
                         }
+                        let pos = ray.local_at(time);
 
-                        Some((d, val.unwrap(), pos, normal))
+                        Some((d, val.unwrap(), pos, normal));
+                        Some(OctTreeHitInfo {
+                            depth: d,
+                            hit_value: val.unwrap(),
+                            hit_position: Point3::new(pos.x, pos.y, pos.z),
+                            normal,
+                            hit_positions: vec![(self.size, Vector3::new(0, 0, 0))],
+                        })
                     } else {
                         None
                     }
@@ -1005,8 +1013,7 @@ impl<T: Leafable> OctTreeNode<T> {
                         }
                         .map(|(time, idx_pos)| (idx, time, ray.local_at(time), idx_pos))
                     })
-                    .filter(|(_idx, time, _pos, _idx_pos)| time.is_finite() && *time > 0.)
-                    .filter(|(_idx, time, _pos, _idx_pos)| time.is_positive())
+                    .filter(|(_idx, time, _pos, _axis_pos)| time.is_finite() && *time >= 0.)
                     .filter(|(idx, _dist, pos, _idx_pos)| {
                         let is_valid = pos.map(|v| v >= 0. && v < self.size as f32);
 
@@ -1015,7 +1022,7 @@ impl<T: Leafable> OctTreeNode<T> {
                             && (is_valid[2] || *idx == 2)
                     })
                     .filter_map(|(index, _dist, pos, idx_pos)| {
-                        let floored_pos = pos.map(|v| (2.0 * v / self.size as f32).floor() as u32);
+                        let floored_pos = pos.map(|v| (v / (self.size / 2) as f32).floor() as u32);
 
                         let x = if index == 0 { idx_pos } else { floored_pos.x };
                         let y = if index == 1 { idx_pos } else { floored_pos.y };
@@ -1030,7 +1037,11 @@ impl<T: Leafable> OctTreeNode<T> {
 
                             None
                         } else {
-                            Some((Self::get_child_index_size2(x, y, z), floored_pos, pos))
+                            Some((
+                                Self::get_child_index_size2(x, y, z),
+                                Vector3::new(x, y, z),
+                                pos,
+                            ))
                         }
                     })
                     .collect::<Vec<_>>();
@@ -1043,38 +1054,33 @@ impl<T: Leafable> OctTreeNode<T> {
                     a_dist.partial_cmp(&b_dist).unwrap()
                 });
                 for (index, tile_index, pos) in tiles {
-                    if let Some((ray_dist, hit_cube, hit_pos, normal)) =
-                        children[index].trace_ray(Ray {
-                            direction: ray.direction,
-                            origin: Point3::new(
-                                if tile_index[0] == 1 {
-                                    ray.origin.x - self.size as f32 / 2.0
-                                } else {
-                                    ray.origin.x
-                                },
-                                if tile_index[1] == 1 {
-                                    ray.origin.y - self.size as f32 / 2.0
-                                } else {
-                                    ray.origin.y
-                                },
-                                if tile_index[2] == 1 {
-                                    ray.origin.z - self.size as f32 / 2.0
-                                } else {
-                                    ray.origin.z
-                                },
-                            ),
-                            time: ray.time,
-                        })
-                    {
-                        return Some((
-                            distance(
+                    let tile_pos_floored = Vector3::new(
+                        tile_index.x as f32 * (self.size / 2) as f32,
+                        tile_index.y as f32 * (self.size / 2) as f32,
+                        tile_index.z as f32 * (self.size / 2) as f32,
+                    );
+                    if let Some(mut hit_info) = children[index].trace_ray(Ray {
+                        direction: ray.direction,
+                        origin: Point3::new(
+                            pos.x - tile_pos_floored.x,
+                            pos.y - tile_pos_floored.y,
+                            pos.z - tile_pos_floored.z,
+                        ),
+                        time: ray.time,
+                    }) {
+                        let hit_position = hit_info.hit_position + tile_pos_floored;
+                        let mut hit_positions = vec![(self.size / 2, (self.size / 2) * tile_index)];
+                        hit_positions.append(&mut hit_info.hit_positions);
+                        return Some(OctTreeHitInfo {
+                            depth: distance(
                                 Vector3::new(ray.origin.x, ray.origin.y, ray.origin.z),
-                                hit_pos,
+                                Vector3::new(hit_position.x, hit_position.y, hit_position.z),
                             ),
-                            hit_cube,
-                            hit_pos,
-                            normal,
-                        ));
+                            hit_value: hit_info.hit_value,
+                            hit_position,
+                            normal: hit_info.normal,
+                            hit_positions,
+                        });
                     }
                 }
                 None
@@ -1217,12 +1223,12 @@ impl Hittable for OctTree<VoxelMaterial> {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let aabb = self.bounding_box(0., 1.).unwrap();
         if aabb.hit(*ray, t_min, t_max) {
-            if let Some((dist, material, pos, normal)) = self.trace_ray(*ray) {
+            if let Some(hit_info) = self.trace_ray(*ray) {
                 Some(HitRecord::new(
                     ray,
-                    Point3::new(pos.x, pos.y, pos.z),
-                    normal,
-                    dist,
+                    hit_info.hit_position,
+                    hit_info.normal,
+                    hit_info.depth,
                     Point2::new(0.5, 0.5),
                     &self.material,
                 ))
