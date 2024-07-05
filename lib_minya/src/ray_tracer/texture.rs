@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 pub trait Texture: Send + Sync + dyn_clone::DynClone {
     fn name(&self) -> &'static str;
-    fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor;
+    fn color(&self, uv: Point2<RayScalar>, pos: Point3<RayScalar>) -> RgbColor;
 }
 
 pub struct MultiplyTexture {
@@ -26,7 +26,7 @@ impl Texture for MultiplyTexture {
         "Multiply"
     }
 
-    fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
+    fn color(&self, uv: Point2<RayScalar>, pos: Point3<RayScalar>) -> RgbColor {
         self.a.color(uv, pos) * self.b.color(uv, pos)
     }
 }
@@ -38,7 +38,7 @@ impl Texture for SolidColor {
     fn name(&self) -> &'static str {
         "Solid Color"
     }
-    fn color(&self, _uv: Point2<f32>, _pos: Point3<f32>) -> RgbColor {
+    fn color(&self, _uv: Point2<RayScalar>, _pos: Point3<RayScalar>) -> RgbColor {
         self.color
     }
 }
@@ -59,7 +59,7 @@ impl Texture for CheckerTexture {
     fn name(&self) -> &'static str {
         "Checker Texture"
     }
-    fn color(&self, uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
+    fn color(&self, uv: Point2<RayScalar>, pos: Point3<RayScalar>) -> RgbColor {
         let sin = (10.0 * pos.x).sin() * (10.0 * pos.y).sin() * (10.0 * pos.z).sin();
         if sin < 0.0 {
             self.odd.color(uv, pos)
@@ -70,7 +70,7 @@ impl Texture for CheckerTexture {
 }
 #[derive(Clone)]
 pub struct Perlin {
-    ran_float: [Vector3<f32>; Self::POINT_COUNT],
+    ran_float: [Vector3<RayScalar>; Self::POINT_COUNT],
     perm_x: [usize; Self::POINT_COUNT],
     perm_y: [usize; Self::POINT_COUNT],
     perm_z: [usize; Self::POINT_COUNT],
@@ -92,7 +92,12 @@ impl Perlin {
             a.swap(i, target);
         }
     }
-    fn trilinear_interp(c: &[[[Vector3<f32>; 2]; 2]; 2], u: f32, v: f32, w: f32) -> f32 {
+    fn trilinear_interp(
+        c: &[[[Vector3<RayScalar>; 2]; 2]; 2],
+        u: RayScalar,
+        v: RayScalar,
+        w: RayScalar,
+    ) -> RayScalar {
         let uu = u * u * (3.0 - 2.0 * u);
         let vv = v * v * (3.0 - 2.0 * v);
         let ww = w * w * (3.0 - 2.0 * w);
@@ -104,10 +109,11 @@ impl Perlin {
             for j in 0..2 {
                 #[allow(clippy::needless_range_loop)]
                 for k in 0..2 {
-                    let weight_v = Vector3::new(u - i as f32, v - j as f32, w - k as f32);
-                    accum += (i as f32 * uu + (1 - i) as f32 * (1.0 - uu))
-                        * (j as f32 * vv + (1 - j) as f32 * (1.0 - vv))
-                        * (k as f32 * ww + (1 - k) as f32 * (1.0 - ww))
+                    let weight_v =
+                        Vector3::new(u - i as RayScalar, v - j as RayScalar, w - k as RayScalar);
+                    accum += (i as RayScalar * uu + (1 - i) as RayScalar * (1.0 - uu))
+                        * (j as RayScalar * vv + (1 - j) as RayScalar * (1.0 - vv))
+                        * (k as RayScalar * ww + (1 - k) as RayScalar * (1.0 - ww))
                         * c[i][j][k].dot(weight_v);
                 }
             }
@@ -115,7 +121,7 @@ impl Perlin {
         accum
     }
 
-    fn noise(&self, point: Point3<f32>) -> f32 {
+    fn noise(&self, point: Point3<RayScalar>) -> RayScalar {
         let u = point.x - point.x.floor();
         let v = point.y - point.y.floor();
         let w = point.z - point.z.floor();
@@ -141,7 +147,7 @@ impl Perlin {
         }
         Self::trilinear_interp(&c, u, v, w)
     }
-    pub fn turbulence(&self, point: Point3<f32>, depth: u32) -> f32 {
+    pub fn turbulence(&self, point: Point3<RayScalar>, depth: u32) -> RayScalar {
         let mut acum = 0.0;
         let mut temp_point = point;
         let mut weight = 1.0;
@@ -174,10 +180,10 @@ impl Texture for Perlin {
     fn name(&self) -> &'static str {
         "Perlin"
     }
-    fn color(&self, _uv: Point2<f32>, pos: Point3<f32>) -> RgbColor {
+    fn color(&self, _uv: Point2<RayScalar>, pos: Point3<RayScalar>) -> RgbColor {
         let f = self.turbulence(2.0 * pos, 7);
 
-        RgbColor::new(f, f, f)
+        RgbColor::new(f as f32, f as f32, f as f32)
     }
 }
 #[derive(Clone)]
@@ -210,7 +216,7 @@ impl Texture for ImageTexture {
     fn name(&self) -> &'static str {
         "Image Texture"
     }
-    fn color(&self, uv: Point2<f32>, _pos: Point3<f32>) -> RgbColor {
+    fn color(&self, uv: Point2<RayScalar>, _pos: Point3<RayScalar>) -> RgbColor {
         self.texture.get_uv(uv)
     }
 }
@@ -220,10 +226,10 @@ impl Texture for DebugV {
     fn name(&self) -> &'static str {
         "Debug V"
     }
-    fn color(&self, uv: Point2<f32>, _pos: Point3<f32>) -> RgbColor {
+    fn color(&self, uv: Point2<RayScalar>, _pos: Point3<RayScalar>) -> RgbColor {
         let v = uv.y;
         if !v.is_nan() {
-            RgbColor::new(uv.y, uv.y, uv.y)
+            RgbColor::new(uv.y as f32, uv.y as f32, uv.y as f32)
         } else {
             RgbColor::BLACK
         }

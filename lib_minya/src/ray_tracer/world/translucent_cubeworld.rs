@@ -6,9 +6,9 @@ use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 
 pub fn translucent_cube_world() -> WorldInfo {
-    let look_at = Point3::new(5.0f32, 5.0, 5.0);
+    let look_at = Point3::<RayScalar>::new(5.0, 5.0, 5.0);
 
-    let origin = Point3::new(-20.0f32, 5.0, -20.0);
+    let origin = Point3::<RayScalar>::new(-20.0, 5.0, -20.0);
 
     let fov = 40.0;
     let focus_distance = {

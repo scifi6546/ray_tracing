@@ -501,6 +501,16 @@ impl Mul<f32> for RgbColor {
         }
     }
 }
+impl Mul<f64> for RgbColor {
+    type Output = Self;
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self {
+            red: self.red * rhs as f32,
+            green: self.green * rhs as f32,
+            blue: self.blue * rhs as f32,
+        }
+    }
+}
 impl Mul<RgbColor> for f32 {
     type Output = RgbColor;
     fn mul(self, rhs: RgbColor) -> Self::Output {
@@ -514,6 +524,22 @@ impl Div<f32> for RgbColor {
             red: self.red / rhs,
             green: self.green / rhs,
             blue: self.blue / rhs,
+        }
+    }
+}
+impl Mul<RgbColor> for f64 {
+    type Output = RgbColor;
+    fn mul(self, rhs: RgbColor) -> Self::Output {
+        rhs * self
+    }
+}
+impl Div<f64> for RgbColor {
+    type Output = Self;
+    fn div(self, rhs: f64) -> Self::Output {
+        Self {
+            red: self.red / rhs as f32,
+            green: self.green / rhs as f32,
+            blue: self.blue / rhs as f32,
         }
     }
 }

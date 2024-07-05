@@ -12,7 +12,7 @@ pub mod texture;
 pub mod world;
 
 use super::prelude::*;
-use crate::reflect;
+use crate::{prelude, reflect};
 use bloom::bloom;
 
 pub use logger::LogMessage;
@@ -22,7 +22,6 @@ use background::{Background, ConstantColor, Sky};
 use bvh::Aabb;
 use camera::Camera;
 use cgmath::{InnerSpace, Point3, Vector3};
-#[allow(unused_imports)]
 use hittable::{
     ConstantMedium, HitRay, HitRecord, Hittable, MaterialEffect, MovingSphere, Object, RayAreaInfo,
     RenderBox, Sphere, Transform, XYRect, XZRect, YZRect,
@@ -30,6 +29,7 @@ use hittable::{
 #[allow(unused_imports)]
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
 use pdf::ScatterRecord;
+use prelude::RayScalar;
 #[allow(unused_imports)]
 use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, SolidColor, Texture};
 pub use world::{ScenarioCtor, World};
@@ -40,7 +40,7 @@ use std::{
     thread,
 };
 
-pub fn rand_unit_vec() -> Vector3<f32> {
+pub fn rand_unit_vec() -> Vector3<RayScalar> {
     loop {
         let v = 2.0 * (rand_vec() - Vector3::new(0.5, 0.5, 0.5));
         if v.dot(v) < 1.0 {
@@ -49,7 +49,7 @@ pub fn rand_unit_vec() -> Vector3<f32> {
     }
 }
 /// generates random vec with all components in range [0,1)
-pub fn rand_vec() -> Vector3<f32> {
+pub fn rand_vec() -> Vector3<RayScalar> {
     Vector3 {
         x: rand::random(),
         y: rand::random(),
@@ -262,7 +262,7 @@ impl Shader for RayTracingShader {
 
                             let value = value / scattering_pdf;
 
-                            let ray_color = self.ray_color(
+                            let mut ray_color = self.ray_color(
                                 Ray {
                                     origin: record.position,
                                     direction: pdf_direction,
@@ -447,8 +447,9 @@ impl RayTracer {
         let mut total_color = RgbColor::BLACK;
         for x in offset.x..offset.x + image_width {
             for y in offset.y..offset.y + image_height {
-                let u = (x as f32 + rand_f32(0.0, 1.0)) / (total_width as f32 - 1.0);
-                let v = (y as f32 + rand_f32(0.0, 1.0)) / (total_height as f32 - 1.0);
+                let u = (x as RayScalar + rand_scalar(0.0, 1.0)) / (total_width as RayScalar - 1.0);
+                let v =
+                    (y as RayScalar + rand_scalar(0.0, 1.0)) / (total_height as RayScalar - 1.0);
                 let r = self.world.camera.get_ray(u, v);
                 let c = match self.current_shader {
                     CurrentShader::Diffuse => self.diffuse_shader.ray_color(r, &self.world, 50),

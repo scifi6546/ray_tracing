@@ -6,8 +6,8 @@ use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 
 pub fn easy_cornell_box() -> WorldInfo {
-    let look_at = Point3::new(278.0f32, 278.0, 0.0);
-    let origin = Point3::new(278.0, 278.0, -800.0);
+    let look_at = Point3::<RayScalar>::new(278.0, 278.0, 0.0);
+    let origin = Point3::<RayScalar>::new(278.0, 278.0, -800.0);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()

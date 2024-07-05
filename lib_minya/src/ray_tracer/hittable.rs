@@ -9,8 +9,10 @@ use super::{Aabb, Material, Ray};
 
 use cgmath::{InnerSpace, Matrix3, Matrix4, Point2, Point3, SquareMatrix, Vector3, Vector4};
 
-use crate::ray_tracer::hittable::MaterialEffect::NoEmmit;
-use crate::ray_tracer::pdf::ScatterRecord;
+use crate::{
+    prelude::RayScalar,
+    ray_tracer::{hittable::MaterialEffect::NoEmmit, pdf::ScatterRecord},
+};
 use base_lib::RgbColor;
 pub use constant_medium::ConstantMedium;
 use dyn_clone::{clone_box, DynClone};
@@ -27,15 +29,15 @@ pub mod hittable_objects {
     pub use super::voxel_world::{CubeMaterial, VoxelModel, VoxelWorld};
 }
 pub trait Hittable: Send + Sync + DynClone {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb>;
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord>;
+    fn bounding_box(&self, time_0: RayScalar, time_1: RayScalar) -> Option<Aabb>;
     /// probability of hitting the box for given ray going towards point
-    fn prob(&self, ray: Ray) -> f32;
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo;
+    fn prob(&self, ray: Ray) -> RayScalar;
+    fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo;
 }
 #[derive(Clone, Copy, Debug)]
 pub struct Transform {
-    pub world_transform: Matrix4<f32>,
+    pub world_transform: Matrix4<RayScalar>,
 }
 impl Transform {
     pub fn get_inverse(&self) -> Transform {
@@ -46,25 +48,25 @@ impl Transform {
                 .expect("transform is not invertible"),
         }
     }
-    fn from_matrix(world_transform: Matrix4<f32>) -> Self {
+    fn from_matrix(world_transform: Matrix4<RayScalar>) -> Self {
         Self { world_transform }
     }
     pub fn identity() -> Self {
         Self::from_matrix(Matrix4::identity())
     }
-    pub fn translate(self, translation: Vector3<f32>) -> Self {
+    pub fn translate(self, translation: Vector3<RayScalar>) -> Self {
         self * Self::from_matrix(Matrix4::from_translation(-1.0 * translation))
     }
-    pub fn rotate_x(self, rotation_deg: f32) -> Self {
-        self * Self::from_matrix(cgmath::Matrix4::from_angle_x(cgmath::Deg(rotation_deg)))
+    pub fn rotate_x(self, rotation_deg: RayScalar) -> Self {
+        self * Self::from_matrix(Matrix4::from_angle_x(cgmath::Deg(rotation_deg)))
     }
-    pub fn rotate_y(self, rotation_deg: f32) -> Self {
-        self * Self::from_matrix(cgmath::Matrix4::from_angle_y(cgmath::Deg(rotation_deg)))
+    pub fn rotate_y(self, rotation_deg: RayScalar) -> Self {
+        self * Self::from_matrix(Matrix4::from_angle_y(cgmath::Deg(rotation_deg)))
     }
     fn mul_ray(&self, ray: Ray) -> Ray {
         let direction_world = ray.origin + ray.direction;
         let direction_end = self.world_transform * direction_world.to_homogeneous();
-        let world_origin: Vector4<f32> = self.world_transform * ray.origin.to_homogeneous();
+        let world_origin: Vector4<RayScalar> = self.world_transform * ray.origin.to_homogeneous();
 
         let direction_world = direction_end - world_origin;
         let direction = Vector3::new(direction_world.x, direction_world.y, direction_world.z);
@@ -74,16 +76,16 @@ impl Transform {
             time: ray.time,
         }
     }
-    fn mul_point3(&self, point: Point3<f32>) -> Point3<f32> {
+    fn mul_point3(&self, point: Point3<RayScalar>) -> Point3<RayScalar> {
         Point3::from_homogeneous(self.world_transform * point.to_homogeneous())
     }
 
-    fn mul_vec3(&self, vec: Vector3<f32>) -> Vector3<f32> {
+    fn mul_vec3(&self, vec: Vector3<RayScalar>) -> Vector3<RayScalar> {
         let world_vec = Vector4::new(vec.x, vec.y, vec.z, 1.0);
         let output = self.mul_vec4(world_vec);
         Vector3::new(output.x, output.y, output.z)
     }
-    fn mul_vec4(&self, vec: Vector4<f32>) -> Vector4<f32> {
+    fn mul_vec4(&self, vec: Vector4<RayScalar>) -> Vector4<RayScalar> {
         self.world_transform * vec
     }
     fn mul_self(&self, rhs: Self) -> Self {
@@ -98,24 +100,24 @@ impl std::ops::Mul<Transform> for Transform {
         (&self).mul_self(rhs)
     }
 }
-impl std::ops::Mul<&Point3<f32>> for &Transform {
-    type Output = Point3<f32>;
+impl std::ops::Mul<&Point3<RayScalar>> for &Transform {
+    type Output = Point3<RayScalar>;
 
-    fn mul(self, rhs: &Point3<f32>) -> Self::Output {
+    fn mul(self, rhs: &Point3<RayScalar>) -> Self::Output {
         self.mul_point3(*rhs)
     }
 }
-impl std::ops::Mul<&Point3<f32>> for Transform {
-    type Output = Point3<f32>;
+impl std::ops::Mul<&Point3<RayScalar>> for Transform {
+    type Output = Point3<RayScalar>;
 
-    fn mul(self, rhs: &Point3<f32>) -> Self::Output {
+    fn mul(self, rhs: &Point3<RayScalar>) -> Self::Output {
         (&self).mul_point3(*rhs)
     }
 }
-impl std::ops::Mul<Point3<f32>> for Transform {
-    type Output = Point3<f32>;
+impl std::ops::Mul<Point3<RayScalar>> for Transform {
+    type Output = Point3<RayScalar>;
 
-    fn mul(self, rhs: Point3<f32>) -> Self::Output {
+    fn mul(self, rhs: Point3<RayScalar>) -> Self::Output {
         (&self).mul_point3(rhs)
     }
 }
@@ -140,15 +142,15 @@ impl std::ops::Mul<Ray> for Transform {
         (&self).mul_ray(rhs)
     }
 }
-impl std::ops::Mul<Vector3<f32>> for Transform {
-    type Output = Vector3<f32>;
-    fn mul(self, rhs: Vector3<f32>) -> Self::Output {
+impl std::ops::Mul<Vector3<RayScalar>> for Transform {
+    type Output = Vector3<RayScalar>;
+    fn mul(self, rhs: Vector3<RayScalar>) -> Self::Output {
         (&self).mul_vec3(rhs)
     }
 }
-impl std::ops::Mul<Vector4<f32>> for Transform {
-    type Output = Vector4<f32>;
-    fn mul(self, rhs: Vector4<f32>) -> Self::Output {
+impl std::ops::Mul<Vector4<RayScalar>> for Transform {
+    type Output = Vector4<RayScalar>;
+    fn mul(self, rhs: Vector4<RayScalar>) -> Self::Output {
         (&self).mul_vec4(rhs)
     }
 }
@@ -173,14 +175,14 @@ impl Object {
 }
 
 impl Hittable for Object {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let shape_ray = &self.transform * ray;
-        fn get_three(m: &Matrix4<f32>) -> Matrix3<f32> {
+        fn get_three(m: &Matrix4<RayScalar>) -> Matrix3<RayScalar> {
             let v1 = m[0];
             let v2 = m[1];
             let v3 = m[2];
             let t = [v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z];
-            let m: &Matrix3<f32> = (&t).into();
+            let m: &Matrix3<RayScalar> = (&t).into();
             return m.clone();
         }
         if let Some(hit) = self.shape.hit(&shape_ray, t_min, t_max) {
@@ -210,7 +212,7 @@ impl Hittable for Object {
         }
     }
 
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, time_0: RayScalar, time_1: RayScalar) -> Option<Aabb> {
         if let Some(aabb) = self.shape.bounding_box(time_0, time_1) {
             let inv = self.transform.get_inverse();
             let corner_a = inv * aabb.minimum;
@@ -255,12 +257,12 @@ impl Hittable for Object {
         }
     }
 
-    fn prob(&self, ray: Ray) -> f32 {
+    fn prob(&self, ray: Ray) -> RayScalar {
         let inv = self.transform.get_inverse();
         self.shape.prob(inv * ray)
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo {
         let out_area_info = self
             .shape
             .generate_ray_in_area(self.transform * origin, time);
@@ -268,7 +270,7 @@ impl Hittable for Object {
         let inv = self.transform.get_inverse();
         let end_point = inv * out_area_info.end_point;
         let to_area = inv * out_area_info.to_area;
-        let scaling = inv * Point3::new(1.0f32, 0.0, 0.0) - inv * Point3::new(0.0f32, 0.0, 0.0);
+        let scaling = inv * Point3::new(1.0, 0.0, 0.0) - inv * Point3::new(0.0, 0.0, 0.0);
         let scaling = scaling.magnitude().abs();
         let area = out_area_info.area * scaling;
 
@@ -287,38 +289,38 @@ impl Hittable for Object {
 }
 #[derive(Clone, Debug)]
 pub struct HitRay {
-    position: Point3<f32>,
-    direction: Vector3<f32>,
-    normal: Vector3<f32>,
+    position: Point3<RayScalar>,
+    direction: Vector3<RayScalar>,
+    normal: Vector3<RayScalar>,
 
     front_face: bool,
-    uv: Point2<f32>,
+    uv: Point2<RayScalar>,
 }
 impl HitRay {
-    pub(crate) fn position(&self) -> Point3<f32> {
+    pub(crate) fn position(&self) -> Point3<RayScalar> {
         self.position
     }
-    pub(crate) fn direction(&self) -> Vector3<f32> {
+    pub(crate) fn direction(&self) -> Vector3<RayScalar> {
         self.direction
     }
-    pub(crate) fn normal(&self) -> Vector3<f32> {
+    pub(crate) fn normal(&self) -> Vector3<RayScalar> {
         self.normal
     }
 
     pub(crate) fn front_face(&self) -> bool {
         self.front_face
     }
-    pub(crate) fn uv(&self) -> Point2<f32> {
+    pub(crate) fn uv(&self) -> Point2<RayScalar> {
         self.uv
     }
 }
 #[derive(Clone, Debug)]
 pub struct HitRecord {
-    pub position: Point3<f32>,
-    pub normal: Vector3<f32>,
-    pub t: f32,
+    pub position: Point3<RayScalar>,
+    pub normal: Vector3<RayScalar>,
+    pub t: RayScalar,
     pub front_face: bool,
-    pub uv: Point2<f32>,
+    pub uv: Point2<RayScalar>,
     pub material_effect: MaterialEffect,
 }
 #[derive(Clone, Debug)]
@@ -331,10 +333,10 @@ pub enum MaterialEffect {
 impl HitRecord {
     pub fn new_ref<M: Material>(
         ray: &Ray,
-        position: Point3<f32>,
-        normal: Vector3<f32>,
-        t: f32,
-        uv: Point2<f32>,
+        position: Point3<RayScalar>,
+        normal: Vector3<RayScalar>,
+        t: RayScalar,
+        uv: Point2<RayScalar>,
         material: &M,
     ) -> Self {
         let front_face = ray.direction.dot(normal) <= 0.0;
@@ -367,10 +369,10 @@ impl HitRecord {
     }
     pub fn new(
         ray: &Ray,
-        position: Point3<f32>,
-        normal: Vector3<f32>,
-        t: f32,
-        uv: Point2<f32>,
+        position: Point3<RayScalar>,
+        normal: Vector3<RayScalar>,
+        t: RayScalar,
+        uv: Point2<RayScalar>,
         material: &dyn Material,
     ) -> Self {
         let front_face = ray.direction.dot(normal) <= 0.0;
@@ -402,8 +404,8 @@ impl HitRecord {
 }
 pub struct RayAreaInfo {
     pub to_area: Ray,
-    pub area: f32,
-    pub direction: Vector3<f32>,
-    pub normal: Vector3<f32>,
-    pub end_point: Point3<f32>,
+    pub area: RayScalar,
+    pub direction: Vector3<RayScalar>,
+    pub normal: Vector3<RayScalar>,
+    pub end_point: Point3<RayScalar>,
 }

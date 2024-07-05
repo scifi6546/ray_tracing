@@ -2,7 +2,7 @@ use super::{
     Camera, Dielectric, DiffuseLight, Lambertian, Object, Sky, SolidColor, Sphere, Transform,
     WorldInfo, XZRect,
 };
-
+use crate::prelude::RayScalar;
 use base_lib::RgbColor;
 use cgmath::{prelude::*, Point3, Vector3};
 
@@ -12,9 +12,9 @@ pub fn dielectric_no_refraction() -> WorldInfo {
 pub fn dielectric_refraction() -> WorldInfo {
     dielectric_demo(1.5)
 }
-pub fn dielectric_demo(refraction: f32) -> WorldInfo {
-    let look_at = Point3::new(0.0f32, 1.0, 0.0);
-    let origin = Point3::new(10.0f32, 10.0, 2.0);
+pub fn dielectric_demo(refraction: RayScalar) -> WorldInfo {
+    let look_at = Point3::<RayScalar>::new(0.0, 1.0, 0.0);
+    let origin = Point3::<RayScalar>::new(10.0, 10.0, 2.0);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()

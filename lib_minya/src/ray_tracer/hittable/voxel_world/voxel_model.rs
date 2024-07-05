@@ -15,7 +15,7 @@ pub struct VoxelModel {
     solid_materials: Vec<CubeMaterial>,
 }
 impl VoxelModel {
-    const MAX_COLOR_DISTANCE: f32 = 0.01;
+    const MAX_COLOR_DISTANCE: RayScalar = 0.01;
 
     pub fn load<P: AsRef<Path>>(p: P) -> Self {
         let mut f = File::open(p).expect("failed to get file");

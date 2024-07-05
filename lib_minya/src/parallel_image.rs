@@ -58,10 +58,10 @@ impl ParallelImage {
         }
         return image;
     }
-    pub fn get_uv(&self, uv: Point2<f32>) -> RgbColor {
-        let x = ((uv.x * (self.width() as f32 - 1.0)) as usize).clamp(0, self.width() - 1);
+    pub fn get_uv(&self, uv: Point2<RayScalar>) -> RgbColor {
+        let x = ((uv.x * (self.width() as RayScalar - 1.0)) as usize).clamp(0, self.width() - 1);
         let v = 1.0 - uv.y;
-        let y = ((v * (self.height() as f32 - 1.0)) as usize).clamp(0, self.height() - 1);
+        let y = ((v * (self.height() as RayScalar - 1.0)) as usize).clamp(0, self.height() - 1);
         self.get_xy(x, y)
     }
     pub fn save_image<P: AsRef<Path>>(&self, p: P, num_samples: usize) {

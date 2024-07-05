@@ -111,8 +111,8 @@ impl World {
                 };
                 let obj_out: Box<dyn Hittable + Send> = match &obj.shape {
                     base_lib::Shape::Sphere { radius, origin } => Box::new(Sphere {
-                        radius: *radius,
-                        origin: *origin,
+                        radius: *radius as RayScalar,
+                        origin: origin.map(|v| v as RayScalar),
                         material,
                     }),
 
@@ -121,11 +121,11 @@ impl World {
                         size_x,
                         size_y,
                     } => Box::new(XYRect::new(
-                        center.x - size_x,
-                        center.x + size_x,
-                        center.y - size_y,
-                        center.y + size_y,
-                        center.z,
+                        (center.x - size_x) as RayScalar,
+                        (center.x + size_x) as RayScalar,
+                        (center.y - size_y) as RayScalar,
+                        (center.y + size_y) as RayScalar,
+                        center.z as RayScalar,
                         material,
                         false,
                     )),
@@ -135,11 +135,11 @@ impl World {
                         size_y,
                         size_z,
                     } => Box::new(YZRect::new(
-                        center.y - size_y,
-                        center.y + size_y,
-                        center.z - size_z,
-                        center.z + size_z,
-                        center.x,
+                        (center.y - size_y) as RayScalar,
+                        (center.y + size_y) as RayScalar,
+                        (center.z - size_z) as RayScalar,
+                        (center.z + size_z) as RayScalar,
+                        (center.x) as RayScalar,
                         material,
                         false,
                     )),
@@ -148,11 +148,11 @@ impl World {
                         size_x,
                         size_z,
                     } => Box::new(XZRect::new(
-                        center.x - size_x,
-                        center.x + size_x,
-                        center.z - size_z,
-                        center.z + size_z,
-                        center.y,
+                        (center.x - size_x) as RayScalar,
+                        (center.x + size_x) as RayScalar,
+                        (center.z - size_z) as RayScalar,
+                        (center.z + size_z) as RayScalar,
+                        center.y as RayScalar,
                         material,
                         false,
                     )),
@@ -162,8 +162,16 @@ impl World {
                         size_y,
                         size_z,
                     } => Box::new(RenderBox::new(
-                        Point3::new(center.x - size_x, center.y - size_y, center.z - size_z),
-                        Point3::new(center.x + size_x, center.y + size_y, center.z + size_z),
+                        Point3::new(
+                            (center.x - size_x) as RayScalar,
+                            (center.y - size_y) as RayScalar,
+                            (center.z - size_z) as RayScalar,
+                        ),
+                        Point3::new(
+                            (center.x + size_x) as RayScalar,
+                            (center.y + size_y) as RayScalar,
+                            (center.z + size_z) as RayScalar,
+                        ),
                         material,
                     )),
                     base_lib::Shape::Voxels(voxel_grid) => {
@@ -231,19 +239,23 @@ impl World {
         };
 
         Self {
-            bvh: BvhTree::new(spheres, scene.camera.start_time, scene.camera.end_time),
+            bvh: BvhTree::new(
+                spheres,
+                scene.camera.start_time as RayScalar,
+                scene.camera.end_time as RayScalar,
+            ),
             lights,
             background,
             camera: Camera::new(
-                scene.camera.aspect_ratio,
-                scene.camera.fov,
-                scene.camera.origin,
-                scene.camera.look_at,
-                scene.camera.up_vector,
-                scene.camera.aperture,
-                scene.camera.focus_distance,
-                scene.camera.start_time,
-                scene.camera.end_time,
+                scene.camera.aspect_ratio as RayScalar,
+                scene.camera.fov as RayScalar,
+                scene.camera.origin.map(|v| v as RayScalar),
+                scene.camera.look_at.map(|v| v as RayScalar),
+                scene.camera.up_vector.map(|v| v as RayScalar),
+                scene.camera.aperture as RayScalar,
+                scene.camera.focus_distance as RayScalar,
+                scene.camera.start_time as RayScalar,
+                scene.camera.end_time as RayScalar,
             ),
             sun: None,
         }
@@ -251,8 +263,8 @@ impl World {
     pub fn nearest_light_hit(
         &self,
         ray: &Ray,
-        t_min: f32,
-        t_max: f32,
+        t_min: RayScalar,
+        t_max: RayScalar,
     ) -> Option<(Object, HitRecord)> {
         self.lights
             .iter()
@@ -263,7 +275,7 @@ impl World {
     }
 
     pub fn nearest_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        self.bvh.hit(ray, t_min, t_max)
+        self.bvh.hit(ray, t_min as RayScalar, t_max as RayScalar)
     }
 }
 pub trait ScenarioCtor: Send + Sync + DynClone {

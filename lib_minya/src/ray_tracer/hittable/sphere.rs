@@ -1,14 +1,17 @@
 use super::{Aabb, HitRecord, Hittable, Material};
-use crate::prelude::*;
-use crate::ray_tracer::hittable::RayAreaInfo;
-use crate::ray_tracer::rand_unit_vec;
+
+use crate::{
+    prelude::{Ray, RayScalar},
+    ray_tracer::{hittable::RayAreaInfo, rand_unit_vec},
+};
+
 use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
 use dyn_clone::clone_box;
 use std::ops::Deref;
 
 pub struct Sphere {
-    pub radius: f32,
-    pub origin: Point3<f32>,
+    pub radius: RayScalar,
+    pub origin: Point3<RayScalar>,
     pub material: Box<dyn Material>,
 }
 impl Clone for Sphere {
@@ -21,7 +24,7 @@ impl Clone for Sphere {
     }
 }
 impl Hittable for Sphere {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let rel_origin = ray.origin - self.origin;
         let a = ray.direction.dot(ray.direction);
         let half_b = rel_origin.dot(ray.direction);
@@ -50,14 +53,14 @@ impl Hittable for Sphere {
             self.material.as_ref(),
         ))
     }
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, _time_0: RayScalar, _time_1: RayScalar) -> Option<Aabb> {
         Some(Aabb {
             minimum: self.origin - Vector3::new(self.radius, self.radius, self.radius),
             maximum: self.origin + Vector3::new(self.radius, self.radius, self.radius),
         })
     }
-    fn prob(&self, ray: Ray) -> f32 {
-        let area = f32::PI() * self.radius.powi(2);
+    fn prob(&self, ray: Ray) -> RayScalar {
+        let area = RayScalar::PI() * self.radius.powi(2);
         let to_light = self.origin - ray.origin;
 
         let distance_squared = to_light.dot(to_light);
@@ -65,7 +68,7 @@ impl Hittable for Sphere {
         distance_squared / area
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo {
         let sphere_direction = rand_unit_vec();
         let end_point = self.origin + self.radius * sphere_direction;
         let direction = (end_point - origin).normalize();
@@ -84,22 +87,22 @@ impl Hittable for Sphere {
 }
 
 impl Sphere {
-    fn area(&self) -> f32 {
-        f32::PI() * self.radius.powi(2)
+    fn area(&self) -> RayScalar {
+        RayScalar::PI() * self.radius.powi(2)
     }
-    fn get_sphere_uv(point: Vector3<f32>) -> Point2<f32> {
+    fn get_sphere_uv(point: Vector3<RayScalar>) -> Point2<RayScalar> {
         let theta = (-1.0 * point.y).acos();
-        let phi = (-1.0 * point.z).atan2(point.x) + f32::PI();
-        Point2::new(phi / (2.0 * f32::PI()), theta / f32::PI())
+        let phi = (-1.0 * point.z).atan2(point.x) + RayScalar::PI();
+        Point2::new(phi / (2.0 * RayScalar::PI()), theta / RayScalar::PI())
     }
 }
 
 pub struct MovingSphere {
-    pub center_0: Point3<f32>,
-    pub center_1: Point3<f32>,
-    pub time_0: f32,
-    pub time_1: f32,
-    pub radius: f32,
+    pub center_0: Point3<RayScalar>,
+    pub center_1: Point3<RayScalar>,
+    pub time_0: RayScalar,
+    pub time_1: RayScalar,
+    pub radius: RayScalar,
     pub material: Box<dyn Material>,
 }
 impl Clone for MovingSphere {
@@ -115,13 +118,13 @@ impl Clone for MovingSphere {
     }
 }
 impl MovingSphere {
-    fn center(&self, time: f32) -> Point3<f32> {
+    fn center(&self, time: RayScalar) -> Point3<RayScalar> {
         self.center_0
             + ((time - self.time_0) / (self.time_1 - self.time_0)) * (self.center_1 - self.center_0)
     }
 }
 impl Hittable for MovingSphere {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let rel_origin = ray.origin - self.center(ray.time);
         let a = ray.direction.dot(ray.direction);
         let half_b = rel_origin.dot(ray.direction);
@@ -151,7 +154,7 @@ impl Hittable for MovingSphere {
         ))
     }
 
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, time_0: RayScalar, time_1: RayScalar) -> Option<Aabb> {
         Some(
             Aabb {
                 minimum: self.center(time_0) - Vector3::new(self.radius, self.radius, self.radius),
@@ -163,10 +166,10 @@ impl Hittable for MovingSphere {
             }),
         )
     }
-    fn prob(&self, _ray: Ray) -> f32 {
+    fn prob(&self, _ray: Ray) -> RayScalar {
         todo!()
     }
-    fn generate_ray_in_area(&self, _origin: Point3<f32>, _time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, _origin: Point3<RayScalar>, _time: RayScalar) -> RayAreaInfo {
         todo!()
     }
 }

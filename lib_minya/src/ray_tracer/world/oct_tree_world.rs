@@ -4,11 +4,11 @@ use super::{
 };
 use crate::prelude::*;
 use crate::ray_tracer::hittable::Object;
-use cgmath::{prelude::*, Point3, Vector3};
+use cgmath::{num_traits::FloatConst, prelude::*, Point3, Vector3};
 
 pub fn basic_sphere() -> WorldInfo {
-    let origin = Point3::new(-100.0f32, 100.0, -800.0);
-    let look_at = Point3::new(64.0f32, 64.0, 64.0);
+    let origin = Point3::<RayScalar>::new(-100.0, 100.0, -800.0);
+    let look_at = Point3::<RayScalar>::new(64.0, 64.0, 64.0);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
@@ -61,13 +61,13 @@ pub fn temple() -> WorldInfo {
         OctTree::rectangle(size, material)
     }
     let sun = Sun {
-        phi: std::f32::consts::FRAC_PI_4,
+        phi: RayScalar::FRAC_PI_4(),
         theta: 0.1,
         radius: 1.0,
     };
     let sun_sky = SunSky::new(sun, 0.1, 10.);
-    let origin = Point3::new(-100.0f32, 100.0, -800.0);
-    let look_at = Point3::new(64.0f32, 64.0, 64.0);
+    let origin = Point3::<RayScalar>::new(-100.0, 100.0, -800.0);
+    let look_at = Point3::<RayScalar>::new(64.0, 64.0, 64.0);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
@@ -136,8 +136,8 @@ pub fn temple() -> WorldInfo {
     }
 }
 pub fn temple_below() -> WorldInfo {
-    let origin = Point3::new(-100.0f32, -100.0, -800.0);
-    let look_at = Point3::new(64.0f32, 64.0, 64.0);
+    let origin = Point3::<RayScalar>::new(-100.0, -100.0, -800.0);
+    let look_at = Point3::<RayScalar>::new(64.0, 64.0, 64.0);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
@@ -191,8 +191,8 @@ pub fn temple_below() -> WorldInfo {
     }
 }
 pub fn cube() -> WorldInfo {
-    let origin = Point3::new(-100.0f32, 100.0, -800.0);
-    let look_at = Point3::new(64.0f32, 64.0, 64.0);
+    let origin = Point3::<RayScalar>::new(-100.0, 100.0, -800.0);
+    let look_at = Point3::<RayScalar>::new(64.0, 64.0, 64.0);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
@@ -240,8 +240,8 @@ pub fn cube() -> WorldInfo {
 }
 
 pub fn cube_back() -> WorldInfo {
-    let origin = Point3::new(100.0f32, 100.0, 800.0);
-    let look_at = Point3::new(64.0f32, 64.0, 64.0);
+    let origin = Point3::<RayScalar>::new(100.0, 100.0, 800.0);
+    let look_at = Point3::<RayScalar>::new(64.0, 64.0, 64.0);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()

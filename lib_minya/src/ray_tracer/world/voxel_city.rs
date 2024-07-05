@@ -9,9 +9,9 @@ pub fn voxel_city() -> WorldInfo {
     const BLOCK_Y: i32 = 500;
     const BLOCK_Z: i32 = 200;
 
-    let look_at = Point3::new(BLOCK_X as f32 / 2.0, 10.0, BLOCK_Z as f32 / 2.0);
+    let look_at = Point3::new(BLOCK_X as RayScalar / 2.0, 10.0, BLOCK_Z as RayScalar / 2.0);
 
-    let origin = Point3::new(-150.0f32, 200.0, -150.0);
+    let origin = Point3::<RayScalar>::new(-150.0, 200.0, -150.0);
 
     let fov = 40.0;
     let focus_distance = {
@@ -79,9 +79,9 @@ pub fn voxel_city() -> WorldInfo {
     }
 
     let sun = Sun {
-        phi: 1.0 * f32::PI() / 6.0,
+        phi: 1.0 * RayScalar::PI() / 6.0,
         theta: 1.231,
-        radius: 5.0 * f32::PI() / 180.0,
+        radius: 5.0 * RayScalar::PI() / 180.0,
     };
     let sun_sky = SunSky::new(sun, 0.05, 12.0);
     WorldInfo {

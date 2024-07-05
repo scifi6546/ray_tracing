@@ -1,7 +1,10 @@
 use super::{super::Lambertian, Aabb, HitRecord, Hittable};
-use crate::ray_tracer::hittable::{HitRay, RayAreaInfo};
-use crate::ray_tracer::pdf::ScatterRecord;
-use crate::ray_tracer::texture::SolidColor;
+
+use crate::ray_tracer::{
+    hittable::{HitRay, RayAreaInfo},
+    pdf::ScatterRecord,
+    texture::SolidColor,
+};
 use crate::{prelude::*, ray_tracer::Material};
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 pub(crate) use voxel_map::VoxelMap;
@@ -15,13 +18,13 @@ pub use voxel_model::VoxelModel;
 #[derive(Debug)]
 enum HitResult<T: Solid + std::fmt::Debug> {
     Hit {
-        position: Point3<f32>,
-        normal: Vector3<f32>,
+        position: Point3<RayScalar>,
+        normal: Vector3<RayScalar>,
         voxel: T,
     },
     DidNotHit,
 }
-fn min_idx_vec(v: Vector3<f32>) -> usize {
+fn min_idx_vec(v: Vector3<RayScalar>) -> usize {
     let mut min_val = v.x;
     let mut min_idx = 0;
 
@@ -37,7 +40,7 @@ fn min_idx_vec(v: Vector3<f32>) -> usize {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum CubeType {
     Solid,
-    Translucent { density: f32 },
+    Translucent { density: RayScalar },
     Air,
 }
 trait Solid {
@@ -59,15 +62,19 @@ struct Voxels<T: Clone + Solid> {
     z_dim: usize,
 }
 fn step_translucent(
-    position: Point3<f32>,
-    direction: Vector3<f32>,
-    density: f32,
-) -> Option<Point3<f32>> {
+    position: Point3<RayScalar>,
+    direction: Vector3<RayScalar>,
+    density: RayScalar,
+) -> Option<Point3<RayScalar>> {
     assert!(density <= 1.0);
     assert!(density >= 0.0);
-    let max_distance = (1.0f32 + 1.0 + 1.0).sqrt();
+    let max_distance = {
+        let three: RayScalar = 3.0;
+        three.sqrt()
+    };
+
     let max_r = 1.0 / density;
-    let r = rand_f32(0.0, max_r);
+    let r = rand_scalar(0.0, max_r);
 
     if r <= 1.0 {
         let dist = max_distance * r;
@@ -114,10 +121,14 @@ impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
         }
     }
 
-    pub fn trace_voxels(&self, origin: Point3<f32>, direction: Vector3<f32>) -> HitResult<T> {
+    pub fn trace_voxels(
+        &self,
+        origin: Point3<RayScalar>,
+        direction: Vector3<RayScalar>,
+    ) -> HitResult<T> {
         let step_size = 1.0 / direction.map(|e| e.abs());
-        let mut step_dir = Vector3::new(0.0f32, 0.0, 0.0);
-        let mut next_dist = Vector3::new(0.0, 0.0, 0.0);
+        let mut step_dir = Vector3::<RayScalar>::zero();
+        let mut next_dist = Vector3::zero();
         if direction.x < 0.0 {
             step_dir.x = -1.0;
             next_dist.x = -1.0 * (origin.x.fract()) / direction.x;
@@ -204,10 +215,10 @@ impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
 }
 #[derive(Clone, Debug)]
 struct CheckRes {
-    direction: Vector3<f32>,
-    origin: Point3<f32>,
-    normal: Vector3<f32>,
-    t: f32,
+    direction: Vector3<RayScalar>,
+    origin: Point3<RayScalar>,
+    normal: Vector3<RayScalar>,
+    t: RayScalar,
 }
 type MaterialIndex = u16;
 
@@ -225,10 +236,10 @@ impl CubeMaterialIndex {
     pub fn new_solid(index: MaterialIndex) -> Self {
         Self::Solid { index }
     }
-    pub fn new_translucent(index: MaterialIndex, density: f32) -> Self {
+    pub fn new_translucent(index: MaterialIndex, density: RayScalar) -> Self {
         Self::Translucent {
             index,
-            density: (density * MaterialIndex::MAX as f32) as MaterialIndex,
+            density: (density * MaterialIndex::MAX as RayScalar) as MaterialIndex,
         }
     }
     pub fn new_air() -> Self {
@@ -262,7 +273,7 @@ impl Solid for CubeMaterialIndex {
                     CubeType::Air
                 } else {
                     CubeType::Translucent {
-                        density: *density as f32 / MaterialIndex::MAX as f32,
+                        density: *density as RayScalar / MaterialIndex::MAX as RayScalar,
                     }
                 }
             }
@@ -276,8 +287,8 @@ pub struct CubeMaterial {
     color: RgbColor,
 }
 impl CubeMaterial {
-    pub fn distance(&self, other: &Self) -> f32 {
-        self.color.distance(&other.color)
+    pub fn distance(&self, other: &Self) -> RayScalar {
+        self.color.distance(&other.color) as RayScalar
     }
 }
 impl std::fmt::Debug for CubeMaterial {
@@ -301,7 +312,7 @@ impl Material for CubeMaterial {
         ray_in: Ray,
         record_in: &HitRecord,
         scattered_ray: Ray,
-    ) -> Option<f32> {
+    ) -> Option<RayScalar> {
         self.material
             .scattering_pdf(ray_in, record_in, scattered_ray)
     }
@@ -378,16 +389,20 @@ impl VoxelWorld {
     fn check_x(
         &self,
         ray: &Ray,
-        t_min: f32,
-        t_max: f32,
-        x: f32,
-        normal: Vector3<f32>,
+        t_min: RayScalar,
+        t_max: RayScalar,
+        x: RayScalar,
+        normal: Vector3<RayScalar>,
     ) -> Option<CheckRes> {
         let t = (x - ray.origin.x) / ray.direction.x;
         if t >= t_min && t <= t_max {
             let pos = ray.origin + ray.direction * t;
 
-            if pos.y >= 0.0 && pos.y <= self.y as f32 && pos.z >= 0.0 && pos.z <= self.z as f32 {
+            if pos.y >= 0.0
+                && pos.y <= self.y as RayScalar
+                && pos.z >= 0.0
+                && pos.z <= self.z as RayScalar
+            {
                 Some(CheckRes {
                     direction: ray.direction,
                     origin: pos,
@@ -404,16 +419,20 @@ impl VoxelWorld {
     fn check_y(
         &self,
         ray: &Ray,
-        t_min: f32,
-        t_max: f32,
-        y: f32,
-        normal: Vector3<f32>,
+        t_min: RayScalar,
+        t_max: RayScalar,
+        y: RayScalar,
+        normal: Vector3<RayScalar>,
     ) -> Option<CheckRes> {
         let t = (y - ray.origin.y) / ray.direction.y;
         if t > t_min && t < t_max {
             let pos = ray.at(t);
 
-            if pos.x > 0.0 && pos.x < self.x as f32 && pos.z > 0.0 && pos.z < self.z as f32 {
+            if pos.x > 0.0
+                && pos.x < self.x as RayScalar
+                && pos.z > 0.0
+                && pos.z < self.z as RayScalar
+            {
                 Some(CheckRes {
                     direction: ray.direction,
                     origin: pos,
@@ -430,16 +449,20 @@ impl VoxelWorld {
     fn check_z(
         &self,
         ray: &Ray,
-        t_min: f32,
-        t_max: f32,
-        z: f32,
-        normal: Vector3<f32>,
+        t_min: RayScalar,
+        t_max: RayScalar,
+        z: RayScalar,
+        normal: Vector3<RayScalar>,
     ) -> Option<CheckRes> {
         let t = (z - ray.origin.z) / ray.direction.z;
         if t > t_min && t < t_max {
             let pos = ray.at(t);
 
-            if pos.x >= 0.0 && pos.x <= self.x as f32 && pos.y >= 0.0 && pos.y <= self.y as f32 {
+            if pos.x >= 0.0
+                && pos.x <= self.x as RayScalar
+                && pos.y >= 0.0
+                && pos.y <= self.y as RayScalar
+            {
                 Some(CheckRes {
                     direction: ray.direction,
                     origin: pos,
@@ -457,8 +480,8 @@ impl VoxelWorld {
         &self,
         ray: &Ray,
         hit: HitResult<CubeMaterialIndex>,
-        t_min: f32,
-        t_max: f32,
+        t_min: RayScalar,
+        t_max: RayScalar,
     ) -> Option<HitRecord> {
         match hit {
             HitResult::Hit {
@@ -495,7 +518,7 @@ impl VoxelWorld {
 }
 
 impl Hittable for VoxelWorld {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let aabb = self.bounding_box(t_min, t_max).expect("failed to get aabb");
         if aabb.contains_point(ray.origin) {
             let hit_res = self.voxels.trace_voxels(
@@ -510,7 +533,7 @@ impl Hittable for VoxelWorld {
                 ray,
                 t_min,
                 t_max,
-                self.x as f32,
+                self.x as RayScalar,
                 Vector3::new(1.0, 0.0, 0.0),
             ),
             self.check_y(ray, t_min, t_max, 0.0, Vector3::new(0.0, -1.0, 0.0)),
@@ -518,7 +541,7 @@ impl Hittable for VoxelWorld {
                 ray,
                 t_min,
                 t_max,
-                self.y as f32,
+                self.y as RayScalar,
                 Vector3::new(0.0, 1.0, 0.0),
             ),
             self.check_z(ray, t_min, t_max, 0.0, Vector3::new(0.0, 0.0, 1.0)),
@@ -526,11 +549,11 @@ impl Hittable for VoxelWorld {
                 ray,
                 t_min,
                 t_max,
-                self.z as f32,
+                self.z as RayScalar,
                 Vector3::new(0.0, 0.0, 1.0),
             ),
         ];
-        let mut min_dist = f32::MAX;
+        let mut min_dist = RayScalar::MAX;
 
         let mut min_index = usize::MAX;
         for i in 0..solutions.len() {
@@ -578,7 +601,7 @@ impl Hittable for VoxelWorld {
                         let n = step_translucent(
                             s.origin,
                             s.direction.normalize(),
-                            density as f32 / MaterialIndex::MAX as f32,
+                            density as RayScalar / MaterialIndex::MAX as RayScalar,
                         );
                         if let Some(next) = n {
                             Some(HitRecord::new_ref(
@@ -601,18 +624,22 @@ impl Hittable for VoxelWorld {
         }
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, _time_0: RayScalar, _time_1: RayScalar) -> Option<Aabb> {
         Some(Aabb {
             minimum: Point3::new(0.0, 0.0, 0.0),
-            maximum: Point3::new(self.x as f32, self.y as f32, self.z as f32),
+            maximum: Point3::new(
+                self.x as RayScalar,
+                self.y as RayScalar,
+                self.z as RayScalar,
+            ),
         })
     }
 
-    fn prob(&self, _ray: Ray) -> f32 {
+    fn prob(&self, _ray: Ray) -> RayScalar {
         todo!()
     }
 
-    fn generate_ray_in_area(&self, _origin: Point3<f32>, _time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, _origin: Point3<RayScalar>, _time: RayScalar) -> RayAreaInfo {
         todo!()
     }
 }

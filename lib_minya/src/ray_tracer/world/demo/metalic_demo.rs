@@ -1,5 +1,5 @@
 use super::{new_demo, Metal, Object, SolidColor, Sphere, Transform, WorldInfo};
-
+use crate::prelude::RayScalar;
 use base_lib::RgbColor;
 use cgmath::Point3;
 
@@ -9,7 +9,7 @@ pub fn metallic_smooth() -> WorldInfo {
 pub fn metallic_rough() -> WorldInfo {
     metalic_demo_fuzz(0.8)
 }
-pub fn metalic_demo_fuzz(fuzz: f32) -> WorldInfo {
+pub fn metalic_demo_fuzz(fuzz: RayScalar) -> WorldInfo {
     return new_demo(vec![Object::new(
         Box::new(Sphere {
             radius: 1.0,

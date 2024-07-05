@@ -9,7 +9,7 @@ pub trait Background: Send + Sync + DynClone {
 }
 #[derive(Clone)]
 pub struct Sky {
-    pub intensity: f32,
+    pub intensity: RayScalar,
 }
 impl Background for Sky {
     fn color(&self, ray: Ray) -> RgbColor {
@@ -36,14 +36,14 @@ impl Default for Sky {
 }
 #[derive(Clone)]
 pub struct SunSky {
-    pub intensity: f32,
-    sun_radius: f32,
-    sun_theta: f32,
-    sun_phi: f32,
-    sun_brightness: f32,
+    pub intensity: RayScalar,
+    sun_radius: RayScalar,
+    sun_theta: RayScalar,
+    sun_phi: RayScalar,
+    sun_brightness: RayScalar,
 }
 impl SunSky {
-    pub fn new(sun: Sun, intensity: f32, sun_brightness: f32) -> Self {
+    pub fn new(sun: Sun, intensity: RayScalar, sun_brightness: RayScalar) -> Self {
         Self {
             intensity,
             sun_radius: sun.radius,

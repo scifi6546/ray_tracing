@@ -7,8 +7,8 @@ use std::ops::Deref;
 
 #[derive(Clone)]
 pub struct RenderBox {
-    box_min: Point3<f32>,
-    box_max: Point3<f32>,
+    box_min: Point3<RayScalar>,
+    box_max: Point3<RayScalar>,
 
     xyp: XYRect,
     xym: XYRect,
@@ -18,7 +18,11 @@ pub struct RenderBox {
     yzm: YZRect,
 }
 impl RenderBox {
-    pub fn new(box_min: Point3<f32>, box_max: Point3<f32>, material: Box<dyn Material>) -> Self {
+    pub fn new(
+        box_min: Point3<RayScalar>,
+        box_max: Point3<RayScalar>,
+        material: Box<dyn Material>,
+    ) -> Self {
         let xyp = XYRect::new(
             box_min.x,
             box_max.x,
@@ -101,7 +105,7 @@ impl RenderBox {
             }
         }
     }
-    fn calc_origin(&self) -> Point3<f32> {
+    fn calc_origin(&self) -> Point3<RayScalar> {
         Point3::new(
             (self.box_min.x + self.box_max.x) / 2.0,
             (self.box_min.y + self.box_max.y) / 2.0,
@@ -110,7 +114,7 @@ impl RenderBox {
     }
 }
 impl Hittable for RenderBox {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let mut closest_hit: Option<HitRecord> = None;
         Self::check_hit(&mut closest_hit, self.xyp.hit(ray, t_min, t_max));
         Self::check_hit(&mut closest_hit, self.xym.hit(ray, t_min, t_max));
@@ -124,13 +128,13 @@ impl Hittable for RenderBox {
         return closest_hit;
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, _time_0: RayScalar, _time_1: RayScalar) -> Option<Aabb> {
         Some(Aabb {
             minimum: self.box_min,
             maximum: self.box_max,
         })
     }
-    fn prob(&self, ray: Ray) -> f32 {
+    fn prob(&self, ray: Ray) -> RayScalar {
         let mut area = 0.0;
         if ray.direction.x >= 0.0 {
             area += self.yzm.prob(ray);
@@ -150,7 +154,7 @@ impl Hittable for RenderBox {
         area
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo {
         let face = rand_u32(0, 3);
         let to_self = self.calc_origin() - origin;
         if face == 0 {

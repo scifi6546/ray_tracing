@@ -6,9 +6,9 @@ use crate::prelude::*;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 
 pub fn cube_world_big() -> WorldInfo {
-    let look_at = Point3::new(50.0f32, 10.0, 50.0);
+    let look_at = Point3::<RayScalar>::new(50.0, 10.0, 50.0);
 
-    let origin = Point3::new(-20.0f32, 50.0, -20.0);
+    let origin = Point3::<RayScalar>::new(-20.0, 50.0, -20.0);
 
     let fov = 40.0;
     let focus_distance = {

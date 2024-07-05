@@ -9,11 +9,11 @@ use cgmath::Point3;
 use std::cmp::Ordering;
 #[derive(Clone, Copy, Debug)]
 pub struct Aabb {
-    pub minimum: Point3<f32>,
-    pub maximum: Point3<f32>,
+    pub minimum: Point3<RayScalar>,
+    pub maximum: Point3<RayScalar>,
 }
 impl Aabb {
-    pub fn hit(&self, ray: Ray, t_min: f32, t_max: f32) -> bool {
+    pub fn hit(&self, ray: Ray, t_min: RayScalar, t_max: RayScalar) -> bool {
         for a in 0..3 {
             let inv_d = 1.0 / ray.direction[a];
             let mut t0 = (self.minimum[a] - ray.origin[a]) * inv_d;
@@ -43,7 +43,7 @@ impl Aabb {
             },
         }
     }
-    pub fn contains_point(&self, point: Point3<f32>) -> bool {
+    pub fn contains_point(&self, point: Point3<RayScalar>) -> bool {
         self.minimum.x <= point.x
             && self.minimum.y <= point.y
             && self.minimum.z <= point.z
@@ -58,7 +58,7 @@ pub struct BvhTree {
     root_node: BvhTreeNode,
 }
 impl BvhTree {
-    pub fn new(objects: Vec<Object>, time_0: f32, time_1: f32) -> Self {
+    pub fn new(objects: Vec<Object>, time_0: RayScalar, time_1: RayScalar) -> Self {
         if objects.is_empty() {
             Self {
                 objects: Vec::new(),
@@ -70,10 +70,10 @@ impl BvhTree {
             Self { objects, root_node }
         }
     }
-    pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    pub fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         self.root_node.hit(&self.objects, ray, t_min, t_max)
     }
-    pub fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
+    pub fn bounding_box(&self, time_0: RayScalar, time_1: RayScalar) -> Option<Aabb> {
         self.root_node.bounding_box(&self.objects, time_0, time_1)
     }
 }
@@ -90,7 +90,13 @@ enum BvhTreeNode {
     },
 }
 impl BvhTreeNode {
-    fn hit(&self, objects: &[Object], ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(
+        &self,
+        objects: &[Object],
+        ray: &Ray,
+        t_min: RayScalar,
+        t_max: RayScalar,
+    ) -> Option<HitRecord> {
         if !self
             .bounding_box(objects, t_min, t_max)
             .expect("object does not have bounding box")
@@ -118,7 +124,12 @@ impl BvhTreeNode {
             }
         }
     }
-    fn bounding_box(&self, objects: &[Object], time_0: f32, time_1: f32) -> Option<Aabb> {
+    fn bounding_box(
+        &self,
+        objects: &[Object],
+        time_0: RayScalar,
+        time_1: RayScalar,
+    ) -> Option<Aabb> {
         match self {
             Self::None => Some(Aabb {
                 minimum: Point3::new(0.0, 0.0, 0.0),
@@ -157,8 +168,8 @@ impl BvhTreeNode {
         start: usize,
         end: usize,
         offset: usize,
-        time_0: f32,
-        time_1: f32,
+        time_0: RayScalar,
+        time_1: RayScalar,
     ) -> Self {
         let axis = rand_u32(0, 2);
         let span = end - start;

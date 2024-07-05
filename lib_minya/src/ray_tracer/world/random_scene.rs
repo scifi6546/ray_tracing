@@ -63,11 +63,11 @@ pub fn random_scene() -> WorldInfo {
     let objects = (-11..11)
         .flat_map(|a| {
             (-11..11).filter_map::<Object, _>(move |b| {
-                let choose_mat = rand::random::<f32>();
+                let choose_mat = rand::random::<RayScalar>();
                 let center = Point3::new(
-                    a as f32 + 0.9 * rand::random::<f32>(),
+                    a as RayScalar + 0.9 * rand::random::<RayScalar>(),
                     0.2,
-                    b as f32 + 0.9 * rand::random::<f32>(),
+                    b as RayScalar + 0.9 * rand::random::<RayScalar>(),
                 );
                 let check = center - Point3::new(4.0, 0.2, 0.0);
                 if check.dot(check).sqrt() > 0.9 {
@@ -76,7 +76,7 @@ pub fn random_scene() -> WorldInfo {
                             Box::new(MovingSphere {
                                 radius: 0.2,
                                 center_0: center,
-                                center_1: center + Vector3::new(0.0, rand_f32(0.0, 0.5), 0.0),
+                                center_1: center + Vector3::new(0.0, rand_scalar(0.0, 0.5), 0.0),
                                 time_0: 0.0,
                                 time_1: 1.0,
                                 material: Box::new(Lambertian {
@@ -96,7 +96,7 @@ pub fn random_scene() -> WorldInfo {
                                     albedo: Box::new(SolidColor {
                                         color: RgbColor::random(),
                                     }),
-                                    fuzz: rand::random::<f32>() * 0.5 + 0.5,
+                                    fuzz: rand::random::<RayScalar>() * 0.5 + 0.5,
                                 }),
                             }),
                             Transform::identity(),

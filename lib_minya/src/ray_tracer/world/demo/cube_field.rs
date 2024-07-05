@@ -4,9 +4,9 @@ use cgmath::{Point3, Vector3};
 
 pub fn build_field() -> WorldInfo {
     struct CubeInfo {
-        x: f32,
-        z: f32,
-        rotate_y: f32,
+        x: RayScalar,
+        z: RayScalar,
+        rotate_y: RayScalar,
     }
     let cube_arr = [
         CubeInfo {

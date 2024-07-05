@@ -8,8 +8,8 @@ use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 
 pub fn easy_scene() -> WorldInfo {
-    let look_at = Point3::new(0.0f32, 0.0, -1.0);
-    let origin = Point3::new(10.0f32, 3.0, 2.0);
+    let look_at = Point3::<RayScalar>::new(0.0, 0.0, -1.0);
+    let origin = Point3::<RayScalar>::new(10.0, 3.0, 2.0);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()

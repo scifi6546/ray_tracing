@@ -3,6 +3,7 @@ use super::Leafable;
 use base_lib::RgbColor;
 use std::rc::Rc;
 
+use crate::prelude::RayScalar;
 use crate::{
     prelude::Ray,
     ray_tracer::{
@@ -19,12 +20,16 @@ pub struct VoxelMaterial {
 }
 impl Leafable for VoxelMaterial {}
 impl VoxelMaterial {
-    fn scattering_pdf_fn(_ray_in: Ray, record_in: &HitRecord, scattered_ray: Ray) -> Option<f32> {
+    fn scattering_pdf_fn(
+        _ray_in: Ray,
+        record_in: &HitRecord,
+        scattered_ray: Ray,
+    ) -> Option<RayScalar> {
         let cosine = record_in.normal.dot(scattered_ray.direction.normalize());
         if cosine < 0.0 {
             None
         } else {
-            Some(cosine / f32::PI())
+            Some(cosine / RayScalar::PI())
         }
     }
 }
@@ -47,7 +52,7 @@ impl Material for VoxelMaterial {
         _ray_in: Ray,
         _record_in: &HitRecord,
         _scattered_ray: Ray,
-    ) -> Option<f32> {
+    ) -> Option<RayScalar> {
         None
     }
 }

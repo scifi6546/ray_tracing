@@ -7,9 +7,9 @@ pub fn load_vox_model() -> WorldInfo {
     const BLOCK_Y: i32 = 50;
     const BLOCK_Z: i32 = 60;
     let model = VoxelModel::load("voxel_assets/apartment_building.vox");
-    let look_at = Point3::new(BLOCK_X as f32 / 2.0, 10.0, BLOCK_Z as f32 / 2.0);
+    let look_at = Point3::new(BLOCK_X as RayScalar / 2.0, 10.0, BLOCK_Z as RayScalar / 2.0);
 
-    let origin = Point3::new(-50.0f32, 100.0, -40.0);
+    let origin = Point3::<RayScalar>::new(-50.0, 100.0, -40.0);
     //let origin = Point3::new(-40.0f32, 10.0, -40.0);
 
     let fov = 40.0;

@@ -8,8 +8,10 @@ pub(crate) use cgmath::{Point3, Vector3};
 pub use log::{error, info, warn};
 
 use std::{cmp::PartialOrd, fmt::*};
-pub fn rand_f32(min: f32, max: f32) -> f32 {
-    rand::random::<f32>() * (max - min) + min
+/// Type that a ray uses.
+pub type RayScalar = f64;
+pub fn rand_scalar(min: RayScalar, max: RayScalar) -> RayScalar {
+    rand::random::<RayScalar>() * (max - min) + min
 }
 pub fn rand_u32(min: u32, max: u32) -> u32 {
     (rand::random::<u32>() % (max - min)) + min
@@ -30,10 +32,10 @@ pub fn p_max<T: PartialOrd>(a: T, b: T) -> T {
 }
 
 pub struct OrthoNormalBasis {
-    pub axis: [Vector3<f32>; 3],
+    pub axis: [Vector3<RayScalar>; 3],
 }
 impl OrthoNormalBasis {
-    pub fn build_from_w(n: Vector3<f32>) -> Self {
+    pub fn build_from_w(n: Vector3<RayScalar>) -> Self {
         let w = n.normalize();
         let a = if w.x.abs() > 0.9 {
             Vector3::new(0.0, 1.0, 0.0)
@@ -44,21 +46,21 @@ impl OrthoNormalBasis {
         let u = w.cross(v);
         Self { axis: [u, v, w] }
     }
-    pub fn local(&self, a: Vector3<f32>) -> Vector3<f32> {
+    pub fn local(&self, a: Vector3<RayScalar>) -> Vector3<RayScalar> {
         a.x * self.u() + a.y * self.v() + a.z * self.w()
     }
-    pub fn u(&self) -> Vector3<f32> {
+    pub fn u(&self) -> Vector3<RayScalar> {
         self.axis[0]
     }
-    pub fn v(&self) -> Vector3<f32> {
+    pub fn v(&self) -> Vector3<RayScalar> {
         self.axis[1]
     }
-    pub fn w(&self) -> Vector3<f32> {
+    pub fn w(&self) -> Vector3<RayScalar> {
         self.axis[2]
     }
 }
 impl std::ops::Index<usize> for OrthoNormalBasis {
-    type Output = Vector3<f32>;
+    type Output = Vector3<RayScalar>;
 
     fn index(&self, index: usize) -> &Self::Output {
         assert!(index <= 2);
@@ -71,11 +73,11 @@ impl std::ops::IndexMut<usize> for OrthoNormalBasis {
         &mut self.axis[index]
     }
 }
-pub fn random_cosine_direction() -> Vector3<f32> {
-    let r1 = rand_f32(0.0, 1.0);
-    let r2 = rand_f32(0.0, 1.0);
+pub fn random_cosine_direction() -> Vector3<RayScalar> {
+    let r1 = rand_scalar(0.0, 1.0);
+    let r2 = rand_scalar(0.0, 1.0);
     let z = (1.0 - r2).sqrt();
-    let phi = 2.0 * f32::PI() * r1;
+    let phi = 2.0 * RayScalar::PI() * r1;
     let x = phi.cos() * r2.sqrt();
     let y = phi.sin() * r2.sqrt();
     Vector3 { x, y, z }
@@ -84,12 +86,12 @@ pub fn random_cosine_direction() -> Vector3<f32> {
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
-    pub origin: Point3<f32>,
-    pub direction: Vector3<f32>,
-    pub time: f32,
+    pub origin: Point3<RayScalar>,
+    pub direction: Vector3<RayScalar>,
+    pub time: RayScalar,
 }
 impl Ray {
-    pub fn at(&self, t: f32) -> Point3<f32> {
+    pub fn at(&self, t: RayScalar) -> Point3<RayScalar> {
         self.origin + t * self.direction
     }
 }
@@ -115,7 +117,7 @@ mod test {
     #[test]
     pub fn test_rand() {
         for i in 0..10_000 {
-            let r = rand_f32(0.0, 1.0);
+            let r = rand_scalar(0.0, 1.0);
             assert!(r >= 0.0);
             assert!(r <= 1.0);
         }

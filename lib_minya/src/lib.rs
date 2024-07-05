@@ -5,7 +5,7 @@ pub mod ray_tracer;
 use cgmath::{prelude::*, Vector3};
 
 use prelude::*;
-pub fn reflect(v: Vector3<f32>, normal: Vector3<f32>) -> Vector3<f32> {
+pub fn reflect(v: Vector3<RayScalar>, normal: Vector3<RayScalar>) -> Vector3<RayScalar> {
     v - 2.0 * v.dot(normal) * normal
 }
 pub struct Image {

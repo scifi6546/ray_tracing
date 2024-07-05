@@ -8,33 +8,33 @@ use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
 use std::{fmt, rc::Rc};
 
 pub trait Pdf {
-    fn value(&self, direction: &Ray, world: &World) -> Option<f32>;
+    fn value(&self, direction: &Ray, world: &World) -> Option<RayScalar>;
     /// Checks if the PDF is valid for the given world
     fn is_valid(&self, world: &World) -> bool;
     fn generate(
         &self,
         incoming_ray: Ray,
-        hit_point: Point3<f32>,
+        hit_point: Point3<RayScalar>,
         world: &World,
-    ) -> Option<(Vector3<f32>, f32)>;
+    ) -> Option<(Vector3<RayScalar>, RayScalar)>;
 }
 pub struct CosinePdf {
     pub uvw: OrthoNormalBasis,
 }
 impl CosinePdf {
-    pub fn new(normal: Vector3<f32>) -> Self {
+    pub fn new(normal: Vector3<RayScalar>) -> Self {
         Self {
             uvw: OrthoNormalBasis::build_from_w(normal),
         }
     }
 }
 impl Pdf for CosinePdf {
-    fn value(&self, ray: &Ray, _world: &World) -> Option<f32> {
+    fn value(&self, ray: &Ray, _world: &World) -> Option<RayScalar> {
         let cos = ray.direction.dot(self.uvw.w());
         if cos <= 0.0 {
             Some(0.0)
         } else {
-            Some(cos / f32::PI())
+            Some(cos / RayScalar::PI())
         }
     }
 
@@ -45,20 +45,24 @@ impl Pdf for CosinePdf {
     fn generate(
         &self,
         _ray: Ray,
-        _hit_point: Point3<f32>,
+        _hit_point: Point3<RayScalar>,
         _world: &World,
-    ) -> Option<(Vector3<f32>, f32)> {
+    ) -> Option<(Vector3<RayScalar>, RayScalar)> {
         let direction = self.uvw.local(random_cosine_direction()).normalize();
         let cos = direction.dot(self.uvw.w());
-        let value = if cos <= 0.0 { 0.0 } else { cos / f32::PI() };
+        let value = if cos <= 0.0 {
+            0.0
+        } else {
+            cos / RayScalar::PI()
+        };
 
         Some((direction, value))
     }
 }
 pub struct LightPdf {}
 impl Pdf for LightPdf {
-    fn value(&self, ray: &Ray, world: &World) -> Option<f32> {
-        if let Some((light, hit)) = world.nearest_light_hit(ray, ray.time, f32::MAX) {
+    fn value(&self, ray: &Ray, world: &World) -> Option<RayScalar> {
+        if let Some((light, hit)) = world.nearest_light_hit(ray, ray.time, RayScalar::MAX) {
             let to_light = hit.position - ray.origin;
             let light_cos = to_light.normalize().dot(hit.normal).abs();
 
@@ -82,9 +86,9 @@ impl Pdf for LightPdf {
     fn generate(
         &self,
         incoming_ray: Ray,
-        hit_point: Point3<f32>,
+        hit_point: Point3<RayScalar>,
         world: &World,
-    ) -> Option<(Vector3<f32>, f32)> {
+    ) -> Option<(Vector3<RayScalar>, RayScalar)> {
         if world.lights.is_empty() {
             return None;
         }
@@ -110,7 +114,7 @@ impl Pdf for LightPdf {
 pub struct SkyPdf {}
 impl SkyPdf {}
 impl Pdf for SkyPdf {
-    fn value(&self, direction: &Ray, world: &World) -> Option<f32> {
+    fn value(&self, direction: &Ray, world: &World) -> Option<RayScalar> {
         if world.sun.is_none() {
             Some(1.0)
         } else {
@@ -132,18 +136,18 @@ impl Pdf for SkyPdf {
     fn generate(
         &self,
         _incoming_ray: Ray,
-        _hit_point: Point3<f32>,
+        _hit_point: Point3<RayScalar>,
         world: &World,
-    ) -> Option<(Vector3<f32>, f32)> {
+    ) -> Option<(Vector3<RayScalar>, RayScalar)> {
         /// generates theta and r inside of unit circle
-        fn gen_unit_circle() -> (f32, f32) {
-            let rand_r = rand_f32(0.0, 1.0);
-            let rand_theta = rand_f32(0.0, 2.0 * f32::PI());
+        fn gen_unit_circle() -> (RayScalar, RayScalar) {
+            let rand_r = rand_scalar(0.0, 1.0);
+            let rand_theta = rand_scalar(0.0, 2.0 * RayScalar::PI());
             (rand_r.sqrt(), rand_theta)
         }
         if world.sun.is_none() {
             let rand_vector = rand_unit_vec();
-            Some((rand_vector, 4.0 * f32::PI()))
+            Some((rand_vector, 4.0 * RayScalar::PI()))
         } else {
             let sun = world.sun.unwrap();
 
@@ -160,11 +164,9 @@ impl Pdf for SkyPdf {
                 + (k.cross(sun_vector)) * theta.sin()
                 + k * (k.dot(sun_vector)) * (1.0 - theta.cos());
 
-            let area = f32::PI() * sun.radius.powi(2);
-            if rand_u32(0, 1000) == 0 {
-                // info!("area: {}, v_rot: {:#?}, k: {:#?}", area, v_rot, k);
-            }
-            let area_sphere = 4.0 * f32::PI();
+            let area = RayScalar::PI() * sun.radius.powi(2);
+
+            let area_sphere = 4.0 * RayScalar::PI();
 
             // rotation vector, https://en.wikipedia.org/wiki/Rodrigues'_rotation_formula
             //
@@ -179,7 +181,7 @@ pub(crate) struct LambertianPDF {
     sky_pdf: SkyPdf,
 }
 impl LambertianPDF {
-    pub fn new(normal: Vector3<f32>) -> Self {
+    pub fn new(normal: Vector3<RayScalar>) -> Self {
         Self {
             sin_pdf: CosinePdf::new(normal),
             light_pdf: LightPdf {},
@@ -188,7 +190,7 @@ impl LambertianPDF {
     }
 }
 impl Pdf for LambertianPDF {
-    fn value(&self, direction: &Ray, world: &World) -> Option<f32> {
+    fn value(&self, direction: &Ray, world: &World) -> Option<RayScalar> {
         let mut value = 0.0;
         let mut count = 0;
         for v in [
@@ -202,7 +204,7 @@ impl Pdf for LambertianPDF {
             value += v;
             count += 1;
         }
-        Some(value / count as f32)
+        Some(value / count as RayScalar)
     }
 
     fn is_valid(&self, world: &World) -> bool {
@@ -214,9 +216,9 @@ impl Pdf for LambertianPDF {
     fn generate(
         &self,
         incoming_ray: Ray,
-        hit_point: Point3<f32>,
+        hit_point: Point3<RayScalar>,
         world: &World,
-    ) -> Option<(Vector3<f32>, f32)> {
+    ) -> Option<(Vector3<RayScalar>, RayScalar)> {
         let r = rand_u32(0, 3);
         let v = match r {
             0 => self.sin_pdf.generate(incoming_ray, hit_point, world),
@@ -226,7 +228,7 @@ impl Pdf for LambertianPDF {
         };
         if v.is_some() {
             let (out_direction, pdf) = v.unwrap();
-            let mut sum = 0.0f32;
+            let mut sum: RayScalar = 0.0;
             let mut total = 0;
             let value_ray = Ray {
                 origin: hit_point,
@@ -255,7 +257,7 @@ impl Pdf for LambertianPDF {
                 }
             }
             if total != 0 {
-                Some((out_direction, (sum + pdf) / (total + 1) as f32))
+                Some((out_direction, (sum + pdf) / (total + 1) as RayScalar))
             } else {
                 None
             }
@@ -269,7 +271,7 @@ pub struct ScatterRecord {
     pub specular_ray: Option<Ray>,
     pub attenuation: RgbColor,
     pub pdf: Option<Rc<dyn Pdf>>,
-    pub scattering_pdf: fn(Ray, &HitRecord, Ray) -> Option<f32>,
+    pub scattering_pdf: fn(Ray, &HitRecord, Ray) -> Option<RayScalar>,
 }
 impl fmt::Debug for ScatterRecord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

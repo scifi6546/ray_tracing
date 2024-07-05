@@ -7,7 +7,7 @@ use std::ops::Deref;
 pub struct ConstantMedium {
     boundary: Box<dyn Hittable>,
     phase_function: Box<dyn Material>,
-    neg_inv_density: f32,
+    neg_inv_density: RayScalar,
 }
 impl Clone for ConstantMedium {
     fn clone(&self) -> Self {
@@ -22,7 +22,7 @@ impl ConstantMedium {
     pub fn new(
         boundary: Box<dyn Hittable>,
         phase_function: Box<dyn Material>,
-        density: f32,
+        density: RayScalar,
     ) -> Self {
         Self {
             boundary,
@@ -32,7 +32,7 @@ impl ConstantMedium {
     }
 }
 impl Hittable for ConstantMedium {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let mut hit1 = self
             .boundary
             .hit(ray, -1.0 * 10000000000.0, 10000000000.0)?;
@@ -59,7 +59,7 @@ impl Hittable for ConstantMedium {
         };
 
         let distance_inside_boundary = (hit2.t - hit1.t) * ray_length;
-        let hit_distance = self.neg_inv_density * rand_f32(0.0, 1.0).ln();
+        let hit_distance = self.neg_inv_density * rand_scalar(0.0, 1.0).ln();
         if hit_distance > distance_inside_boundary {
             return None;
         }
@@ -94,13 +94,13 @@ impl Hittable for ConstantMedium {
         })
     }
 
-    fn bounding_box(&self, time_0: f32, time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, time_0: RayScalar, time_1: RayScalar) -> Option<Aabb> {
         self.boundary.bounding_box(time_0, time_1)
     }
-    fn prob(&self, ray: Ray) -> f32 {
+    fn prob(&self, ray: Ray) -> RayScalar {
         self.boundary.prob(ray)
     }
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo {
         self.boundary.generate_ray_in_area(origin, time)
     }
 }

@@ -6,12 +6,12 @@ use std::ops::Deref;
 
 pub struct XYRect {
     pub material: Box<dyn Material>,
-    pub x0: f32,
-    pub x1: f32,
-    pub y0: f32,
-    pub y1: f32,
-    pub k: f32,
-    normal_flip: f32,
+    pub x0: RayScalar,
+    pub x1: RayScalar,
+    pub y0: RayScalar,
+    pub y1: RayScalar,
+    pub k: RayScalar,
+    normal_flip: RayScalar,
 }
 
 impl Clone for XYRect {
@@ -28,17 +28,17 @@ impl Clone for XYRect {
     }
 }
 impl XYRect {
-    pub const NORMAL: Vector3<f32> = Vector3 {
+    pub const NORMAL: Vector3<RayScalar> = Vector3 {
         x: 0.0,
         y: 0.0,
         z: 1.0,
     };
     pub fn new(
-        x0: f32,
-        x1: f32,
-        y0: f32,
-        y1: f32,
-        z: f32,
+        x0: RayScalar,
+        x1: RayScalar,
+        y0: RayScalar,
+        y1: RayScalar,
+        z: RayScalar,
         material: Box<dyn Material>,
         flip_normals: bool,
     ) -> Self {
@@ -55,12 +55,12 @@ impl XYRect {
             },
         }
     }
-    fn area(&self) -> f32 {
+    fn area(&self) -> RayScalar {
         (self.x1 - self.x0) * (self.y1 - self.y0)
     }
 }
 impl Hittable for XYRect {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let t = (self.k - ray.origin.z) / ray.direction.z;
         if t < t_min || t > t_max {
             return None;
@@ -85,13 +85,13 @@ impl Hittable for XYRect {
         ))
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, _time_0: RayScalar, _time_1: RayScalar) -> Option<Aabb> {
         Some(Aabb {
             minimum: Point3::new(self.x0, self.y0, self.k - 0.001),
             maximum: Point3::new(self.x1, self.y1, self.k + 0.001),
         })
     }
-    fn prob(&self, ray: Ray) -> f32 {
+    fn prob(&self, ray: Ray) -> RayScalar {
         let center =
             0.5 * (Point3::new(self.x0, self.y0, self.k) + Vector3::new(self.x1, self.y1, self.k));
         let to_light = center - ray.origin;
@@ -105,10 +105,10 @@ impl Hittable for XYRect {
         distance_squared / (cos_alpha * self.area())
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo {
         let end_point = Point3::new(
-            rand_f32(self.x0, self.x1),
-            rand_f32(self.y0, self.y1),
+            rand_scalar(self.x0, self.x1),
+            rand_scalar(self.y0, self.y1),
             self.k,
         );
         let direction = (end_point - origin).normalize();
@@ -127,12 +127,12 @@ impl Hittable for XYRect {
 }
 
 pub struct XZRect {
-    pub x0: f32,
-    pub x1: f32,
-    pub z0: f32,
-    pub z1: f32,
-    pub k: f32,
-    normal_flip: f32,
+    pub x0: RayScalar,
+    pub x1: RayScalar,
+    pub z0: RayScalar,
+    pub z1: RayScalar,
+    pub k: RayScalar,
+    normal_flip: RayScalar,
     pub material: Box<dyn Material>,
 }
 
@@ -150,17 +150,17 @@ impl Clone for XZRect {
     }
 }
 impl XZRect {
-    pub const NORMAL: Vector3<f32> = Vector3 {
+    pub const NORMAL: Vector3<RayScalar> = Vector3 {
         x: 0.0,
         y: 1.0,
         z: 0.0,
     };
     pub fn new(
-        x0: f32,
-        x1: f32,
-        z0: f32,
-        z1: f32,
-        y: f32,
+        x0: RayScalar,
+        x1: RayScalar,
+        z0: RayScalar,
+        z1: RayScalar,
+        y: RayScalar,
         material: Box<dyn Material>,
         flip_normals: bool,
     ) -> Self {
@@ -179,7 +179,7 @@ impl XZRect {
     }
 }
 impl Hittable for XZRect {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let t = (self.k - ray.origin.y) / ray.direction.y;
         if t < t_min || t > t_max {
             return None;
@@ -202,13 +202,13 @@ impl Hittable for XZRect {
         ))
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, _time_0: RayScalar, _time_1: RayScalar) -> Option<Aabb> {
         Some(Aabb {
             minimum: Point3::new(self.x0, self.k - 0.001, self.z0),
             maximum: Point3::new(self.x1, self.k + 0.001, self.z1),
         })
     }
-    fn prob(&self, ray: Ray) -> f32 {
+    fn prob(&self, ray: Ray) -> RayScalar {
         let center =
             0.5 * (Point3::new(self.x0, self.k, self.z0) + Vector3::new(self.x1, self.k, self.z1));
         let to_light = center - ray.origin;
@@ -223,11 +223,11 @@ impl Hittable for XZRect {
         distance_squared / (cos_alpha * area)
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo {
         let end_point = Point3::new(
-            rand_f32(self.x0, self.x1),
+            rand_scalar(self.x0, self.x1),
             self.k,
-            rand_f32(self.z0, self.z1),
+            rand_scalar(self.z0, self.z1),
         );
         let direction = (end_point - origin).normalize();
         RayAreaInfo {
@@ -245,13 +245,13 @@ impl Hittable for XZRect {
 }
 
 pub struct YZRect {
-    pub y0: f32,
-    pub y1: f32,
-    pub z0: f32,
-    pub z1: f32,
-    pub k: f32,
+    pub y0: RayScalar,
+    pub y1: RayScalar,
+    pub z0: RayScalar,
+    pub z1: RayScalar,
+    pub k: RayScalar,
     pub material: Box<dyn Material>,
-    normal_flip: f32,
+    normal_flip: RayScalar,
 }
 
 impl Clone for YZRect {
@@ -268,17 +268,17 @@ impl Clone for YZRect {
     }
 }
 impl YZRect {
-    pub const NORMAL: Vector3<f32> = Vector3 {
+    pub const NORMAL: Vector3<RayScalar> = Vector3 {
         x: 1.0,
         y: 0.0,
         z: 0.0,
     };
     pub fn new(
-        y0: f32,
-        y1: f32,
-        z0: f32,
-        z1: f32,
-        x: f32,
+        y0: RayScalar,
+        y1: RayScalar,
+        z0: RayScalar,
+        z1: RayScalar,
+        x: RayScalar,
         material: Box<dyn Material>,
         flip_normals: bool,
     ) -> Self {
@@ -295,12 +295,12 @@ impl YZRect {
             },
         }
     }
-    fn area(&self) -> f32 {
+    fn area(&self) -> RayScalar {
         (self.y1 - self.y0) * (self.z1 - self.z0)
     }
 }
 impl Hittable for YZRect {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let t = (self.k - ray.origin.x) / ray.direction.x;
         if t < t_min || t > t_max {
             return None;
@@ -324,13 +324,13 @@ impl Hittable for YZRect {
         ))
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, _time_0: RayScalar, _time_1: RayScalar) -> Option<Aabb> {
         Some(Aabb {
             minimum: Point3::new(self.k - 0.001, self.y0, self.z0),
             maximum: Point3::new(self.k + 0.001, self.y1, self.z1),
         })
     }
-    fn prob(&self, ray: Ray) -> f32 {
+    fn prob(&self, ray: Ray) -> RayScalar {
         let center =
             0.5 * (Point3::new(self.k, self.y0, self.z0) + Vector3::new(self.k, self.y1, self.z1));
         let to_light = center - ray.origin;
@@ -344,11 +344,11 @@ impl Hittable for YZRect {
         distance_squared / (cos_alpha * self.area())
     }
 
-    fn generate_ray_in_area(&self, origin: Point3<f32>, time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo {
         let end_point = Point3::new(
             self.k,
-            rand_f32(self.y0, self.y1),
-            rand_f32(self.z0, self.z1),
+            rand_scalar(self.y0, self.y1),
+            rand_scalar(self.z0, self.z1),
         );
         let direction = (end_point - origin).normalize();
         RayAreaInfo {

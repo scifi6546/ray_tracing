@@ -51,7 +51,6 @@ impl PostProcessingStage for GaussianBlur {
             down_sampled[i] = down_sampled[i].clone() + &down_sampled[i + 1];
         }
 
-
         return down_sampled[0].clone();
     }
 }
@@ -87,7 +86,7 @@ pub fn bloom(texture: &mut ParallelImage) {
         for y in 0..texture.height() {
             let hdr_color = original_texture.get_xy(x, y).clamp();
             let bloom_color = bloom_texture.get_xy(x, y) + hdr_color;
-            let set_color = RgbColor::WHITE - (-1.0 * hdr_color * bloom_color).exp();
+            let set_color = RgbColor::WHITE - (-1.0f32 * hdr_color * bloom_color).exp();
             let set_color = set_color.pow(1.0 / gamma);
             texture.set_xy(x, y, set_color);
         }

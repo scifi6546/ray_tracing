@@ -1,5 +1,5 @@
 use super::{prelude::distance, Leafable, OctTree, OctTreeChildren, OctTreeHitInfo, OctTreeNode};
-use crate::prelude::Ray;
+use crate::prelude::{Ray, RayScalar};
 use cgmath::{prelude::*, Point3, Vector3};
 use log::{error, info};
 
@@ -18,9 +18,9 @@ impl<T: Leafable> OctTreeNode<T> {
                     if ray.origin.x > 0.0
                         && ray.origin.y > 0.0
                         && ray.origin.z > 0.0
-                        && ray.origin.x < self.size as f32
-                        && ray.origin.y < self.size as f32
-                        && ray.origin.z < self.size as f32
+                        && ray.origin.x < self.size as RayScalar
+                        && ray.origin.y < self.size as RayScalar
+                        && ray.origin.z < self.size as RayScalar
                     {
                         let (axis, closest_time, normal) = (0..3)
                             .flat_map(|axis_index| {
@@ -28,19 +28,19 @@ impl<T: Leafable> OctTreeNode<T> {
                                     (
                                         axis_index,
                                         ray.intersect_axis(axis_index, 0.0),
-                                        Vector3::new(
-                                            if axis_index == 0 { -1.0f32 } else { 0.0 },
-                                            if axis_index == 1 { -1.0f32 } else { 0.0 },
-                                            if axis_index == 2 { -1.0f32 } else { 0.0 },
+                                        Vector3::<RayScalar>::new(
+                                            if axis_index == 0 { -1.0 } else { 0.0 },
+                                            if axis_index == 1 { -1.0 } else { 0.0 },
+                                            if axis_index == 2 { -1.0 } else { 0.0 },
                                         ),
                                     ),
                                     (
                                         axis_index,
-                                        ray.intersect_axis(axis_index, self.size as f32),
-                                        Vector3::new(
-                                            if axis_index == 0 { 1.0f32 } else { 0.0 },
-                                            if axis_index == 1 { 1.0f32 } else { 0.0 },
-                                            if axis_index == 2 { 1.0f32 } else { 0.0 },
+                                        ray.intersect_axis(axis_index, self.size as RayScalar),
+                                        Vector3::<RayScalar>::new(
+                                            if axis_index == 0 { 1.0 } else { 0.0 },
+                                            if axis_index == 1 { 1.0 } else { 0.0 },
+                                            if axis_index == 2 { 1.0 } else { 0.0 },
                                         ),
                                     ),
                                 ]
@@ -49,22 +49,25 @@ impl<T: Leafable> OctTreeNode<T> {
                                 let pos = ray.local_at(*time);
                                 let pos_good = [
                                     *axis_index == 0
-                                        || (pos[0] >= 0. && pos[0] <= self.size as f32),
+                                        || (pos[0] >= 0. && pos[0] <= self.size as RayScalar),
                                     *axis_index == 1
-                                        || (pos[1] >= 0. && pos[1] <= self.size as f32),
+                                        || (pos[1] >= 0. && pos[1] <= self.size as RayScalar),
                                     *axis_index == 2
-                                        || (pos[2] >= 0. && pos[2] <= self.size as f32),
+                                        || (pos[2] >= 0. && pos[2] <= self.size as RayScalar),
                                 ];
                                 pos_good[0] && pos_good[1] && pos_good[2]
                             })
                             .filter(|(_axis_index, time, _normal)| *time < 0.0)
-                            .fold((4, f32::MAX, Vector3::new(0.0, 0.0, 0.0)), |acc, b| {
-                                if acc.1 < b.1 {
-                                    acc
-                                } else {
-                                    b
-                                }
-                            });
+                            .fold(
+                                (4, RayScalar::MAX, Vector3::new(0.0, 0.0, 0.0)),
+                                |acc, b| {
+                                    if acc.1 < b.1 {
+                                        acc
+                                    } else {
+                                        b
+                                    }
+                                },
+                            );
                         if axis != 4 {
                             let ray_pos = ray.local_at(closest_time);
                             Some(OctTreeHitInfo {
@@ -85,17 +88,17 @@ impl<T: Leafable> OctTreeNode<T> {
                                         (
                                             axis,
                                             ray.intersect_axis(axis, 0.0),
-                                            Vector3::new(
-                                                if axis == 0 { -1.0f32 } else { 0.0 },
+                                            Vector3::<RayScalar>::new(
+                                                if axis == 0 { -1.0 } else { 0.0 },
                                                 if axis == 1 { -1.0 } else { 0.0 },
                                                 if axis == 2 { -1.0 } else { 0.0 },
                                             ),
                                         ),
                                         (
                                             axis,
-                                            ray.intersect_axis(axis, self.size as f32),
-                                            Vector3::new(
-                                                if axis == 0 { -1.0f32 } else { 0.0 },
+                                            ray.intersect_axis(axis, self.size as RayScalar),
+                                            Vector3::<RayScalar>::new(
+                                                if axis == 0 { -1.0 } else { 0.0 },
                                                 if axis == 1 { -1.0 } else { 0.0 },
                                                 if axis == 2 { -1.0 } else { 0.0 },
                                             ),
@@ -105,7 +108,7 @@ impl<T: Leafable> OctTreeNode<T> {
                                     [
                                         (
                                             axis,
-                                            ray.intersect_axis(axis, self.size as f32),
+                                            ray.intersect_axis(axis, self.size as RayScalar),
                                             Vector3::new(
                                                 if axis == 0 { 1.0 } else { 0.0 },
                                                 if axis == 1 { 1.0 } else { 0.0 },
@@ -128,22 +131,25 @@ impl<T: Leafable> OctTreeNode<T> {
                             .filter(|(idx, time, _normal)| {
                                 let pos = ray.local_at(*time);
                                 let pos_good = [
-                                    *idx == 0 || (pos[0] >= 0. && pos[0] <= self.size as f32),
-                                    *idx == 1 || (pos[1] >= 0. && pos[1] <= self.size as f32),
-                                    *idx == 2 || (pos[2] >= 0. && pos[2] <= self.size as f32),
+                                    *idx == 0 || (pos[0] >= 0. && pos[0] <= self.size as RayScalar),
+                                    *idx == 1 || (pos[1] >= 0. && pos[1] <= self.size as RayScalar),
+                                    *idx == 2 || (pos[2] >= 0. && pos[2] <= self.size as RayScalar),
                                 ];
                                 pos_good[0] && pos_good[1] && pos_good[2]
                             })
                             .filter(|(_idx, time, _normal)| {
                                 ray.distance(ray.local_at(*time)).is_finite()
                             })
-                            .fold((4, f32::MAX, Vector3::new(0.0f32, 0.0, 0.0)), |acc, x| {
-                                if acc.1 < x.1 {
-                                    acc
-                                } else {
-                                    x
-                                }
-                            });
+                            .fold(
+                                (4, RayScalar::MAX, Vector3::<RayScalar>::new(0.0, 0.0, 0.0)),
+                                |acc, x| {
+                                    if acc.1 < x.1 {
+                                        acc
+                                    } else {
+                                        x
+                                    }
+                                },
+                            );
                         if axis != 4 {
                             let d = ray.distance(ray.local_at(time));
                             if d.is_infinite() {
@@ -173,19 +179,19 @@ impl<T: Leafable> OctTreeNode<T> {
                         if ray.direction[idx] >= 0. {
                             [
                                 (ray.intersect_axis(idx, 0.0), 0u32),
-                                (ray.intersect_axis(idx, self.size as f32 / 2.0), 1),
+                                (ray.intersect_axis(idx, self.size as RayScalar / 2.0), 1),
                             ]
                         } else {
                             [
-                                (ray.intersect_axis(idx, self.size as f32 / 2.0), 0),
-                                (ray.intersect_axis(idx, self.size as f32), 1),
+                                (ray.intersect_axis(idx, self.size as RayScalar / 2.0), 0),
+                                (ray.intersect_axis(idx, self.size as RayScalar), 1),
                             ]
                         }
                         .map(|(time, idx_pos)| (idx, time, ray.local_at(time), idx_pos))
                     })
                     .filter(|(_idx, time, _pos, _axis_pos)| time.is_finite() && *time >= 0.)
                     .filter(|(idx, _dist, pos, _idx_pos)| {
-                        let is_valid = pos.map(|v| v >= 0. && v <= self.size as f32);
+                        let is_valid = pos.map(|v| v >= 0. && v <= self.size as RayScalar);
 
                         (is_valid[0] || *idx == 0)
                             && (is_valid[1] || *idx == 1)
@@ -225,7 +231,7 @@ impl<T: Leafable> OctTreeNode<T> {
                     a_dist.partial_cmp(&b_dist).unwrap()
                 });
                 for (index, tile_index, pos) in tiles {
-                    let tile_pos_floored = tile_index.map(|v| (v * self.size / 2) as f32);
+                    let tile_pos_floored = tile_index.map(|v| (v * self.size / 2) as RayScalar);
 
                     let origin = Point3::new(
                         pos.x - tile_pos_floored.x,

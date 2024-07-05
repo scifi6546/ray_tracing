@@ -4,7 +4,7 @@ mod ray_trace;
 mod shapes;
 
 use super::{HitRecord, Hittable, Ray, RayAreaInfo};
-use crate::ray_tracer::bvh::Aabb;
+use crate::{prelude::RayScalar, ray_tracer::bvh::Aabb};
 pub use material::VoxelMaterial;
 
 use prelude::distance;
@@ -13,8 +13,10 @@ use cgmath::{InnerSpace, Point2, Point3, Vector3};
 
 mod prelude {
 
+    use crate::prelude::RayScalar;
     use cgmath::{Point3, Vector3};
-    pub fn distance(a: Vector3<f32>, b: Vector3<f32>) -> f32 {
+
+    pub fn distance(a: Vector3<RayScalar>, b: Vector3<RayScalar>) -> RayScalar {
         ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
     }
     // from https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_aabb.html
@@ -56,9 +58,9 @@ mod prelude {
 #[derive(Debug)]
 pub struct OctTreeHitInfo<'a, T: Leafable> {
     pub hit_value: &'a T,
-    pub depth: f32,
-    pub hit_position: Point3<f32>,
-    pub normal: Vector3<f32>,
+    pub depth: RayScalar,
+    pub hit_position: Point3<RayScalar>,
+    pub normal: Vector3<RayScalar>,
 }
 #[derive(Clone, Debug)]
 pub struct OctTree<T: Leafable> {
@@ -179,28 +181,28 @@ impl Leafable for bool {}
 impl Leafable for () {}
 
 impl Ray {
-    pub fn intersect_axis(&self, axis: usize, at: f32) -> f32 {
+    pub fn intersect_axis(&self, axis: usize, at: RayScalar) -> RayScalar {
         (at - self.origin[axis]) / self.direction[axis]
     }
     /// gets the time at which the item intersects the x plane
-    pub fn intersect_x(&self, at: f32) -> f32 {
+    pub fn intersect_x(&self, at: RayScalar) -> RayScalar {
         self.intersect_axis(0, at)
     }
     /// gets the time at which the item intersects the y plane
-    pub fn intersect_y(&self, at: f32) -> f32 {
+    pub fn intersect_y(&self, at: RayScalar) -> RayScalar {
         self.intersect_axis(1, at)
     }
     /// gets the time at which the item intersects the z plane
-    pub fn intersect_z(&self, at: f32) -> f32 {
+    pub fn intersect_z(&self, at: RayScalar) -> RayScalar {
         self.intersect_axis(2, at)
     }
-    pub fn distance(&self, point: Vector3<f32>) -> f32 {
+    pub fn distance(&self, point: Vector3<RayScalar>) -> RayScalar {
         distance(
             Vector3::new(self.origin.x, self.origin.y, self.origin.z),
             point,
         )
     }
-    fn local_at(&self, dist: f32) -> Vector3<f32> {
+    fn local_at(&self, dist: RayScalar) -> Vector3<RayScalar> {
         Vector3::new(
             self.origin[0] + dist * self.direction[0],
             self.origin[1] + dist * self.direction[1],
@@ -210,7 +212,7 @@ impl Ray {
 }
 
 impl Hittable for OctTree<VoxelMaterial> {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let aabb = self.bounding_box(0., 1.).unwrap();
         if aabb.hit(*ray, t_min, t_max) {
             if let Some(hit_info) = self.trace_ray(Ray {
@@ -234,18 +236,22 @@ impl Hittable for OctTree<VoxelMaterial> {
         }
     }
 
-    fn bounding_box(&self, _time_0: f32, _time_1: f32) -> Option<Aabb> {
+    fn bounding_box(&self, _time_0: RayScalar, _time_1: RayScalar) -> Option<Aabb> {
         Some(Aabb {
             minimum: Point3::new(0.0, 0.0, 0.0),
-            maximum: Point3::new(self.size as f32, self.size as f32, self.size as f32),
+            maximum: Point3::new(
+                self.size as RayScalar,
+                self.size as RayScalar,
+                self.size as RayScalar,
+            ),
         })
     }
 
-    fn prob(&self, _ray: crate::prelude::Ray) -> f32 {
+    fn prob(&self, _ray: Ray) -> RayScalar {
         todo!()
     }
 
-    fn generate_ray_in_area(&self, _origin: Point3<f32>, _time: f32) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, _origin: Point3<RayScalar>, _time: RayScalar) -> RayAreaInfo {
         todo!()
     }
 }
