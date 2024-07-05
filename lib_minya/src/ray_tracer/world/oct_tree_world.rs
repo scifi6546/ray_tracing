@@ -238,51 +238,7 @@ pub fn cube() -> WorldInfo {
         sun: None,
     }
 }
-pub fn debug_cube() -> WorldInfo {
-    let origin = Point3::new(-100.0f32, 100.0, -800.0);
-    let look_at = Point3::new(64.0f32, 64.0, 64.0);
-    let focus_distance = {
-        let t = look_at - origin;
-        (t.dot(t)).sqrt()
-    };
-    let top_light = Object::new(
-        Box::new(Sphere {
-            radius: 10.0,
-            origin: Point3::new(0., 0., -100.0),
-            material: Box::new(DiffuseLight {
-                emit: Box::new(SolidColor {
-                    color: RgbColor::WHITE * 100.,
-                }),
-            }),
-        }),
-        Transform::identity(),
-    );
-    let temple = OctTree::suboptimal_cube(VoxelMaterial {
-        color: RgbColor::new(0.5, 0.5, 0.5),
-    });
-    WorldInfo {
-        objects: vec![
-            Object::new(Box::new(temple), Transform::identity()),
-            top_light.clone(),
-        ],
-        lights: vec![top_light],
-        background: Box::new(ConstantColor {
-            color: RgbColor::new(0.1, 0.1, 0.1),
-        }),
-        camera: Camera::new(
-            1.0,
-            20.0,
-            origin,
-            look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
-            focus_distance,
-            0.0,
-            0.0,
-        ),
-        sun: None,
-    }
-}
+
 pub fn cube_back() -> WorldInfo {
     let origin = Point3::new(100.0f32, 100.0, 800.0);
     let look_at = Point3::new(64.0f32, 64.0, 64.0);

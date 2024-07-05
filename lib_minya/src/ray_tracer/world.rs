@@ -406,10 +406,6 @@ pub fn get_scenarios() -> Scenarios {
             f: oct_tree_world::cube,
         }),
         Box::new(ScenarioFn {
-            name: "Oct Tree Debug Cube".to_string(),
-            f: oct_tree_world::debug_cube,
-        }),
-        Box::new(ScenarioFn {
             name: "Oct Tree Back".to_string(),
             f: oct_tree_world::cube_back,
         }),
