@@ -47,11 +47,12 @@ impl VoxelModel {
         let mut materials: Vec<CubeMaterial> = Vec::new();
         let mut index_to_material = HashMap::<u8, usize>::new();
         for idx in used_indices.iter() {
-            let color_u32 = vox_data.palette[*idx as usize];
+            let color = vox_data.palette[*idx as usize];
 
-            let blue = ((color_u32 & 0x00ff_00_00u32) >> 16) as f32 / 255.0;
-            let green = ((color_u32 & 0x00_00_ff_00u32) >> 8) as f32 / 255.0;
-            let red = (color_u32 & 0x00_00_00_ffu32) as f32 / 255.0;
+            let red = color.r as f32 / 255.0;
+            let green = color.g as f32 / 255.0;
+            let blue = color.b as f32 / 255.0;
+
             let color = RgbColor::new(red, green, blue);
 
             let new_idx = materials.len();

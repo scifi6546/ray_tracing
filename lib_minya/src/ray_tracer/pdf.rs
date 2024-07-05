@@ -4,7 +4,7 @@ use crate::prelude::*;
 use crate::ray_tracer::hittable::HitRecord;
 use crate::ray_tracer::rand_unit_vec;
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
-use miniquad::BlendFactor::Value;
+
 use std::{fmt, rc::Rc};
 
 pub trait Pdf {
@@ -131,8 +131,8 @@ impl Pdf for SkyPdf {
 
     fn generate(
         &self,
-        incoming_ray: Ray,
-        hit_point: Point3<f32>,
+        _incoming_ray: Ray,
+        _hit_point: Point3<f32>,
         world: &World,
     ) -> Option<(Vector3<f32>, f32)> {
         /// generates theta and r inside of unit circle

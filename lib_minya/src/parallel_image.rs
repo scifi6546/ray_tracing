@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use cgmath::{prelude::*, Point2};
+use cgmath::Point2;
 
 use crate::ray_tracer::RayTracer;
 use std::{
@@ -76,11 +76,7 @@ impl ParallelImage {
             height,
         }
     }
-    pub(crate) fn get(&self, x: usize, y: usize) -> RgbColor {
-        assert!(x < self.width());
-        assert!(y < self.height());
-        self.buffer[self.get_idx(x, y)]
-    }
+
     fn get_idx_no_self(width: usize, x: usize, y: usize) -> usize {
         x + y * width
     }
@@ -324,40 +320,11 @@ impl ParallelImagePart {
     pub(crate) fn total_height(&self) -> usize {
         self.height
     }
-    pub fn get_uv(&self, uv: Point2<f32>) -> RgbColor {
-        let x = ((uv.x * (self.total_width() as f32 - 1.0)) as usize)
-            .clamp(0, self.total_width() as usize - 1);
-        let v = 1.0 - uv.y;
-        let y =
-            ((v * (self.total_height() as f32 - 1.0)) as usize).clamp(0, self.total_height() - 1);
-        self.get_xy(x, y)
-    }
-    pub fn get_clamped(&self, x: i32, y: i32) -> RgbColor {
-        self.get_xy(
-            (x.max(self.offset.x as i32)
-                .min(self.offset.x as i32 + self.width as i32 - 1)) as usize,
-            (y.max(0).min(self.height as i32 - 1)) as usize,
-        )
-    }
-    /// sets with offset
-    pub fn set_xy(&mut self, x: usize, y: usize, color: RgbColor) {
-        let idx = self.get_idx(x, y);
-        self.buffer[idx] = color;
-    }
+
     ///adds with offset
     pub fn add_xy(&mut self, x: usize, y: usize, color: RgbColor) {
         let idx = self.get_idx(x, y);
         self.buffer[idx] += color;
-    }
-    pub fn filter_nan(&mut self, replacement: RgbColor) {
-        for x in 0..self.width {
-            for y in 0..self.height {
-                let val = self.get_xy(x + self.offset.x, y + self.offset.y);
-                if val.is_nan() {
-                    self.set_xy(x, y, replacement)
-                }
-            }
-        }
     }
 }
 
@@ -412,6 +379,7 @@ impl ImageReceiver {
 }
 pub(crate) enum RayTracerMessage {
     LoadScenario(String),
+    #[allow(dead_code)]
     SetShader(super::ray_tracer::CurrentShader),
     StopRendering,
     ContinueRendering,
@@ -461,7 +429,7 @@ impl ParallelImageCollector {
         }
         if self.images.len() >= 1 {
             Some(ParallelImage::join_container(
-                self.images.iter().map(|(k, v)| v).collect(),
+                self.images.iter().map(|(_k, v)| v).collect(),
             ))
         } else {
             None
@@ -470,7 +438,7 @@ impl ParallelImageCollector {
     pub fn load_scenario(&mut self, name: String) {
         self.message_senders.iter_mut().for_each(|s| {
             s.send(RayTracerMessage::StopRendering)
-                .map_err(|e| error!("failed to send stop rendering message"))
+                .map_err(|e| error!("failed to send stop rendering message, reason: {}", e))
                 .unwrap();
         });
         info!("loading scenario");
@@ -487,7 +455,7 @@ impl ParallelImageCollector {
         }
         self.message_senders.iter_mut().for_each(|s| {
             s.send(RayTracerMessage::ContinueRendering)
-                .map_err(|e| error!("failed to send continue rendering message"))
+                .map_err(|e| error!("failed to send continue rendering message, reason: {}", e))
                 .unwrap();
         });
     }

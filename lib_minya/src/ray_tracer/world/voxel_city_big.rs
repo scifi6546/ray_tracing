@@ -1,10 +1,8 @@
 use super::{
-    hittable_objects::*, world_prelude::*, Camera, DiffuseLight, Object, Sky, SolidColor, Sphere,
-    Transform, VoxelWorld, WorldInfo,
+    hittable_objects::*, world_prelude::*, Camera, Object, Transform, VoxelWorld, WorldInfo,
 };
 use crate::prelude::*;
-use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
-use rand::prelude::*;
+use cgmath::{num_traits::FloatConst, prelude::*, Point3, Vector3};
 
 pub fn voxel_city_big() -> WorldInfo {
     const BLOCK_X: i32 = 1024;
@@ -20,13 +18,6 @@ pub fn voxel_city_big() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-
-    let light = Box::new(DiffuseLight {
-        emit: Box::new(SolidColor {
-            color: 200.0 * RgbColor::new(252.0 / 255.0, 79.0 / 255.0, 5.0 / 255.0),
-        }),
-    });
-
 
     let mut world = VoxelWorld::new(
         vec![

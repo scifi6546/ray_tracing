@@ -1,6 +1,6 @@
 use super::{
-    world_prelude::*, Camera, ConstantColor, DiffuseLight, Metal, Object, SolidColor, Sphere,
-    Transform, VoxelWorld, WorldInfo,
+    world_prelude::*, Camera, ConstantColor, DiffuseLight, Object, SolidColor, Sphere, Transform,
+    VoxelWorld, WorldInfo,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};

@@ -1,6 +1,6 @@
 use super::{
-    pdf::{CosinePdf, LambertianPDF, LightPdf, SkyPdf},
-    rand_unit_vec, reflect, HitRay, HitRecord, Ray, RgbColor, ScatterRecord, Texture,
+    pdf::LambertianPDF, rand_unit_vec, reflect, HitRay, HitRecord, Ray, RgbColor, ScatterRecord,
+    Texture,
 };
 use cgmath::{num_traits::*, InnerSpace, Vector3};
 use dyn_clone::{clone_box, DynClone};

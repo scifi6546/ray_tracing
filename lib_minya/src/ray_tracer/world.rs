@@ -24,9 +24,9 @@ use super::{
     Camera, ConstantColor, HitRecord, Hittable, Sky,
 };
 mod world_prelude {
-    pub use super::super::background::{ConstantColor as ConstantColorBackground, Sky, SunSky};
+    pub use super::super::background::SunSky;
     pub use super::super::hittable::voxel_world::{
-        CubeMaterial, CubeMaterialIndex, PerlinBuilder, PerlinNoise, VoxelModel, VoxelWorld,
+        CubeMaterial, CubeMaterialIndex, PerlinBuilder, VoxelWorld,
     };
     pub use super::super::sun::Sun;
 }
@@ -171,9 +171,6 @@ impl World {
                                 base_lib::Texture::ConstantColor(c) => {
                                     vec![world_prelude::CubeMaterial::new(*c)]
                                 }
-                                _ => {
-                                    panic!("invalid texture: {:#?}", texture)
-                                }
                             },
                             _ => panic!("invalid material: {:#?}", obj.material),
                         };
@@ -201,11 +198,11 @@ impl World {
                         Box::new(voxel_world)
                     }
                 };
-                let mut obj_out = obj_out;
+                let obj_out = obj_out;
                 for modifier in obj.modifiers.iter() {
                     match modifier {
                         base_lib::Modifiers::FlipNormals => {
-                            obj_out = todo!();
+                            todo!();
                         }
                     }
                 }

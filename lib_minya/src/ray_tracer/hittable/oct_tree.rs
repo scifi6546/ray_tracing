@@ -18,7 +18,7 @@ use log::{error, info};
 use std::{cmp::max, rc::Rc};
 
 mod prelude {
-    use super::Leafable;
+
     use cgmath::Point3;
     // from https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_aabb.html
     pub fn aabb_intersect(
@@ -51,7 +51,6 @@ pub struct OctTreeHitInfo<'a, T: Leafable> {
     pub depth: f32,
     pub hit_position: Point3<f32>,
     pub normal: Vector3<f32>,
-    pub hit_positions: Vec<(u32, Vector3<u32>)>,
 }
 #[derive(Clone, Debug)]
 pub struct OctTree<T: Leafable> {
@@ -955,7 +954,7 @@ impl<T: Leafable> OctTreeNode<T> {
                                 ];
                                 pos_good[0] && pos_good[1] && pos_good[2]
                             })
-                            .filter(|(axis_index, time, _normal)| *time < 0.0)
+                            .filter(|(_axis_index, time, _normal)| *time < 0.0)
                             .fold((4, f32::MAX, Vector3::new(0.0, 0.0, 0.0)), |acc, b| {
                                 if acc.1 < b.1 {
                                     acc
@@ -970,7 +969,6 @@ impl<T: Leafable> OctTreeNode<T> {
                                 hit_value: val.unwrap_ref(),
                                 hit_position: Point3::new(ray_pos.x, ray_pos.y, ray_pos.z),
                                 normal,
-                                hit_positions: vec![],
                             })
                         } else {
                             info!("ray?? : {:#?}", ray);
@@ -1057,7 +1055,6 @@ impl<T: Leafable> OctTreeNode<T> {
                                 hit_value: val.unwrap_ref(),
                                 hit_position: Point3::new(pos.x, pos.y, pos.z),
                                 normal,
-                                hit_positions: vec![(self.size, Vector3::new(0, 0, 0))],
                             })
                         } else {
                             None
@@ -1125,31 +1122,21 @@ impl<T: Leafable> OctTreeNode<T> {
                     a_dist.partial_cmp(&b_dist).unwrap()
                 });
                 for (index, tile_index, pos) in tiles {
-                    let tile_pos_floored = Vector3::new(
-                        tile_index.x as f32 * (self.size / 2) as f32,
-                        tile_index.y as f32 * (self.size / 2) as f32,
-                        tile_index.z as f32 * (self.size / 2) as f32,
-                    );
-                    let tile_pos_flooredu = Vector3::new(
-                        tile_index.x as u32 * self.size / 2,
-                        tile_index.y as u32 * self.size / 2,
-                        tile_index.z as u32 * self.size / 2,
-                    );
-                    let tile_pos_floored = tile_pos_flooredu.map(|v| v as f32);
+                    let tile_pos_floored = tile_index.map(|v| (v * self.size / 2) as f32);
+
                     let origin = Point3::new(
                         pos.x - tile_pos_floored.x,
                         pos.y - tile_pos_floored.y,
                         pos.z - tile_pos_floored.z,
                     );
-                    if let Some(mut hit_info) = children[index].trace_ray(Ray {
+                    if let Some(hit_info) = children[index].trace_ray(Ray {
                         direction: ray.direction,
                         origin,
                         time: ray.time
                             + (origin - ray.origin).magnitude() / ray.direction.magnitude(),
                     }) {
                         let hit_position = hit_info.hit_position + tile_pos_floored;
-                        let mut hit_positions = vec![(self.size / 2, (self.size / 2) * tile_index)];
-                        hit_positions.append(&mut hit_info.hit_positions);
+
                         return Some(OctTreeHitInfo {
                             depth: distance(
                                 Vector3::new(ray.origin.x, ray.origin.y, ray.origin.z),
@@ -1158,7 +1145,6 @@ impl<T: Leafable> OctTreeNode<T> {
                             hit_value: hit_info.hit_value,
                             hit_position,
                             normal: hit_info.normal,
-                            hit_positions,
                         });
                     }
                 }
@@ -1333,7 +1319,7 @@ impl Hittable for OctTree<VoxelMaterial> {
         })
     }
 
-    fn prob(&self, ray: crate::prelude::Ray) -> f32 {
+    fn prob(&self, _ray: crate::prelude::Ray) -> f32 {
         todo!()
     }
 

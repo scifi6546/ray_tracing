@@ -1,7 +1,7 @@
 use super::{VoxelModel, VoxelWorld};
 use cgmath::Point3;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs::File, io::prelude::*};
+use std::{collections::HashMap, fs::File};
 #[derive(Deserialize, Serialize)]
 pub(crate) struct TileType {
     pub(crate) index: u32,
@@ -53,7 +53,6 @@ impl VoxelMap {
             .iter()
             .map(|tile| {
                 if let Some(model_path) = tile.model_path.as_ref() {
-                    let model = VoxelModel::load(model_path);
                     (tile.index, Some(VoxelModel::load(model_path)))
                 } else {
                     (tile.index, None)

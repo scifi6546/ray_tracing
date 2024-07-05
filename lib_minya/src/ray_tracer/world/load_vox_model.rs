@@ -1,10 +1,6 @@
-use super::{
-    hittable_objects::*, world_prelude::*, Camera, DiffuseLight, Object, Sky, SolidColor, Sphere,
-    Transform, VoxelWorld, WorldInfo,
-};
+use super::{hittable_objects::*, Camera, Object, Sky, Transform, VoxelWorld, WorldInfo};
 use crate::prelude::*;
-use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
-use rand::prelude::*;
+use cgmath::{prelude::*, Point3, Vector3};
 
 pub fn load_vox_model() -> WorldInfo {
     const BLOCK_X: i32 = 60;

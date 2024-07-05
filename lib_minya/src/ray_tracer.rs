@@ -29,19 +29,15 @@ use hittable::{
 };
 #[allow(unused_imports)]
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
-use pdf::{LightPdf, ScatterRecord};
+use pdf::ScatterRecord;
 #[allow(unused_imports)]
 use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, SolidColor, Texture};
 pub use world::{ScenarioCtor, World};
 
 use std::{
     collections::HashMap,
-    sync::{
-        mpsc::{channel, Receiver},
-        Arc, RwLock,
-    },
+    sync::{mpsc::channel, Arc, RwLock},
     thread,
-    thread::{Builder as ThreadBuilder, Scope},
 };
 
 pub fn rand_unit_vec() -> Vector3<f32> {
@@ -62,7 +58,9 @@ pub fn rand_vec() -> Vector3<f32> {
 }
 #[derive(Clone, Debug)]
 pub(crate) struct DebugRayTraceStep {
+    #[allow(dead_code)]
     position: Point3<f32>,
+    #[allow(dead_code)]
     front_face: bool,
 }
 #[derive(Clone, Debug)]
@@ -264,7 +262,7 @@ impl Shader for RayTracingShader {
 
                             let value = value / scattering_pdf;
 
-                            let mut ray_color = self.ray_color(
+                            let ray_color = self.ray_color(
                                 Ray {
                                     origin: record.position,
                                     direction: pdf_direction,

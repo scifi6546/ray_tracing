@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use log::{Level as LogLevel, Level, Metadata, Record};
-use std::sync::Mutex;
+use std::{ptr::addr_of, sync::Mutex};
 fn print_debug() -> bool {
     const DEBUG: bool = true;
     rand_u32(0, 1_000) == 0 && DEBUG
@@ -39,7 +39,9 @@ impl Logger {
         unsafe {
             let mut log_setup = LOG_SETUP.lock().expect("failed to get lock");
             if *log_setup == false {
-                log::set_logger(&LOGGER)
+                let logger_address = addr_of!(LOGGER);
+
+                log::set_logger(logger_address.as_ref().unwrap())
                     .map(|()| log::set_max_level(log::LevelFilter::Debug))
                     .expect("failed to set logger");
                 *log_setup = true;

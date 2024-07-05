@@ -4,7 +4,6 @@ use crate::ray_tracer::pdf::ScatterRecord;
 use crate::ray_tracer::texture::SolidColor;
 use crate::{prelude::*, ray_tracer::Material};
 use cgmath::{prelude::*, Point2, Point3, Vector3};
-use rand::prelude::*;
 pub(crate) use voxel_map::VoxelMap;
 mod perlin;
 mod voxel_map;
@@ -357,7 +356,7 @@ impl VoxelWorld {
                     error!("invalid cube material index: {}", index)
                 }
             }
-            CubeMaterialIndex::Translucent { index, density } => {
+            CubeMaterialIndex::Translucent { index, .. } => {
                 if index == MaterialIndex::MAX
                     || (index as usize) < self.translucent_materials.len()
                 {
@@ -385,7 +384,7 @@ impl VoxelWorld {
         normal: Vector3<f32>,
     ) -> Option<CheckRes> {
         let t = (x - ray.origin.x) / ray.direction.x;
-        if (t >= t_min && t <= t_max) {
+        if t >= t_min && t <= t_max {
             let pos = ray.origin + ray.direction * t;
 
             if pos.y >= 0.0 && pos.y <= self.y as f32 && pos.z >= 0.0 && pos.z <= self.z as f32 {
@@ -437,7 +436,7 @@ impl VoxelWorld {
         normal: Vector3<f32>,
     ) -> Option<CheckRes> {
         let t = (z - ray.origin.z) / ray.direction.z;
-        if (t > t_min && t < t_max) {
+        if t > t_min && t < t_max {
             let pos = ray.at(t);
 
             if pos.x >= 0.0 && pos.x <= self.x as f32 && pos.y >= 0.0 && pos.y <= self.y as f32 {
@@ -481,7 +480,7 @@ impl VoxelWorld {
                             CubeMaterialIndex::Solid { index } => {
                                 &self.solid_materials[index as usize]
                             }
-                            CubeMaterialIndex::Translucent { index, density } => {
+                            CubeMaterialIndex::Translucent { index, .. } => {
                                 &self.translucent_materials[index as usize]
                             }
                         },
