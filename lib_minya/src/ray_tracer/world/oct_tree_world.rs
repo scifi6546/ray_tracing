@@ -19,7 +19,7 @@ pub fn basic_sphere() -> WorldInfo {
             origin: Point3::new(-320.0, 100.0, -100.0),
             material: Box::new(DiffuseLight {
                 emit: Box::new(SolidColor {
-                    color: RgbColor::new(15.0, 15.0, 15.0),
+                    color: 400.0 * RgbColor::WHITE,
                 }),
             }),
         }),
@@ -35,7 +35,7 @@ pub fn basic_sphere() -> WorldInfo {
         ],
         lights: vec![top_light],
         background: Box::new(ConstantColor {
-            color: RgbColor::new(0.5, 0.5, 0.5),
+            color: 0.1 * RgbColor::WHITE,
         }),
         camera: Camera::new(
             1.0,
@@ -104,14 +104,13 @@ pub fn temple_below() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
+    let light_color = 100.0 * RgbColor::new(30.0, 30.0, 30.0);
     let top_light = Object::new(
         Box::new(Sphere {
             radius: 10.0,
             origin: Point3::new(-320.0, 100.0, -100.0),
             material: Box::new(DiffuseLight {
-                emit: Box::new(SolidColor {
-                    color: RgbColor::new(15.0, 15.0, 15.0),
-                }),
+                emit: Box::new(SolidColor { color: light_color }),
             }),
         }),
         Transform::identity(),
@@ -120,15 +119,14 @@ pub fn temple_below() -> WorldInfo {
         &OctTree::rectangle(Vector3::new(100, 5, 100), VoxelMaterial {}),
         Point3::new(0, 0, 0),
     );
+    let bg_color = RgbColor::new(0.02, 0.02, 0.02);
     WorldInfo {
         objects: vec![
             Object::new(Box::new(temple), Transform::identity()),
             top_light.clone(),
         ],
         lights: vec![top_light],
-        background: Box::new(ConstantColor {
-            color: RgbColor::new(0.5, 0.5, 0.5),
-        }),
+        background: Box::new(ConstantColor { color: bg_color }),
         camera: Camera::new(
             1.0,
             20.0,
