@@ -121,13 +121,6 @@ impl<T: Leafable> LeafType<T> {
             Self::Empty => false,
         }
     }
-    /// gets reference to underlying data
-    fn unwrap_ref(&self) -> &T {
-        match self {
-            Self::Solid(data) => data,
-            Self::Empty => panic!("leaf empty"),
-        }
-    }
 }
 pub trait Leafable: Clone + Copy + PartialEq {}
 impl Leafable for bool {}
@@ -153,13 +146,6 @@ impl Ray {
         distance(
             Vector3::new(self.origin.x, self.origin.y, self.origin.z),
             point,
-        )
-    }
-    fn local_at(&self, dist: RayScalar) -> Vector3<RayScalar> {
-        Vector3::new(
-            self.origin[0] + dist * self.direction[0],
-            self.origin[1] + dist * self.direction[1],
-            self.origin[2] + dist * self.direction[2],
         )
     }
 }

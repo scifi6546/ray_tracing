@@ -34,14 +34,6 @@ pub(crate) fn get_next_power(v: u32) -> u32 {
     v1 + 1
 }
 
-/// describes the composition of an oct tree node
-pub(crate) enum OctTreeNodeComposition {
-    /// The entire node is empty
-    AllEmpty,
-    /// the node is completly solid
-    AllSolid,
-    Mix,
-}
 impl<T: Leafable> OctTreeNode<T> {
     /// return the chunk that the pos is contained in, if the pos is inside of a leaf returns the entire leaf
     pub(crate) fn get_chunk(&self, pos: Point3<u32>) -> Option<&OctTreeNode<T>> {

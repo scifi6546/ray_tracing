@@ -22,10 +22,7 @@ use background::{Background, ConstantColor, Sky};
 use bvh::Aabb;
 use camera::Camera;
 use cgmath::{InnerSpace, Point3, Vector3};
-use hittable::{
-    ConstantMedium, HitRay, HitRecord, Hittable, MaterialEffect, MovingSphere, Object, RayAreaInfo,
-    RenderBox, Sphere, Transform, XYRect, XZRect, YZRect,
-};
+use hittable::{HitRay, HitRecord, Hittable, MaterialEffect};
 #[allow(unused_imports)]
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
 use pdf::ScatterRecord;
@@ -262,7 +259,7 @@ impl Shader for RayTracingShader {
 
                             let value = value / scattering_pdf;
 
-                            let mut ray_color = self.ray_color(
+                            let ray_color = self.ray_color(
                                 Ray {
                                     origin: record.position,
                                     direction: pdf_direction,
