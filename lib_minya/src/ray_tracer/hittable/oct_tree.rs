@@ -26,7 +26,7 @@ pub struct OctTree<T: Leafable> {
 }
 impl<T: Leafable> OctTree<T> {
     fn get_contents(&self, x: u32, y: u32, z: u32) -> LeafType<T> {
-        *self.root_node.get(x, y, z)
+        *self.root_node.get(Point3::new(x, y, z))
     }
 }
 pub(crate) fn get_child_index_size2(x: u32, y: u32, z: u32) -> usize {
@@ -86,20 +86,16 @@ impl<T: Leafable> OctTreeNode<T> {
     }
     /// gets the size given self size is 2
 
-    pub fn get(&self, x: u32, y: u32, z: u32) -> &LeafType<T> {
+    pub fn get(&self, pos: Point3<u32>) -> &LeafType<T> {
         match &self.children {
             OctTreeChildren::Leaf(val) => val,
             OctTreeChildren::ParentNode(children) => {
-                let idx = self.get_child_index(x, y, z);
+                let idx = self.get_child_index(pos.x, pos.y, pos.z);
                 if idx >= children.len() {
-                    println!("idx: {}, x: {}, y: {}, z: {}", idx, x, y, z);
+                    println!("idx: {}, x: {}, y: {}, z: {}", idx, pos.x, pos.y, pos.z);
                 }
-                //
-                children[idx].get(
-                    x % (self.size / 2),
-                    y % (self.size / 2),
-                    z % (self.size / 2),
-                )
+
+                children[idx].get(pos.map(|v| v % (self.size / 2)))
             }
         }
     }

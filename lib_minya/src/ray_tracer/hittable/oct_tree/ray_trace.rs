@@ -7,6 +7,7 @@ use std::ops::Neg;
 
 use cgmath::{prelude::*, Point3, Vector3};
 use log::{error, info};
+
 fn min_idx_vec(v: Vector3<RayScalar>) -> usize {
     let mut min_val = v.x;
     let mut min_idx = 0;
@@ -90,7 +91,7 @@ impl<T: Leafable> OctTreeNode<T> {
             let y_pos = voxel_pos.y;
             let z_pos = voxel_pos.z;
             if self.in_range(voxel_pos.map(|v| v as i32)) {
-                let voxel = self.get(x_pos as u32, y_pos as u32, z_pos as u32);
+                let voxel = self.get(Point3::new(x_pos as u32, y_pos as u32, z_pos as u32));
                 if let Some(solid_voxel) = voxel.try_solid() {
                     return Some(OctTreeHitInfo {
                         hit_value: solid_voxel,
@@ -346,11 +347,74 @@ impl<T: Leafable> OctTreeNode<T> {
         None
     }
     fn trace_ray(&self, ray: Ray) -> Option<OctTreeHitInfo<T>> {
-        // getting the min distances
-
-        match &self.children {
-            OctTreeChildren::Leaf(val) => Self::leaf_trace(&ray, val, self.size),
-            OctTreeChildren::ParentNode(children) => Self::parent_trace(&ray, children, self.size),
+        let mut solutions = (0..3)
+            .flat_map(|axis_index| {
+                [
+                    (
+                        axis_index,
+                        ray.intersect_axis(axis_index, 0.0),
+                        Vector3::new(
+                            if axis_index == 0 { -1.0 } else { 0.0 },
+                            if axis_index == 1 { -1.0 } else { 0.0 },
+                            if axis_index == 2 { -1.0 } else { 0.0 },
+                        ),
+                    ),
+                    (
+                        axis_index,
+                        ray.intersect_axis(axis_index, self.size as RayScalar),
+                        Vector3::new(
+                            if axis_index == 0 { 1.0 } else { 0.0 },
+                            if axis_index == 1 { 1.0 } else { 0.0 },
+                            if axis_index == 2 { 1.0 } else { 0.0 },
+                        ),
+                    ),
+                ]
+            })
+            .map(|(axis, time, normal)| (axis, time, ray.at(time), normal))
+            .filter(|(axis, time, at, _normal)| {
+                ((at[0] >= 0. && at[0] <= self.size as RayScalar) || *axis == 0)
+                    && ((at[1] >= 0. && at[1] <= self.size as RayScalar) || *axis == 1)
+                    && ((at[2] >= 0. && at[2] <= self.size as RayScalar) || *axis == 2)
+            })
+            .collect::<Vec<_>>();
+        solutions.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        if ray.origin.x >= 0.0
+            && ray.origin.x <= self.size as RayScalar
+            && ray.origin.y >= 0.0
+            && ray.origin.y <= self.size as RayScalar
+            && ray.origin.z >= 0.0
+            && ray.origin.z <= self.size as RayScalar
+        {
+            self.trace_v2(ray)
+        } else {
+            if let Some((axis_idx, b, position, normal)) = solutions.first() {
+                if let Some(solid) = self
+                    .get(position.map(|v| v as u32).map(|v| {
+                        if v < self.size {
+                            v
+                        } else {
+                            self.size - 1
+                        }
+                    }))
+                    .try_solid()
+                {
+                    Some(OctTreeHitInfo {
+                        depth: ray.distance(Vector3::new(position.x, position.y, position.z)),
+                        hit_position: *position,
+                        hit_value: solid,
+                        normal: *normal,
+                    })
+                } else {
+                    let offset = position - 0.1 * ray.direction.normalize();
+                    self.trace_v2(Ray {
+                        origin: offset,
+                        direction: ray.direction,
+                        time: ray.time - 0.1,
+                    })
+                }
+            } else {
+                None
+            }
         }
     }
 }
