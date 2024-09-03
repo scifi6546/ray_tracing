@@ -127,6 +127,7 @@ impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
         direction: Vector3<RayScalar>,
     ) -> HitResult<T> {
         let step_size = 1.0 / direction.map(|e| e.abs());
+        let mut voxel_size = 1;
         let mut step_dir = Vector3::<RayScalar>::zero();
         let mut next_dist = Vector3::zero();
         if direction.x < 0.0 {

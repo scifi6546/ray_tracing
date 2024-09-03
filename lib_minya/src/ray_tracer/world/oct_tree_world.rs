@@ -7,8 +7,10 @@ use crate::ray_tracer::hittable::Object;
 use cgmath::{num_traits::FloatConst, prelude::*, Point3, Vector3};
 
 pub fn basic_sphere() -> WorldInfo {
-    let origin = Point3::<RayScalar>::new(-100.0, 100.0, -800.0);
+    let origin = Point3::<RayScalar>::new(100.0, 100.0, -800.0);
+    let origin = Point3::<RayScalar>::new(1.0, 1.0, 1.0);
     let look_at = Point3::<RayScalar>::new(64.0, 64.0, 64.0);
+    let look_at = Point3::<RayScalar>::new(10., 10., 10.);
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()

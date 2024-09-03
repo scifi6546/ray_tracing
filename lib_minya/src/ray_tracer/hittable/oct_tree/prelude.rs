@@ -35,6 +35,24 @@ pub(crate) fn get_next_power(v: u32) -> u32 {
 }
 
 impl<T: Leafable> OctTreeNode<T> {
+    pub(crate) fn is_leaf(&self) -> bool {
+        match self.children {
+            OctTreeChildren::Leaf(_) => true,
+            OctTreeChildren::ParentNode(_) => false,
+        }
+    }
+    pub(crate) fn parent(&self) -> Option<&Box<[OctTreeNode<T>; 8]>> {
+        match &self.children {
+            OctTreeChildren::Leaf(_) => None,
+            OctTreeChildren::ParentNode(v) => Some(v),
+        }
+    }
+    pub(crate) fn leaf_value(&self) -> Option<&LeafType<T>> {
+        match &self.children {
+            OctTreeChildren::Leaf(v) => Some(v),
+            OctTreeChildren::ParentNode(_) => None,
+        }
+    }
     /// return the chunk that the pos is contained in, if the pos is inside of a leaf returns the entire leaf
     pub(crate) fn get_chunk(&self, pos: Point3<u32>) -> Option<&OctTreeNode<T>> {
         if pos.x < self.size && pos.y < self.size && pos.z < self.size {
@@ -56,6 +74,29 @@ impl<T: Leafable> OctTreeNode<T> {
                     }
                     OctTreeChildren::Leaf(_) => Some(self),
                 }
+            }
+        } else {
+            None
+        }
+    }
+    /// gets the largest possible homogenous chunk for given pos
+    pub(crate) fn get_homogenous_chunk(&self, pos: Point3<u32>) -> Option<&OctTreeNode<T>> {
+        if let Some(chunk) = self.get_chunk(pos) {
+            if chunk.is_leaf() {
+                Some(chunk)
+            } else {
+                let child_pos = pos.map(|v| {
+                    if v >= (self.size / 2) {
+                        v - self.size / 2
+                    } else {
+                        v
+                    }
+                });
+                let index_pos = pos.map(|v| if v >= (self.size / 2) { 1u32 } else { 0 });
+
+                let children = chunk.parent().unwrap();
+                children[get_child_index_size2(index_pos.x, index_pos.y, index_pos.z)]
+                    .get_homogenous_chunk(child_pos)
             }
         } else {
             None
