@@ -91,24 +91,20 @@ impl<T: Leafable> OctTreeNode<T> {
     /// return the chunk that the pos is contained in, if the pos is inside of a leaf returns the entire leaf
     pub(crate) fn get_chunk(&self, pos: Point3<u32>) -> Option<&OctTreeNode<T>> {
         if pos.x < self.size && pos.y < self.size && pos.z < self.size {
-            if pos == Point3::new(0, 0, 0) {
-                Some(self)
-            } else {
-                match &self.children {
-                    OctTreeChildren::ParentNode(children) => {
-                        let get_pos = pos.map(|v| if v >= self.size / 2 { 1u32 } else { 0 });
-                        children[get_child_index_size2(get_pos.x, get_pos.y, get_pos.z)].get_chunk(
-                            pos.map(|v| {
-                                if v >= self.size / 2 {
-                                    v - self.size / 2
-                                } else {
-                                    v
-                                }
-                            }),
-                        )
-                    }
-                    OctTreeChildren::Leaf(_) => Some(self),
+            match &self.children {
+                OctTreeChildren::ParentNode(children) => {
+                    let get_pos = pos.map(|v| if v >= self.size / 2 { 1u32 } else { 0 });
+                    children[get_child_index_size2(get_pos.x, get_pos.y, get_pos.z)].get_chunk(
+                        pos.map(|v| {
+                            if v >= self.size / 2 {
+                                v - self.size / 2
+                            } else {
+                                v
+                            }
+                        }),
+                    )
                 }
+                OctTreeChildren::Leaf(_) => Some(self),
             }
         } else {
             None

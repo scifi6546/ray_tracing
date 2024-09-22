@@ -456,12 +456,10 @@ impl<T: Leafable> OctTree<T> {
 }
 impl<T: Leafable + PartialEq> OctTree<T> {
     pub fn update(&mut self, position: Point3<u32>, value: T) {
-        info!("updating at {:?}", position);
         fn update_node<T: Leafable>(node: &mut OctTreeNode<T>, position: Point3<u32>, value: T) {
             match &mut node.children {
                 OctTreeChildren::Leaf(leaf_value) => {
                     if node.size == 1 {
-                        info!("updating base leaf node: position: {:?}", position);
                         if position.x != 0 && position.y != 0 && position.z != 0 {
                             panic!("invalid position: {:?}", position)
                         }
@@ -484,10 +482,7 @@ impl<T: Leafable + PartialEq> OctTree<T> {
                             position.y - idx_position.y * (node.size / 2),
                             position.z - idx_position.z * (node.size / 2),
                         );
-                        info!(
-                            "splitting leaf: position: {:?}, idx_position: {:?} index: {} sub_position: {:?}",
-                            position,idx_position,oct_tree_index,sub_position
-                        );
+
                         let new_node = OctTreeNode {
                             children: OctTreeChildren::Leaf(leaf_value.clone()),
                             size: node.size / 2,
@@ -522,10 +517,7 @@ impl<T: Leafable + PartialEq> OctTree<T> {
                         position.y - idx_position.y * (node.size / 2),
                         position.z - idx_position.z * (node.size / 2),
                     );
-                    info!(
-                            "updating parent: position: {:?}, idx_position: {:?} index: {} sub_position: {:?}",
-                            position,idx_position,oct_tree_index,sub_position
-                        );
+
                     update_node(&mut children[oct_tree_index], sub_position, value);
                 }
             }
@@ -533,7 +525,6 @@ impl<T: Leafable + PartialEq> OctTree<T> {
         if position.x < self.size && position.y < self.size && position.z < self.size {
             update_node(&mut self.root_node, position, value)
         } else {
-            info!("resizing");
             let new_size = self.size * 2;
             let empty_node = OctTreeNode {
                 children: OctTreeChildren::Leaf(LeafType::Empty),

@@ -211,7 +211,7 @@ pub fn cube() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let temple = OctTree::cube(
+    let temple = OctTree::cube_pow(
         4,
         VoxelMaterial {
             color: RgbColor::new(0.5, 0.5, 0.5),
@@ -260,7 +260,7 @@ pub fn cube_back() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let cube = OctTree::cube(
+    let cube = OctTree::cube_pow(
         4,
         VoxelMaterial {
             color: RgbColor::new(0.5, 0.5, 0.5),

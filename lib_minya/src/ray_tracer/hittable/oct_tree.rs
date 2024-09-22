@@ -25,8 +25,8 @@ pub struct OctTreeHitInfo<'a, T: Leafable> {
 }
 #[derive(Clone)]
 pub struct OctTree<T: Leafable> {
-    root_node: OctTreeNode<T>,
-    size: u32,
+    pub(crate) root_node: OctTreeNode<T>,
+    pub(crate) size: u32,
 }
 impl<T: Leafable> OctTree<T> {
     fn get_contents(&self, x: u32, y: u32, z: u32) -> LeafType<T> {

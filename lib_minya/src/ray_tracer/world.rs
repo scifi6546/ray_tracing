@@ -429,6 +429,10 @@ pub fn get_scenarios() -> Scenarios {
             name: "Oct Tree Cube Test".to_string(),
             f: oct_tree_world::compare_voxel_world::simple_cube,
         }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Cube Recreation".to_string(),
+            f: oct_tree_world::compare_voxel_world::cube_recreation,
+        }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
         .drain(..)

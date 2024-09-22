@@ -88,7 +88,47 @@ pub(crate) fn simple_cube() -> WorldInfo {
         }
     }
     let world: OctTree<VoxelMaterial> = world.into();
-    info!("world: {}", world.get_debug_string());
+
+    WorldInfo {
+        objects: vec![Object::new(Box::new(world), Transform::identity())],
+        lights: vec![],
+        background: Box::new(Sky { intensity: 0.6 }),
+        camera: Camera::new(
+            1.0,
+            fov,
+            origin,
+            look_at,
+            Vector3::new(0.0, 1.0, 0.0),
+            0.00001,
+            focus_distance,
+            0.0,
+            0.0,
+        ),
+        sun: None,
+    }
+}
+pub(crate) fn cube_recreation() -> WorldInfo {
+    let tile_size_x = 16;
+    let tile_size_z = 16;
+
+    let fov = 40.0;
+
+    let look_at = Point3::new(0., 0., 0.);
+    //let look_at = Point3::new(0.0, 0.0, 0.0);
+    let origin = Point3::<RayScalar>::new(-20., -20., 20.);
+
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+
+    let world: OctTree<VoxelMaterial> = OctTree::rectangle(
+        Vector3::new(3, 3, 3),
+        VoxelMaterial {
+            color: RgbColor::new(0.65, 0.05, 0.05),
+        },
+    );
+
     WorldInfo {
         objects: vec![Object::new(Box::new(world), Transform::identity())],
         lights: vec![],

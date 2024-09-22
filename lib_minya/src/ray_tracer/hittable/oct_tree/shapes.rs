@@ -15,7 +15,8 @@ impl<T: Leafable> OctTree<T> {
             size: 1,
         }
     }
-    pub fn cube(power_value: u32, hit_val: T) -> Self {
+    ///Creates a new Cube with the given cube value
+    pub fn cube_pow(power_value: u32, hit_val: T) -> Self {
         let size = 2u32.pow(power_value);
         Self {
             root_node: OctTreeNode {
