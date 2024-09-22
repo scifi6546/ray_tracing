@@ -93,25 +93,35 @@ erDiagram
         int size
     }
 
-    Children{
-        id NodeId
-        id Child00
-        id Child01
-        id Child10
-        id Child11
-    }
-    Leaves{
-        id LeafId PK
-        bin MaterialData
-    }
+    
     Node{
         id NodeId PK
-        id LeafId FK "Must either have LeafId or ParentId Not both"
-        id ParentId FK
+        VarChar(5) LeafOrParent "Must be 'leaf' or 'parent'"
     }
-
+    Parent{
+        id ParentId PK
+        id NodeId FK
+        id Child00 FK
+        id Child01 FK
+        id Child10 FK
+        id Child11 FK
+    }
+    Leaf{
+        id ParentId PK
+        id LeafId FK
+        VarChar MaterialType
+    }
+    SolidMaterial{
+        id LeafId
+        blob MaterialData
+    }
+    TranslucentMaterial["Translucent Material"]{
+        id LeafId
+        blob MaterialData
+    }
+    Node |{--|| Parent: ""
+    Node |{--|| Leaf: ""
     RootNodes ||--o| Node: ""
-    Node ||--o| Children: ""
-    Node ||--o| Leaves: ""
-    Children || -- |{ Node: ""
+    SolidMaterial o{--|| Leaf: ""
+    TranslucentMaterial o{--|| Leaf: ""
 ```

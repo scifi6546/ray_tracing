@@ -1,5 +1,30 @@
-use super::{get_child_index_size2, LeafType, Leafable, OctTreeChildren, OctTreeNode, RayScalar};
+use super::{LeafType, Leafable, OctTreeChildren, OctTreeNode, RayScalar};
+use crate::prelude::Ray;
 use cgmath::{Point3, Vector3};
+
+impl Ray {
+    pub fn intersect_axis(&self, axis: usize, at: RayScalar) -> RayScalar {
+        (at - self.origin[axis]) / self.direction[axis]
+    }
+    /// gets the time at which the item intersects the x plane
+    pub fn intersect_x(&self, at: RayScalar) -> RayScalar {
+        self.intersect_axis(0, at)
+    }
+    /// gets the time at which the item intersects the y plane
+    pub fn intersect_y(&self, at: RayScalar) -> RayScalar {
+        self.intersect_axis(1, at)
+    }
+    /// gets the time at which the item intersects the z plane
+    pub fn intersect_z(&self, at: RayScalar) -> RayScalar {
+        self.intersect_axis(2, at)
+    }
+    pub fn distance(&self, point: Vector3<RayScalar>) -> RayScalar {
+        distance(
+            Vector3::new(self.origin.x, self.origin.y, self.origin.z),
+            point,
+        )
+    }
+}
 pub fn distance(a: Vector3<RayScalar>, b: Vector3<RayScalar>) -> RayScalar {
     ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
 }
@@ -33,76 +58,13 @@ pub(crate) fn get_next_power(v: u32) -> u32 {
     v1 |= v1 >> 16;
     v1 + 1
 }
-
-impl<T: Leafable> OctTreeNode<T> {
-    pub(crate) fn is_leaf(&self) -> bool {
-        match self.children {
-            OctTreeChildren::Leaf(_) => true,
-            OctTreeChildren::ParentNode(_) => false,
-        }
-    }
-    pub(crate) fn parent(&self) -> Option<&Box<[OctTreeNode<T>; 8]>> {
-        match &self.children {
-            OctTreeChildren::Leaf(_) => None,
-            OctTreeChildren::ParentNode(v) => Some(v),
-        }
-    }
-    pub(crate) fn leaf_value(&self) -> Option<&LeafType<T>> {
-        match &self.children {
-            OctTreeChildren::Leaf(v) => Some(v),
-            OctTreeChildren::ParentNode(_) => None,
-        }
-    }
-    /// return the chunk that the pos is contained in, if the pos is inside of a leaf returns the entire leaf
-    pub(crate) fn get_chunk(&self, pos: Point3<u32>) -> Option<&OctTreeNode<T>> {
-        if pos.x < self.size && pos.y < self.size && pos.z < self.size {
-            if pos == Point3::new(0, 0, 0) {
-                Some(self)
-            } else {
-                match &self.children {
-                    OctTreeChildren::ParentNode(children) => {
-                        let get_pos = pos.map(|v| if v >= self.size / 2 { 1u32 } else { 0 });
-                        children[get_child_index_size2(get_pos.x, get_pos.y, get_pos.z)].get_chunk(
-                            pos.map(|v| {
-                                if v >= self.size / 2 {
-                                    v - self.size / 2
-                                } else {
-                                    v
-                                }
-                            }),
-                        )
-                    }
-                    OctTreeChildren::Leaf(_) => Some(self),
-                }
-            }
-        } else {
-            None
-        }
-    }
-    /// gets the largest possible homogenous chunk for given pos
-    pub(crate) fn get_homogenous_chunk(&self, pos: Point3<u32>) -> Option<&OctTreeNode<T>> {
-        if let Some(chunk) = self.get_chunk(pos) {
-            if chunk.is_leaf() {
-                Some(chunk)
-            } else {
-                let child_pos = pos.map(|v| {
-                    if v >= (self.size / 2) {
-                        v - self.size / 2
-                    } else {
-                        v
-                    }
-                });
-                let index_pos = pos.map(|v| if v >= (self.size / 2) { 1u32 } else { 0 });
-
-                let children = chunk.parent().unwrap();
-                children[get_child_index_size2(index_pos.x, index_pos.y, index_pos.z)]
-                    .get_homogenous_chunk(child_pos)
-            }
-        } else {
-            None
-        }
-    }
+pub(crate) fn get_child_index_size2(x: u32, y: u32, z: u32) -> usize {
+    assert!(x < 2);
+    assert!(y < 2);
+    assert!(z < 2);
+    x as usize * 4 + y as usize * 2 + z as usize
 }
+
 impl<T: Leafable> LeafType<T> {
     pub(crate) fn try_solid(&self) -> Option<&T> {
         match self {

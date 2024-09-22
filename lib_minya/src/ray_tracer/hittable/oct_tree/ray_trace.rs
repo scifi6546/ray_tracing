@@ -155,7 +155,7 @@ impl<T: Leafable> OctTreeNode<T> {
         let move_size = 1;
         let mut current_pos = ray.origin;
 
-        let mut step_size = calculate_size(move_size, ray.direction);
+        let step_size = calculate_size(move_size, ray.direction);
         let mut step_dir = Vector3::<RayScalar>::zero();
         let mut next_dist = Vector3::zero();
         if ray.direction.x < 0.0 {
@@ -248,7 +248,7 @@ impl<T: Leafable> OctTreeNode<T> {
                             (chunk.size as i32 - (voxel_pos.z % chunk.size as i32)) - 1
                         };
                         //move_size = max(min(min(x_size, y_size), z_size), 1);
-                        step_size = calculate_size(move_size, ray.direction);
+                        //step_size = calculate_size(move_size, ray.direction);
                     }
                 } else {
                     return None;
@@ -318,7 +318,6 @@ impl<T: Leafable> OctTreeNode<T> {
                         normal: *normal,
                     })
                 } else {
-                    let offset = position - 0.1 * ray.direction.normalize();
                     self.trace(Ray {
                         direction: ray.direction.normalize(),
                         origin: *position,

@@ -90,6 +90,10 @@ fn step_translucent(
     }
 }
 impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
+    /// gets size of voxel grid
+    pub(crate) fn size(&self) -> Vector3<usize> {
+        Vector3::new(self.x_dim, self.y_dim, self.z_dim)
+    }
     pub fn new(x_dim: usize, y_dim: usize, z_dim: usize, default_value: T) -> Self {
         Self {
             data: vec![default_value; x_dim * y_dim * z_dim],
@@ -127,7 +131,6 @@ impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
         direction: Vector3<RayScalar>,
     ) -> HitResult<T> {
         let step_size = 1.0 / direction.map(|e| e.abs());
-        let mut voxel_size = 1;
         let mut step_dir = Vector3::<RayScalar>::zero();
         let mut next_dist = Vector3::zero();
         if direction.x < 0.0 {
@@ -291,6 +294,9 @@ impl CubeMaterial {
     pub fn distance(&self, other: &Self) -> RayScalar {
         self.color.distance(&other.color) as RayScalar
     }
+    pub fn color(&self) -> RgbColor {
+        self.color
+    }
 }
 impl std::fmt::Debug for CubeMaterial {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -338,6 +344,30 @@ pub struct VoxelWorld {
     z: i32,
 }
 impl VoxelWorld {
+    /// gets witdh height and depth of voxel world
+    pub(crate) fn size(&self) -> Vector3<u32> {
+        self.voxels.size().map(|val| val as u32)
+    }
+    /// tries to get the material if it is in bounds of the world
+    pub fn get(&self, position: Point3<u32>) -> Option<CubeMaterialIndex> {
+        let size = self.size();
+        if position.x < size.x && position.y < size.y && position.z < size.z {
+            Some(self.voxels.get(
+                position.x as usize,
+                position.y as usize,
+                position.z as usize,
+            ))
+        } else {
+            None
+        }
+    }
+    pub fn get_solid_material(&self, index: MaterialIndex) -> Option<CubeMaterial> {
+        if (index as usize) < self.solid_materials.len() {
+            Some(self.solid_materials[index as usize].clone())
+        } else {
+            None
+        }
+    }
     pub fn new(
         solid_materials: Vec<CubeMaterial>,
         translucent_materials: Vec<CubeMaterial>,
