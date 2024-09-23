@@ -8,8 +8,8 @@ use lib_minya::{
     Image,
 };
 use miniquad::{
-    conf, Bindings, Buffer, BufferLayout, BufferType, Context, EventHandler, Pipeline, Shader,
-    VertexAttribute, VertexFormat,
+    conf, Bindings, BufferLayout, BufferSource, BufferType, BufferUsage, EventHandler, Pipeline,
+    PipelineParams, RenderingBackend, ShaderSource, UniformsSource, VertexAttribute, VertexFormat,
 };
 
 use log::info;
@@ -26,6 +26,13 @@ pub enum Message {
 pub fn vec_near_zero(v: Vector3<f32>) -> bool {
     v.dot(v) < 1e-8
 }
+fn make_miniquad_texture(image: &Image, context: &mut dyn RenderingBackend) -> miniquad::TextureId {
+    context.new_texture_from_rgba8(
+        image.width() as u16,
+        image.height() as u16,
+        image.buffer_rgba8(),
+    )
+}
 
 #[repr(C)]
 struct Vertex {
@@ -39,9 +46,11 @@ struct Handler {
     image_reciever: Receiver<Image>,
     join_handle: JoinHandle<()>,
     gui: GuiCtx,
+    ctx: Box<dyn RenderingBackend>,
 }
 impl Handler {
-    pub fn new(ctx: &mut Context) -> Self {
+    pub fn new() -> Self {
+        let mut ctx: Box<dyn RenderingBackend> = miniquad::window::new_rendering_backend();
         let vertices: [Vertex; 4] = [
             Vertex {
                 pos: Vector2 { x: -1.0, y: -1.0 },
@@ -60,33 +69,51 @@ impl Handler {
                 uv: Vector2 { x: 0., y: 1. },
             },
         ];
-        let vertex_buffer = Buffer::immutable(ctx, BufferType::VertexBuffer, &vertices);
 
-        let indices: [u16; 6] = [0, 1, 2, 0, 2, 3];
-        let index_buffer = Buffer::immutable(ctx, BufferType::IndexBuffer, &indices);
-
-        let img = Image::from_fn(
-            |_x, y| [((y as f32 / 100.0) * 255.0) as u8, 0, 200, 0xff],
-            100,
-            100,
+        let vertex_buffer = ctx.new_buffer(
+            BufferType::VertexBuffer,
+            BufferUsage::Immutable,
+            BufferSource::slice(&vertices),
         );
-        let texture = img.make_texture(ctx);
+        let indices: [u16; 6] = [0, 1, 2, 0, 2, 3];
+
+        let index_buffer = ctx.new_buffer(
+            BufferType::IndexBuffer,
+            BufferUsage::Immutable,
+            BufferSource::slice(&indices),
+        );
+
+        let texture = {
+            const IMAGE_X: usize = 100;
+            const IMAGE_Y: usize = 100;
+            let data = [0xffu8; IMAGE_X * IMAGE_Y * 4];
+            ctx.new_texture_from_rgba8(IMAGE_X as u16, IMAGE_Y as u16, &data)
+        };
 
         let bindings = Bindings {
             vertex_buffers: vec![vertex_buffer],
             index_buffer,
             images: vec![texture],
         };
-        let shader = Shader::new(ctx, shader::VERTEX, shader::FRAGMENT, shader::meta())
-            .expect("failed to compile");
-        let pipeline = Pipeline::new(
-            ctx,
+
+        let shader = ctx
+            .new_shader(
+                ShaderSource::Glsl {
+                    vertex: shader::VERTEX,
+                    fragment: shader::FRAGMENT,
+                },
+                shader::meta(),
+            )
+            .expect("failed to create shader for frontend");
+
+        let pipeline = ctx.new_pipeline(
             &[BufferLayout::default()],
             &[
                 VertexAttribute::new("pos", VertexFormat::Float2),
                 VertexAttribute::new("uv", VertexFormat::Float2),
             ],
             shader,
+            PipelineParams::default(),
         );
         let ray_tracer = RayTracer::new(None, None, None);
         let (message_sender, message_reciever) = channel();
@@ -124,95 +151,80 @@ impl Handler {
                     .expect("channel failed");
             }
         });
-
+        let gui = GuiCtx::new(ctx.as_mut(), &info, message_sender);
         Self {
             pipeline,
             bindings,
             image_reciever,
             join_handle,
-            gui: GuiCtx::new(ctx, &info, message_sender),
+            gui,
+            ctx,
         }
     }
 }
 impl EventHandler for Handler {
-    fn update(&mut self, ctx: &mut Context) {
+    fn update(&mut self) {
         if self.join_handle.is_finished() {
             println!("FINISHED!!!");
-            ctx.quit();
+            miniquad::window::order_quit();
         }
         if let Ok(img) = self.image_reciever.try_recv() {
-            let tex = img.make_texture(ctx);
+            let tex = make_miniquad_texture(&img, self.ctx.as_mut());
+
             self.bindings.images = vec![tex];
         }
 
-        self.gui.update(ctx);
+        self.gui.update(self.ctx.as_mut());
     }
 
-    fn draw(&mut self, ctx: &mut Context) {
-        ctx.begin_default_pass(Default::default());
-        ctx.apply_pipeline(&self.pipeline);
-        ctx.apply_bindings(&self.bindings);
+    fn draw(&mut self) {
+        self.ctx.begin_default_pass(Default::default());
+        self.ctx.apply_pipeline(&self.pipeline);
+        self.ctx.apply_bindings(&self.bindings);
 
-        ctx.apply_uniforms(&shader::Uniforms { offset: (0.0, 0.0) });
-        ctx.draw(0, 6, 1);
+        self.ctx
+            .apply_uniforms(UniformsSource::table(&shader::Uniforms {
+                offset: (0.0, 0.0),
+            }));
+        self.ctx.draw(0, 6, 1);
 
-        ctx.end_render_pass();
-        self.gui.draw(ctx);
+        self.ctx.end_render_pass();
+        self.gui.draw(self.ctx.as_mut());
 
-        ctx.commit_frame();
+        self.ctx.commit_frame();
     }
-    fn mouse_motion_event(&mut self, ctx: &mut miniquad::Context, x: f32, y: f32) {
-        self.gui.mouse_motion_event(ctx, x, y);
+    fn mouse_motion_event(&mut self, x: f32, y: f32) {
+        self.gui.mouse_motion_event(self.ctx.as_mut(), x, y);
     }
-    fn mouse_wheel_event(&mut self, ctx: &mut miniquad::Context, x: f32, y: f32) {
-        self.gui.mouse_wheel_event(ctx, x, y);
+    fn mouse_wheel_event(&mut self, x: f32, y: f32) {
+        self.gui.mouse_wheel_event(self.ctx.as_mut(), x, y);
     }
-    fn mouse_button_down_event(
-        &mut self,
-        ctx: &mut miniquad::Context,
-        mb: miniquad::MouseButton,
-        x: f32,
-        y: f32,
-    ) {
-        self.gui.mouse_button_down_event(ctx, mb, x, y);
+    fn mouse_button_down_event(&mut self, mb: miniquad::MouseButton, x: f32, y: f32) {
+        self.gui
+            .mouse_button_down_event(self.ctx.as_mut(), mb, x, y);
     }
 
-    fn mouse_button_up_event(
-        &mut self,
-        ctx: &mut miniquad::Context,
-        mb: miniquad::MouseButton,
-        x: f32,
-        y: f32,
-    ) {
-        self.gui.mouse_button_up_event(ctx, mb, x, y);
+    fn mouse_button_up_event(&mut self, mb: miniquad::MouseButton, x: f32, y: f32) {
+        self.gui.mouse_button_up_event(self.ctx.as_mut(), mb, x, y);
     }
 
-    fn char_event(
-        &mut self,
-        ctx: &mut miniquad::Context,
-        character: char,
-        keymods: miniquad::KeyMods,
-        repeat: bool,
-    ) {
-        self.gui.char_event(ctx, character, keymods, repeat);
+    fn char_event(&mut self, character: char, keymods: miniquad::KeyMods, repeat: bool) {
+        self.gui
+            .char_event(self.ctx.as_mut(), character, keymods, repeat);
     }
 
     fn key_down_event(
         &mut self,
-        ctx: &mut miniquad::Context,
+
         keycode: miniquad::KeyCode,
         keymods: miniquad::KeyMods,
         repeat: bool,
     ) {
-        self.gui.key_down_event(ctx, keycode, keymods, repeat);
+        self.gui
+            .key_down_event(self.ctx.as_mut(), keycode, keymods, repeat);
     }
-    fn key_up_event(
-        &mut self,
-        ctx: &mut miniquad::Context,
-        keycode: miniquad::KeyCode,
-        keymods: miniquad::KeyMods,
-    ) {
-        self.gui.key_up_event(ctx, keycode, keymods);
+    fn key_up_event(&mut self, keycode: miniquad::KeyCode, keymods: miniquad::KeyMods) {
+        self.gui.key_up_event(self.ctx.as_mut(), keycode, keymods);
     }
 }
 
@@ -223,7 +235,7 @@ fn main() {
             window_height: 1000,
             ..Default::default()
         },
-        |mut ctx| Box::new(Handler::new(&mut ctx)),
+        || Box::new(Handler::new()),
     );
 }
 mod shader {

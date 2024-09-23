@@ -12,7 +12,7 @@ to_numpy = { path = "../to_numpy" }
 image = "0.24.2"
 log = "0.4.17"
 rand = "0.8.5"
-miniquad = "0.3.0-alpha.46"
+#miniquad = "0.3.0-alpha.46"
 dyn-clone = "1.0.9"
 dot_vox = "5.1.1"
 serde = { version = "1.0", features = ["derive"] }

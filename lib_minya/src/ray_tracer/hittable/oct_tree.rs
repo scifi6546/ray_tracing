@@ -35,13 +35,13 @@ impl<T: Leafable> OctTree<T> {
 }
 
 #[derive(Clone, Debug)]
-enum OctTreeChildren<T: Leafable> {
+pub(crate) enum OctTreeChildren<T: Leafable> {
     Leaf(LeafType<T>),
     ParentNode(Box<[OctTreeNode<T>; 8]>),
 }
 /// Leaf of tree
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum LeafType<T: Leafable> {
+pub(crate) enum LeafType<T: Leafable> {
     /// Leaf has something in it
     Solid(T),
     /// leaf is empty

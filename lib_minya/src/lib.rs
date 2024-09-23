@@ -58,7 +58,16 @@ impl Image {
     pub fn set_xy_color(&mut self, x: u32, y: u32, pixel: RgbColor) {
         self.set_xy(x, y, pixel.as_rgba_u8());
     }
-    pub fn make_texture(&self, ctx: &mut miniquad::Context) -> miniquad::Texture {
-        miniquad::Texture::from_rgba8(ctx, self.width as u16, self.height as u16, &self.buffer)
+    /// gets the width of the image
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+    /// gets the height of the image
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+    /// gets the buffer in the form rgba u8
+    pub fn buffer_rgba8(&self) -> &[u8] {
+        &self.buffer
     }
 }

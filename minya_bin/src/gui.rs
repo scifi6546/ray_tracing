@@ -134,22 +134,22 @@ impl GuiCtx {
     }
     pub fn mouse_button_down_event(
         &mut self,
-        ctx: &mut miniquad::Context,
+        _ctx: &mut miniquad::Context,
         mb: miniquad::MouseButton,
         x: f32,
         y: f32,
     ) {
-        self.egui_mq.mouse_button_down_event(ctx, mb, x, y);
+        self.egui_mq.mouse_button_down_event(mb, x, y);
     }
 
     pub fn mouse_button_up_event(
         &mut self,
-        ctx: &mut miniquad::Context,
+        _ctx: &mut miniquad::Context,
         mb: miniquad::MouseButton,
         x: f32,
         y: f32,
     ) {
-        self.egui_mq.mouse_button_up_event(ctx, mb, x, y);
+        self.egui_mq.mouse_button_up_event(mb, x, y);
     }
 
     pub fn char_event(
@@ -164,12 +164,12 @@ impl GuiCtx {
 
     pub fn key_down_event(
         &mut self,
-        ctx: &mut miniquad::Context,
+        _ctx: &mut miniquad::Context,
         keycode: miniquad::KeyCode,
         keymods: miniquad::KeyMods,
         _repeat: bool,
     ) {
-        self.egui_mq.key_down_event(ctx, keycode, keymods);
+        self.egui_mq.key_down_event(keycode, keymods);
     }
     pub fn key_up_event(
         &mut self,
