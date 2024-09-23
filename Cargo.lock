@@ -2803,15 +2803,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "octtree_test"
-version = "0.1.0"
-dependencies = [
- "cgmath",
- "image 0.24.7",
- "lib_minya",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
