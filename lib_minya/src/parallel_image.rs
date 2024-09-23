@@ -461,7 +461,14 @@ impl ParallelImageCollector {
     }
     pub fn save_file<P: AsRef<Path>>(&mut self, p: P) {
         if let Some(img) = self.receive() {
-            img.save_image(p, 1)
+            info!("saving image to: {:?}", p.as_ref());
+            let default_extension = "png";
+            let save_path = if p.as_ref().extension().is_some() {
+                p.as_ref().to_path_buf()
+            } else {
+                p.as_ref().with_extension(default_extension)
+            };
+            img.save_image(save_path, 1)
         } else {
             error!("no images yet")
         }
