@@ -1,6 +1,6 @@
 use super::{OctTree, VoxelMaterial};
 use crate::ray_tracer::hittable::{voxel_world::CubeMaterialIndex, VoxelWorld};
-use base_lib::Material;
+
 use cgmath::Point3;
 use log::{error, info};
 

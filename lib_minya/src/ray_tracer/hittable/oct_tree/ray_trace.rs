@@ -1,10 +1,7 @@
 use super::{Leafable, OctTree, OctTreeHitInfo, OctTreeNode};
 use crate::prelude::{Ray, RayScalar};
-use log::info;
-use std::{
-    cmp::{max, min},
-    ops::Neg,
-};
+
+use std::ops::Neg;
 
 use cgmath::{prelude::*, Point3, Vector3};
 
@@ -42,10 +39,10 @@ impl<T: Leafable> OctTreeNode<T> {
             chunk_size as RayScalar / direction.map(|e| e.abs())
         }
 
-        let mut move_size = 1;
+        let move_size = 1;
         let mut current_pos = ray.origin;
 
-        let mut step_size = calculate_size(move_size, ray.direction);
+        let step_size = calculate_size(move_size, ray.direction);
         let mut step_dir = Vector3::<RayScalar>::zero();
         let mut next_dist = Vector3::zero();
         if ray.direction.x < 0.0 {

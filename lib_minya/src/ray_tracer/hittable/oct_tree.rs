@@ -7,14 +7,11 @@ mod prelude;
 mod ray_trace;
 mod shapes;
 
-use super::{HitRecord, Hittable, Ray, RayAreaInfo};
-use crate::{prelude::RayScalar, ray_tracer::bvh::Aabb};
+use crate::prelude::RayScalar;
 pub use material::VoxelMaterial;
 use node::OctTreeNode;
 
-use prelude::distance;
-
-use cgmath::{InnerSpace, Point2, Point3, Vector3};
+use cgmath::{Point3, Vector3};
 
 #[derive(Debug)]
 pub struct OctTreeHitInfo<'a, T: Leafable> {

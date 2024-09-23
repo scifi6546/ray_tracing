@@ -3,8 +3,7 @@ use crate::ray_tracer::background::Sky;
 use crate::ray_tracer::camera::Camera;
 use crate::ray_tracer::hittable::hittable_objects::{CubeMaterial, VoxelMap};
 use crate::ray_tracer::hittable::{
-    voxel_world, voxel_world::CubeMaterialIndex, Object, OctTree, Transform, VoxelMaterial,
-    VoxelWorld,
+    voxel_world::CubeMaterialIndex, Object, OctTree, Transform, VoxelMaterial, VoxelWorld,
 };
 use crate::ray_tracer::world::WorldInfo;
 use base_lib::RgbColor;
@@ -59,9 +58,6 @@ pub(crate) fn sinnoh() -> WorldInfo {
     }
 }
 pub(crate) fn simple_cube() -> WorldInfo {
-    let tile_size_x = 16;
-    let tile_size_z = 16;
-
     let fov = 40.0;
 
     let look_at = Point3::new(0., 0., 0.);
@@ -108,9 +104,6 @@ pub(crate) fn simple_cube() -> WorldInfo {
     }
 }
 pub(crate) fn cube_recreation() -> WorldInfo {
-    let tile_size_x = 16;
-    let tile_size_z = 16;
-
     let fov = 40.0;
 
     let look_at = Point3::new(0., 0., 0.);

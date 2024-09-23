@@ -1,4 +1,4 @@
-use super::{LeafType, Leafable, OctTreeChildren, OctTreeNode, RayScalar};
+use super::{LeafType, Leafable, RayScalar};
 use crate::prelude::Ray;
 use cgmath::{Point3, Vector3};
 

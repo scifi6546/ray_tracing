@@ -1,4 +1,3 @@
-use super::prelude::*;
 use crate::prelude::{Ray, RayScalar};
 use crate::ray_tracer::{
     bvh::Aabb,
