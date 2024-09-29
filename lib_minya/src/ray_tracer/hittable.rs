@@ -34,6 +34,10 @@ pub trait Hittable: Send + Sync + DynClone {
     /// probability of hitting the box for given ray going towards point
     fn prob(&self, ray: Ray) -> RayScalar;
     fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo;
+    /// gets the name of the object
+    fn name(&self) -> String {
+        "N/A".to_string()
+    }
 }
 #[derive(Clone, Copy, Debug)]
 pub struct Transform {

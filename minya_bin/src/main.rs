@@ -1,18 +1,19 @@
+mod graphics_context;
 mod gui;
 
 use cgmath::{InnerSpace, Vector2, Vector3};
+use graphics_context::GraphicsContext;
 use gui::GuiCtx;
 use lib_minya::{
     prelude::*,
     ray_tracer::{CurrentShader, LogMessage, RayTracer, RayTracerInfo},
     Image,
 };
+use log::info;
 use miniquad::{
     conf, Bindings, BufferLayout, BufferSource, BufferType, BufferUsage, EventHandler, Pipeline,
     PipelineParams, RenderingBackend, ShaderSource, UniformsSource, VertexAttribute, VertexFormat,
 };
-
-use log::info;
 use std::{
     sync::mpsc::{channel, Receiver},
     thread,
@@ -41,86 +42,24 @@ struct Vertex {
 }
 
 struct Handler {
-    pipeline: Pipeline,
-    bindings: Bindings,
-    image_reciever: Receiver<Image>,
+    context: GraphicsContext,
+    ctx: Box<dyn RenderingBackend>,
+    image_receiver: Receiver<Image>,
     join_handle: JoinHandle<()>,
     gui: GuiCtx,
-    ctx: Box<dyn RenderingBackend>,
 }
 impl Handler {
     pub fn new() -> Self {
         let mut ctx: Box<dyn RenderingBackend> = miniquad::window::new_rendering_backend();
-        let vertices: [Vertex; 4] = [
-            Vertex {
-                pos: Vector2 { x: -1.0, y: -1.0 },
-                uv: Vector2 { x: 0., y: 0. },
-            },
-            Vertex {
-                pos: Vector2 { x: 1.0, y: -1.0 },
-                uv: Vector2 { x: 1., y: 0. },
-            },
-            Vertex {
-                pos: Vector2 { x: 1.0, y: 1.0 },
-                uv: Vector2 { x: 1., y: 1. },
-            },
-            Vertex {
-                pos: Vector2 { x: -1.0, y: 1.0 },
-                uv: Vector2 { x: 0., y: 1. },
-            },
-        ];
+        let mut context = GraphicsContext::new(ctx.as_mut());
 
-        let vertex_buffer = ctx.new_buffer(
-            BufferType::VertexBuffer,
-            BufferUsage::Immutable,
-            BufferSource::slice(&vertices),
-        );
-        let indices: [u16; 6] = [0, 1, 2, 0, 2, 3];
-
-        let index_buffer = ctx.new_buffer(
-            BufferType::IndexBuffer,
-            BufferUsage::Immutable,
-            BufferSource::slice(&indices),
-        );
-
-        let texture = {
-            const IMAGE_X: usize = 100;
-            const IMAGE_Y: usize = 100;
-            let data = [0xffu8; IMAGE_X * IMAGE_Y * 4];
-            ctx.new_texture_from_rgba8(IMAGE_X as u16, IMAGE_Y as u16, &data)
-        };
-
-        let bindings = Bindings {
-            vertex_buffers: vec![vertex_buffer],
-            index_buffer,
-            images: vec![texture],
-        };
-
-        let shader = ctx
-            .new_shader(
-                ShaderSource::Glsl {
-                    vertex: shader::VERTEX,
-                    fragment: shader::FRAGMENT,
-                },
-                shader::meta(),
-            )
-            .expect("failed to create shader for frontend");
-
-        let pipeline = ctx.new_pipeline(
-            &[BufferLayout::default()],
-            &[
-                VertexAttribute::new("pos", VertexFormat::Float2),
-                VertexAttribute::new("uv", VertexFormat::Float2),
-            ],
-            shader,
-            PipelineParams::default(),
-        );
-        let ray_tracer = RayTracer::new(None, None, None);
         let (message_sender, message_reciever) = channel();
-        let (image_sender, image_reciever) = channel();
+        let (image_sender, image_receiver) = channel();
+        let ray_tracer = RayTracer::new(None, None, None);
         let info = ray_tracer.get_info();
         let join_handle = thread::spawn(move || {
             let mut par_img = ParallelImage::new_black(1000, 1000);
+
             let mut receiver = ray_tracer
                 .clone()
                 .threaded_render(ParallelImage::new_black(1000, 1000));
@@ -151,14 +90,14 @@ impl Handler {
                     .expect("channel failed");
             }
         });
+
         let gui = GuiCtx::new(ctx.as_mut(), &info, message_sender);
         Self {
-            pipeline,
-            bindings,
-            image_reciever,
+            context,
+            ctx,
+            image_receiver,
             join_handle,
             gui,
-            ctx,
         }
     }
 }
@@ -168,29 +107,16 @@ impl EventHandler for Handler {
             println!("FINISHED!!!");
             miniquad::window::order_quit();
         }
-        if let Ok(img) = self.image_reciever.try_recv() {
-            let tex = make_miniquad_texture(&img, self.ctx.as_mut());
-
-            self.bindings.images = vec![tex];
+        if let Ok(img) = self.image_receiver.try_recv() {
+            self.context.update_image(self.ctx.as_mut(), img);
         }
 
         self.gui.update(self.ctx.as_mut());
     }
 
     fn draw(&mut self) {
-        self.ctx.begin_default_pass(Default::default());
-        self.ctx.apply_pipeline(&self.pipeline);
-        self.ctx.apply_bindings(&self.bindings);
-
-        self.ctx
-            .apply_uniforms(UniformsSource::table(&shader::Uniforms {
-                offset: (0.0, 0.0),
-            }));
-        self.ctx.draw(0, 6, 1);
-
-        self.ctx.end_render_pass();
+        self.context.draw_plane(self.ctx.as_mut());
         self.gui.draw(self.ctx.as_mut());
-
         self.ctx.commit_frame();
     }
     fn mouse_motion_event(&mut self, x: f32, y: f32) {

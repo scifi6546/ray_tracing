@@ -10,9 +10,9 @@ pub struct GuiCtx {
     message_chanel: Sender<Message>,
 }
 impl GuiCtx {
-    pub fn new(
-        ctx: &mut miniquad::Context,
-        info: &RayTracerInfo,
+    pub fn new<'a>(
+        ctx: &'a mut miniquad::Context,
+        info: &'a RayTracerInfo,
         message_chanel: Sender<Message>,
     ) -> Self {
         let mut scenarios = info.scenarios.clone();
@@ -73,6 +73,7 @@ impl GuiCtx {
                     });
                 });
             });
+            egui::SidePanel::left("enmtity viewer").show(egui_ctx, |ui| {});
 
             egui::Window::new("Log")
                 .vscroll(false)
@@ -124,7 +125,7 @@ impl GuiCtx {
             ()
         });
     }
-    pub fn draw(&mut self, ctx: &mut miniquad::Context) {
+    pub fn draw<'a>(&mut self, ctx: &'a mut miniquad::Context) {
         self.egui_mq.draw(ctx);
     }
     pub fn mouse_motion_event(&mut self, _ctx: &mut miniquad::Context, x: f32, y: f32) {
