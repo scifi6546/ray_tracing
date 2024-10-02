@@ -1,7 +1,7 @@
 use super::{
-    Camera, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight, ImageTexture,
-    Lambertian, Metal, Object, Perlin, RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect,
-    YZRect,
+    Camera, CameraInfo, CheckerTexture, ConstantColor, DebugV, Dielectric, DiffuseLight,
+    ImageTexture, Lambertian, Metal, Object, Perlin, RenderBox, SolidColor, Sphere, Transform,
+    WorldInfo, XYRect, YZRect,
 };
 use crate::prelude::*;
 
@@ -166,17 +166,17 @@ pub fn easy_scene() -> WorldInfo {
         background: Box::new(ConstantColor {
             color: RgbColor::new(0.00, 0.00, 0.00),
         }),
-        camera: Camera::new(
-            1.0,
-            20.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 20.0,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }

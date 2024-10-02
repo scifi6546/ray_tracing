@@ -20,10 +20,17 @@ mod voxel_city_big;
 
 use super::sun::Sun;
 use super::{
-    bvh::BvhTree, hittable::hittable_objects, hittable::*, material::*, texture::*, Background,
-    Camera, ConstantColor, HitRecord, Hittable, Sky,
+    background::{Sky, SunSky},
+    bvh::BvhTree,
+    camera::{Camera, CameraInfo},
+    hittable::hittable_objects,
+    hittable::*,
+    material::*,
+    ray_tracer_info::{EntityField, WorldEntityCollection},
+    texture::*,
+    Background, ConstantColor, HitRecord, Hittable,
 };
-use crate::ray_tracer::background::SunSky;
+
 mod world_prelude {
     pub use super::super::background::SunSky;
     pub use super::super::hittable::voxel_world::{
@@ -44,6 +51,8 @@ pub use random_scene::random_scene;
 use std::{collections::HashMap, ops::Deref};
 
 use crate::ray_tracer::hittable::voxel_world::CubeMaterialIndex;
+
+use crate::ray_tracer::ray_tracer_info::Entity;
 pub use two_spheres::two_spheres;
 
 pub struct WorldInfo {
@@ -246,20 +255,21 @@ impl World {
             ),
             lights,
             background,
-            camera: Camera::new(
-                scene.camera.aspect_ratio as RayScalar,
-                scene.camera.fov as RayScalar,
-                scene.camera.origin.map(|v| v as RayScalar),
-                scene.camera.look_at.map(|v| v as RayScalar),
-                scene.camera.up_vector.map(|v| v as RayScalar),
-                scene.camera.aperture as RayScalar,
-                scene.camera.focus_distance as RayScalar,
-                scene.camera.start_time as RayScalar,
-                scene.camera.end_time as RayScalar,
-            ),
+            camera: Camera::new(CameraInfo {
+                aspect_ratio: scene.camera.aspect_ratio as RayScalar,
+                fov: scene.camera.fov as RayScalar,
+                origin: scene.camera.origin.map(|v| v as RayScalar),
+                look_at: scene.camera.look_at.map(|v| v as RayScalar),
+                up_vector: scene.camera.up_vector.map(|v| v as RayScalar),
+                aperture: scene.camera.aperture as RayScalar,
+                focus_distance: scene.camera.focus_distance as RayScalar,
+                start_time: scene.camera.start_time as RayScalar,
+                end_time: scene.camera.end_time as RayScalar,
+            }),
             sun: None,
         }
     }
+
     pub fn nearest_light_hit(
         &self,
         ray: &Ray,
@@ -276,6 +286,14 @@ impl World {
 
     pub fn nearest_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         self.bvh.hit(ray, t_min as RayScalar, t_max as RayScalar)
+    }
+    pub fn get_entity_info(&self) -> WorldEntityCollection {
+        WorldEntityCollection {
+            main_camera: self.camera.clone(),
+        }
+    }
+    pub fn set_camera_data(&mut self, key: String, value: EntityField) {
+        self.camera.set_field(key, value);
     }
 }
 pub trait ScenarioCtor: Send + Sync + DynClone {

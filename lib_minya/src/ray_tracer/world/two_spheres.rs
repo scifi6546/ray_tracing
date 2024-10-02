@@ -1,4 +1,6 @@
-use super::{Camera, Lambertian, Metal, Object, Sky, SolidColor, Sphere, Transform, WorldInfo};
+use super::{
+    Camera, CameraInfo, Lambertian, Metal, Object, Sky, SolidColor, Sphere, Transform, WorldInfo,
+};
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
 
@@ -53,17 +55,17 @@ pub fn two_spheres() -> WorldInfo {
         ],
         lights: vec![],
         background: Box::new(Sky::default()),
-        camera: Camera::new(
-            1.0,
-            20.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 20.,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }

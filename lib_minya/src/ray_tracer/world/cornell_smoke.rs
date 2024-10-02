@@ -1,6 +1,6 @@
 use super::{
-    Camera, ConstantColor, ConstantMedium, DiffuseLight, Isotropic, Lambertian, Object, RenderBox,
-    SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
+    Camera, CameraInfo, ConstantColor, ConstantMedium, DiffuseLight, Isotropic, Lambertian, Object,
+    RenderBox, SolidColor, Sphere, Transform, WorldInfo, XYRect, XZRect, YZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -143,17 +143,17 @@ pub fn cornell_smoke() -> WorldInfo {
         background: Box::new(ConstantColor {
             color: RgbColor::new(0.0, 0.0, 0.0),
         }),
-        camera: Camera::new(
-            1.0,
-            40.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 40.0,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }

@@ -3,8 +3,8 @@ pub mod lambertian;
 pub mod metalic_demo;
 
 use super::{
-    Camera, DiffuseLight, Lambertian, Metal, Object, RenderBox, Sky, SolidColor, Sphere, Transform,
-    WorldInfo, XZRect,
+    Camera, CameraInfo, DiffuseLight, Lambertian, Metal, Object, RenderBox, Sky, SolidColor,
+    Sphere, Transform, WorldInfo, XZRect,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -51,17 +51,17 @@ pub fn new_demo(mut special_item: Vec<Object>) -> WorldInfo {
         objects,
         lights: vec![light],
         background: Box::new(Sky::default()),
-        camera: Camera::new(
-            1.0,
-            20.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 20.0,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }

@@ -1,6 +1,6 @@
 use super::{
-    world_prelude::*, Camera, ConstantColor, DiffuseLight, Object, SolidColor, Sphere, Transform,
-    VoxelWorld, WorldInfo,
+    world_prelude::*, Camera, CameraInfo, ConstantColor, DiffuseLight, Object, SolidColor, Sphere,
+    Transform, VoxelWorld, WorldInfo,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -58,17 +58,17 @@ pub fn cube_world() -> WorldInfo {
         background: Box::new(ConstantColor {
             color: 0.1 * RgbColor::new(1.0, 1.0, 1.0),
         }),
-        camera: Camera::new(
-            1.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
             fov,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }

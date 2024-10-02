@@ -1,4 +1,4 @@
-use super::{hittable_objects::*, Camera, Object, Sky, Transform, WorldInfo};
+use super::{hittable_objects::*, Camera, CameraInfo, Object, Sky, Transform, WorldInfo};
 use crate::prelude::*;
 use cgmath::prelude::*;
 pub(crate) fn twinleaf_map() -> WorldInfo {
@@ -34,17 +34,17 @@ pub(crate) fn twinleaf_map() -> WorldInfo {
         objects: vec![Object::new(Box::new(world), Transform::identity())],
         lights: vec![],
         background: Box::new(Sky { intensity: 0.6 }),
-        camera: Camera::new(
-            1.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
             fov,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }

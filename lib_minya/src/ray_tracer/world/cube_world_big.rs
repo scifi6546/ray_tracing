@@ -3,6 +3,7 @@ use super::{
     WorldInfo,
 };
 use crate::prelude::*;
+use crate::ray_tracer::camera::CameraInfo;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 
 pub fn cube_world_big() -> WorldInfo {
@@ -65,17 +66,17 @@ pub fn cube_world_big() -> WorldInfo {
         ],
         lights: vec![lava_light],
         background: Box::new(Sky { intensity: 0.1 }),
-        camera: Camera::new(
-            1.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
             fov,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }

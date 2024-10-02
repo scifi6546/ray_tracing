@@ -1,5 +1,6 @@
 use super::{
-    hittable_objects::*, world_prelude::*, Camera, Object, Transform, VoxelWorld, WorldInfo,
+    hittable_objects::*, world_prelude::*, Camera, CameraInfo, Object, Transform, VoxelWorld,
+    WorldInfo,
 };
 use crate::prelude::*;
 use cgmath::{num_traits::FloatConst, prelude::*, Point3, Vector3};
@@ -86,17 +87,17 @@ pub fn voxel_city_big() -> WorldInfo {
         //lights: vec![lava_light],
         lights: vec![],
         background: Box::new(sun_sky),
-        camera: Camera::new(
-            1.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
             fov,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: Some(sun),
     }
 }

@@ -1,6 +1,6 @@
 use super::{
-    Camera, DiffuseLight, ImageTexture, Lambertian, Metal, MultiplyTexture, Object, Sky,
-    SolidColor, Sphere, Transform, WorldInfo, XZRect,
+    Camera, CameraInfo, DiffuseLight, ImageTexture, Lambertian, Metal, MultiplyTexture, Object,
+    Sky, SolidColor, Sphere, Transform, WorldInfo, XZRect,
 };
 use crate::prelude::RayScalar;
 use base_lib::RgbColor;
@@ -62,17 +62,17 @@ pub fn light_demo() -> WorldInfo {
         objects: vec![floor, light.clone(), l_sphere],
         lights: vec![light],
         background: Box::new(Sky { intensity: 0.3 }),
-        camera: Camera::new(
-            1.0,
-            20.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 20.,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }

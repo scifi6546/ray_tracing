@@ -1,8 +1,8 @@
 pub mod compare_voxel_world;
 
 use super::{
-    Camera, ConstantColor, DiffuseLight, OctTree, SolidColor, Sphere, Sun, SunSky, Transform,
-    VoxelMaterial, WorldInfo,
+    Camera, CameraInfo, ConstantColor, DiffuseLight, OctTree, SolidColor, Sphere, Sun, SunSky,
+    Transform, VoxelMaterial, WorldInfo,
 };
 use crate::prelude::*;
 use crate::ray_tracer::hittable::Object;
@@ -44,20 +44,21 @@ pub fn basic_sphere() -> WorldInfo {
         background: Box::new(ConstantColor {
             color: 0.1 * RgbColor::WHITE,
         }),
-        camera: Camera::new(
-            1.0,
-            20.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 20.,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }
+
 pub fn temple() -> WorldInfo {
     fn make_brick(size: Vector3<u32>, material: VoxelMaterial) -> OctTree<VoxelMaterial> {
         OctTree::rectangle(size, material)
@@ -123,17 +124,17 @@ pub fn temple() -> WorldInfo {
         ],
         lights: vec![top_light],
         background: Box::new(sun_sky),
-        camera: Camera::new(
-            1.0,
-            20.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 20.,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }
@@ -178,17 +179,17 @@ pub fn temple_below() -> WorldInfo {
         ],
         lights: vec![top_light],
         background: Box::new(ConstantColor { color: bg_color }),
-        camera: Camera::new(
-            1.0,
-            20.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 20.,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }
@@ -226,17 +227,17 @@ pub fn cube() -> WorldInfo {
         background: Box::new(ConstantColor {
             color: RgbColor::new(0.1, 0.1, 0.1),
         }),
-        camera: Camera::new(
-            1.0,
-            20.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 20.,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }
@@ -275,17 +276,17 @@ pub fn cube_back() -> WorldInfo {
         background: Box::new(ConstantColor {
             color: RgbColor::new(0.1, 0.1, 0.1),
         }),
-        camera: Camera::new(
-            1.0,
-            20.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 20.,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }

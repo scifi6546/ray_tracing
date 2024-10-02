@@ -1,6 +1,6 @@
 use super::{
-    Camera, Dielectric, Lambertian, Metal, MovingSphere, Object, Sky, SolidColor, Sphere,
-    Transform, WorldInfo,
+    Camera, CameraInfo, Dielectric, Lambertian, Metal, MovingSphere, Object, Sky, SolidColor,
+    Sphere, Transform, WorldInfo,
 };
 use crate::prelude::*;
 use cgmath::{prelude::*, Point3, Vector3};
@@ -126,17 +126,17 @@ pub fn random_scene() -> WorldInfo {
         objects,
         lights: vec![],
         background: Box::new(Sky::default()),
-        camera: Camera::new(
-            1.0,
-            20.0,
-            Point3::new(13.0, 2.0, 3.0),
-            Point3::new(0.0, 0.0, 0.0),
-            Vector3::new(0.0, 1.0, 0.0),
-            0.0005,
-            10.0,
-            0.0,
-            1.0,
-        ),
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov: 20.,
+            origin: Point3::new(13.0, 2.0, 3.0),
+            look_at: Point3::new(0.0, 0.0, 0.0),
+            up_vector: Vector3::unit_y(),
+            aperture: 0.0005,
+            focus_distance: 10.,
+            start_time: 0.0,
+            end_time: 0.,
+        }),
         sun: None,
     }
 }

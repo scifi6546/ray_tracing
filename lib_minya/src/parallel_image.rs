@@ -1,7 +1,9 @@
-use crate::prelude::*;
 use cgmath::Point2;
 
-use crate::ray_tracer::RayTracer;
+use crate::{
+    prelude::*,
+    ray_tracer::{ray_tracer_info::EntityField, RayTracer},
+};
 use std::{
     collections::HashMap,
     path::Path,
@@ -383,6 +385,7 @@ pub(crate) enum RayTracerMessage {
     SetShader(super::ray_tracer::CurrentShader),
     StopRendering,
     ContinueRendering,
+    SetCameraData((String, EntityField)),
 }
 struct PartContainer {
     image: ParallelImagePart,
@@ -407,6 +410,7 @@ impl ParallelImageCollector {
             ray_tracer,
         }
     }
+    /// resets rendering image to base state
     pub(crate) fn clear(&mut self) {
         self.images.clear();
     }
@@ -483,5 +487,33 @@ impl ParallelImageCollector {
                 .send(RayTracerMessage::SetShader(s))
                 .expect("failed to send shader")
         }
+    }
+    pub fn set_camera_data(&mut self, key: String, value: EntityField) {
+        self.message_senders.iter_mut().for_each(|s| {
+            s.send(RayTracerMessage::StopRendering)
+                .map_err(|e| error!("failed to send stop rendering message, reason: {}", e))
+                .unwrap();
+        });
+        info!("told ray tracers to stop");
+        self.clear();
+
+        {
+            let mut write_lock = self.ray_tracer.write().expect("failed to read");
+            info!("got write lock for ray tracer now setting data");
+            write_lock.set_camera_data(key.clone(), value.clone());
+        }
+        for sender in self.message_senders.iter() {
+            sender
+                .send(RayTracerMessage::SetCameraData((
+                    key.clone(),
+                    value.clone(),
+                )))
+                .expect("failed to send data");
+        }
+        self.message_senders.iter_mut().for_each(|s| {
+            s.send(RayTracerMessage::ContinueRendering)
+                .map_err(|e| error!("failed to send continue rendering message, reason: {}", e))
+                .unwrap();
+        });
     }
 }

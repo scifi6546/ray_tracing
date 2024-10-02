@@ -7,9 +7,11 @@ pub mod logger;
 pub mod material;
 
 mod pdf;
+pub mod ray_tracer_info;
 mod sun;
 pub mod texture;
 pub mod world;
+use ray_tracer_info::{RayTracerInfo, ScenarioInfo};
 
 use super::prelude::*;
 use crate::{prelude, reflect};
@@ -31,6 +33,7 @@ use prelude::RayScalar;
 use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, SolidColor, Texture};
 pub use world::{ScenarioCtor, World};
 
+use crate::ray_tracer::ray_tracer_info::EntityField;
 use std::{
     collections::HashMap,
     sync::{mpsc::channel, Arc, RwLock},
@@ -268,33 +271,9 @@ impl Shader for RayTracingShader {
                                 world,
                                 depth - 1,
                             );
-                            #[cfg(feature = "debug_tracing")]
-                            {
-                                if has_false_front_face(&ray_color.steps) {
-                                    if rand_u32(0, 1_000) == 0 {
-                                        /*
-                                        error!(
-                                            "{:#?}\nrecord: {:#?}\nray:{:#?}",
-                                            ray_color, record, ray
-                                        );
 
-                                         */
-                                        //panic!()
-                                    }
-                                }
-                            }
-                            #[cfg(feature = "debug_tracing")]
-                            let mut steps = {
-                                let mut out = vec![step];
-                                out.append(&mut ray_color.steps);
-                                out
-                            };
                             let color = scatter_record.attenuation * ray_color.color / value;
-                            RayColorOutput {
-                                color,
-                                #[cfg(feature = "debug_tracing")]
-                                steps,
-                            }
+                            RayColorOutput { color }
                         } else {
                             RayColorOutput {
                                 color: RgbColor::BLACK,
@@ -377,9 +356,6 @@ impl Clone for RayTracer {
         }
     }
 }
-pub struct RayTracerInfo {
-    pub scenarios: Vec<String>,
-}
 
 impl RayTracer {
     pub fn new(
@@ -388,10 +364,7 @@ impl RayTracer {
         default_shader: Option<CurrentShader>,
     ) -> Self {
         Logger::init();
-        let current_shader = match default_shader {
-            Some(s) => s,
-            None => CurrentShader::Raytracing,
-        };
+        let current_shader = default_shader.unwrap_or_else(|| CurrentShader::Raytracing);
         let mut scenarios = world::get_scenarios();
         if let Some(mut add_scenarios) = additional_scenarios {
             for (k, scenario) in add_scenarios.drain() {
@@ -417,8 +390,9 @@ impl RayTracer {
             scenarios: self
                 .scenarios
                 .iter()
-                .map(|(name, _scenario)| name.clone())
+                .map(|(name, _scenario)| ScenarioInfo { name: name.clone() })
                 .collect(),
+            loaded_entities: self.world.get_entity_info(),
         }
     }
 
@@ -434,6 +408,9 @@ impl RayTracer {
         self.trace_part(&mut imgs[0]);
 
         *rgb_img = ParallelImage::join(imgs.iter().collect());
+    }
+    pub fn set_camera_data(&mut self, key: String, value: EntityField) {
+        self.world.set_camera_data(key, value)
     }
     fn trace_part(&self, part: &mut ParallelImagePart) {
         let image_width = part.width();
@@ -521,6 +498,7 @@ impl RayTracer {
                             RayTracerMessage::ContinueRendering => {
                                 render = true;
                             }
+                            RayTracerMessage::SetCameraData(_) => part.set_black(),
                         };
                     }
                     if render {

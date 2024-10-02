@@ -1,6 +1,7 @@
+use super::{Camera, CameraInfo};
 use crate::prelude::RayScalar;
 use crate::ray_tracer::background::Sky;
-use crate::ray_tracer::camera::Camera;
+
 use crate::ray_tracer::hittable::hittable_objects::{CubeMaterial, VoxelMap};
 use crate::ray_tracer::hittable::{
     voxel_world::CubeMaterialIndex, Object, OctTree, Transform, VoxelMaterial, VoxelWorld,
@@ -9,7 +10,6 @@ use crate::ray_tracer::world::WorldInfo;
 use base_lib::RgbColor;
 use cgmath::{prelude::*, Point3, Vector3};
 use log::info;
-
 pub(crate) fn sinnoh() -> WorldInfo {
     let file = VoxelMap::load("./voxel_assets/sinnoh/twinleaf.yml");
     let tile_size_x = 16;
@@ -43,20 +43,31 @@ pub(crate) fn sinnoh() -> WorldInfo {
         objects: vec![Object::new(Box::new(world), Transform::identity())],
         lights: vec![],
         background: Box::new(Sky { intensity: 0.6 }),
-        camera: Camera::new(
-            1.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
             fov,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }
+/*
+ 1.0,
+           fov,
+           origin,
+           look_at,
+           Vector3::new(0.0, 1.0, 0.0),
+           0.00001,
+           focus_distance,
+           0.0,
+           0.0,
+*/
 pub(crate) fn simple_cube() -> WorldInfo {
     let fov = 40.0;
 
@@ -89,17 +100,17 @@ pub(crate) fn simple_cube() -> WorldInfo {
         objects: vec![Object::new(Box::new(world), Transform::identity())],
         lights: vec![],
         background: Box::new(Sky { intensity: 0.6 }),
-        camera: Camera::new(
-            1.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
             fov,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }
@@ -126,17 +137,17 @@ pub(crate) fn cube_recreation() -> WorldInfo {
         objects: vec![Object::new(Box::new(world), Transform::identity())],
         lights: vec![],
         background: Box::new(Sky { intensity: 0.6 }),
-        camera: Camera::new(
-            1.0,
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
             fov,
             origin,
             look_at,
-            Vector3::new(0.0, 1.0, 0.0),
-            0.00001,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
             focus_distance,
-            0.0,
-            0.0,
-        ),
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
         sun: None,
     }
 }

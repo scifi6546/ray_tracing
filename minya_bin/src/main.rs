@@ -1,15 +1,17 @@
 mod graphics_context;
 mod gui;
+mod messages;
 
 use cgmath::{InnerSpace, Vector2, Vector3};
 use graphics_context::GraphicsContext;
 use gui::GuiCtx;
 use lib_minya::{
     prelude::*,
-    ray_tracer::{CurrentShader, LogMessage, RayTracer, RayTracerInfo},
+    ray_tracer::{ray_tracer_info::RayTracerInfo, CurrentShader, LogMessage, RayTracer},
     Image,
 };
 use log::info;
+use messages::GuiPushMessage;
 use miniquad::{
     conf, Bindings, BufferLayout, BufferSource, BufferType, BufferUsage, EventHandler, Pipeline,
     PipelineParams, RenderingBackend, ShaderSource, UniformsSource, VertexAttribute, VertexFormat,
@@ -19,11 +21,7 @@ use std::{
     thread,
     thread::JoinHandle,
 };
-pub enum Message {
-    LoadScenario(String),
-    SaveFile(std::path::PathBuf),
-    SetShader(CurrentShader),
-}
+
 pub fn vec_near_zero(v: Vector3<f32>) -> bool {
     v.dot(v) < 1e-8
 }
@@ -66,14 +64,18 @@ impl Handler {
             loop {
                 if let Ok(message) = message_reciever.try_recv() {
                     match message {
-                        Message::LoadScenario(scenario) => {
+                        GuiPushMessage::LoadScenario(scenario) => {
                             info!("loading scenario: {}", scenario);
                             receiver.load_scenario(scenario);
                             par_img = ParallelImage::new_black(1000, 1000);
                         }
-                        Message::SaveFile(path) => receiver.save_file(path),
-                        Message::SetShader(s) => {
+                        GuiPushMessage::SaveFile(path) => receiver.save_file(path),
+                        GuiPushMessage::SetShader(s) => {
                             receiver.set_shader(s);
+                        }
+                        GuiPushMessage::SetEntityData => todo!("set entity data"),
+                        GuiPushMessage::SetCameraData((key, value)) => {
+                            receiver.set_camera_data(key, value);
                         }
                     }
                 }
