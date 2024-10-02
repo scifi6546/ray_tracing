@@ -31,6 +31,7 @@ pub struct Camera {
     focus_distance: RayScalar,
     world_width: RayScalar,
     world_height: RayScalar,
+    info: CameraInfo,
 }
 impl Camera {
     pub fn new(info: CameraInfo) -> Self {
@@ -63,6 +64,7 @@ impl Camera {
             focus_distance: info.focus_distance,
             world_width,
             world_height,
+            info,
         }
     }
     fn calculate_w_u_v(
@@ -101,12 +103,14 @@ impl Camera {
         self.end_time
     }
     fn set_look_at(&mut self, look_at: Point3<RayScalar>) {
-        let (w, u, v) = Self::calculate_w_u_v(self.origin, look_at, self.up_vector);
-        let horizontal = self.focus_distance * self.world_width * u;
-
-        let vertical = self.focus_distance * self.world_height * v;
-        self.lower_left_corner =
-            self.origin - self.horizontal / 2.0 - vertical / 2.0 - self.focus_distance * w;
+        let mut info = self.info.clone();
+        info.look_at = look_at;
+        *self = Self::new(info);
+    }
+    fn set_origin(&mut self, origin: Point3<RayScalar>) {
+        let mut info = self.info.clone();
+        info.origin = origin;
+        *self = Self::new(info);
     }
 }
 impl Entity for Camera {
@@ -115,14 +119,17 @@ impl Entity for Camera {
     }
     fn fields(&self) -> HashMap<String, EntityField> {
         let mut map = HashMap::new();
-        map.insert("origin".to_string(), EntityField::Point3(self.origin));
-        map.insert("look_at".to_string(), EntityField::Point3(self.look_at));
+        map.insert("origin".to_string(), EntityField::Point3(self.info.origin));
+        map.insert(
+            "look_at".to_string(),
+            EntityField::Point3(self.info.look_at),
+        );
         map
     }
     fn set_field(&mut self, key: String, value: EntityField) {
         match key.as_str() {
             "origin" => match value {
-                EntityField::Point3(p) => self.origin = p,
+                EntityField::Point3(p) => self.set_origin(p),
                 _ => panic!("invalid field type"),
             },
             "look_at" => match value {
