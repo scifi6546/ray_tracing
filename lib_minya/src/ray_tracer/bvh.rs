@@ -1,12 +1,15 @@
 use super::{
     hittable::{Hittable, Object},
+    ray_tracer_info::EntityInfo,
     HitRecord, Ray,
 };
 use crate::prelude::*;
 
 use cgmath::Point3;
 
+use crate::ray_tracer::ray_tracer_info::Entity;
 use std::cmp::Ordering;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Aabb {
     pub minimum: Point3<RayScalar>,
@@ -75,6 +78,15 @@ impl BvhTree {
     }
     pub fn bounding_box(&self, time_0: RayScalar, time_1: RayScalar) -> Option<Aabb> {
         self.root_node.bounding_box(&self.objects, time_0, time_1)
+    }
+    pub fn get_info(&self) -> Vec<EntityInfo> {
+        self.objects
+            .iter()
+            .map(|obj| EntityInfo {
+                name: Entity::name(obj),
+                fields: Entity::fields(obj),
+            })
+            .collect()
     }
 }
 #[derive(Clone)]

@@ -5,7 +5,11 @@ mod render_box;
 mod sphere;
 pub mod voxel_world;
 
-use super::{Aabb, Material, Ray};
+use super::{
+    ray_tracer_info::{Entity, EntityField},
+    Aabb, Material, Ray,
+};
+use std::collections::HashMap;
 
 use cgmath::{InnerSpace, Matrix3, Matrix4, Point2, Point3, SquareMatrix, Vector3, Vector4};
 
@@ -16,6 +20,7 @@ use crate::{
 use base_lib::RgbColor;
 pub use constant_medium::ConstantMedium;
 use dyn_clone::{clone_box, DynClone};
+use log::error;
 pub use oct_tree::{OctTree, VoxelMaterial};
 pub use rect::{XYRect, XZRect, YZRect};
 pub use render_box::RenderBox;
@@ -37,6 +42,23 @@ pub trait Hittable: Send + Sync + DynClone {
     /// gets the name of the object
     fn name(&self) -> String {
         "N/A".to_string()
+    }
+    fn fields(&self) -> HashMap<String, EntityField> {
+        HashMap::new()
+    }
+    fn set_field(&mut self, _key: String, _value: EntityField) {
+        error!("no entity field defined")
+    }
+}
+impl<T: Hittable> Entity for T {
+    fn name(&self) -> String {
+        Hittable::name(self)
+    }
+    fn fields(&self) -> HashMap<String, EntityField> {
+        Hittable::fields(self)
+    }
+    fn set_field(&mut self, key: String, value: EntityField) {
+        Hittable::set_field(self, key, value)
     }
 }
 #[derive(Clone, Copy, Debug)]

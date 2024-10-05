@@ -16,16 +16,20 @@ pub struct ScenarioInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub struct WorldEntityCollection {
     pub main_camera: Camera,
+    pub entities: Vec<EntityInfo>,
 }
 #[derive(Clone, Debug, PartialEq)]
-pub struct EntityInfo {}
+pub struct EntityInfo {
+    pub fields: HashMap<String, EntityField>,
+    pub name: String,
+}
 
 pub trait Entity {
     fn name(&self) -> String;
     fn fields(&self) -> HashMap<String, EntityField> {
         HashMap::new()
     }
-    fn set_field(&mut self, key: String, value: EntityField) {
+    fn set_field(&mut self, _key: String, _value: EntityField) {
         error!("No Entity fields setter defined")
     }
 }

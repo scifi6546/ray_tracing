@@ -2,7 +2,10 @@ use cgmath::Point2;
 
 use crate::{
     prelude::*,
-    ray_tracer::{ray_tracer_info::EntityField, RayTracer},
+    ray_tracer::{
+        ray_tracer_info::{EntityField, RayTracerInfo},
+        RayTracer,
+    },
 };
 use std::{
     collections::HashMap,
@@ -515,5 +518,10 @@ impl ParallelImageCollector {
                 .map_err(|e| error!("failed to send continue rendering message, reason: {}", e))
                 .unwrap();
         });
+    }
+    pub fn get_info(&self) -> RayTracerInfo {
+        info!("getting ray tracer info");
+        let read_lock = self.ray_tracer.read().expect("failed to get read lock");
+        read_lock.get_info()
     }
 }

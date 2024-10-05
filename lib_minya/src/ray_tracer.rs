@@ -20,7 +20,7 @@ use bloom::bloom;
 pub use logger::LogMessage;
 use logger::Logger;
 
-use background::{Background, ConstantColor, Sky};
+use background::{Background, ConstantColor};
 use bvh::Aabb;
 use camera::Camera;
 use cgmath::{InnerSpace, Point3, Vector3};
@@ -309,7 +309,7 @@ impl Shader for RayTracingShader {
         output
     }
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CurrentShader {
     Raytracing,
     Diffuse,

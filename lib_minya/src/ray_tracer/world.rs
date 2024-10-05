@@ -290,6 +290,7 @@ impl World {
     pub fn get_entity_info(&self) -> WorldEntityCollection {
         WorldEntityCollection {
             main_camera: self.camera.clone(),
+            entities: self.bvh.get_info(),
         }
     }
     pub fn set_camera_data(&mut self, key: String, value: EntityField) {

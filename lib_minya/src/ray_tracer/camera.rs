@@ -1,6 +1,6 @@
 use super::ray_tracer_info::{Entity, EntityField};
 use crate::prelude::*;
-use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Quaternion, Vector3};
+use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
 use std::collections::HashMap;
 /// info used to construct camera
 #[derive(Clone, Debug, PartialEq)]

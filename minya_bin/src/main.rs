@@ -1,21 +1,15 @@
 mod graphics_context;
 mod gui;
 mod messages;
+mod shader;
 
 use cgmath::{InnerSpace, Vector2, Vector3};
 use graphics_context::GraphicsContext;
 use gui::GuiCtx;
-use lib_minya::{
-    prelude::*,
-    ray_tracer::{ray_tracer_info::RayTracerInfo, CurrentShader, LogMessage, RayTracer},
-    Image,
-};
+use lib_minya::{prelude::*, ray_tracer::RayTracer, Image};
 use log::info;
-use messages::GuiPushMessage;
-use miniquad::{
-    conf, Bindings, BufferLayout, BufferSource, BufferType, BufferUsage, EventHandler, Pipeline,
-    PipelineParams, RenderingBackend, ShaderSource, UniformsSource, VertexAttribute, VertexFormat,
-};
+use messages::{GuiPushMessage, GuiSendMessage};
+use miniquad::{conf, EventHandler, RenderingBackend};
 use std::{
     sync::mpsc::{channel, Receiver},
     thread,
@@ -49,12 +43,13 @@ struct Handler {
 impl Handler {
     pub fn new() -> Self {
         let mut ctx: Box<dyn RenderingBackend> = miniquad::window::new_rendering_backend();
-        let mut context = GraphicsContext::new(ctx.as_mut());
+        let context = GraphicsContext::new(ctx.as_mut());
 
         let (message_sender, message_reciever) = channel();
         let (image_sender, image_receiver) = channel();
         let ray_tracer = RayTracer::new(None, None, None);
         let info = ray_tracer.get_info();
+        let (sender, receiver) = channel();
         let join_handle = thread::spawn(move || {
             let mut par_img = ParallelImage::new_black(1000, 1000);
 
@@ -68,12 +63,16 @@ impl Handler {
                             info!("loading scenario: {}", scenario);
                             receiver.load_scenario(scenario);
                             par_img = ParallelImage::new_black(1000, 1000);
+
+                            sender
+                                .send(GuiSendMessage::UpdateRayTracerInfo(receiver.get_info()))
+                                .expect("failed to send message to gui");
                         }
                         GuiPushMessage::SaveFile(path) => receiver.save_file(path),
                         GuiPushMessage::SetShader(s) => {
                             receiver.set_shader(s);
                         }
-                        GuiPushMessage::SetEntityData => todo!("set entity data"),
+
                         GuiPushMessage::SetCameraData((key, value)) => {
                             receiver.set_camera_data(key, value);
                         }
@@ -93,7 +92,7 @@ impl Handler {
             }
         });
 
-        let gui = GuiCtx::new(ctx.as_mut(), &info, message_sender);
+        let gui = GuiCtx::new(ctx.as_mut(), &info, message_sender, receiver);
         Self {
             context,
             ctx,
@@ -165,38 +164,4 @@ fn main() {
         },
         || Box::new(Handler::new()),
     );
-}
-mod shader {
-    use miniquad::*;
-
-    pub const VERTEX: &str = r#"#version 100
-    attribute vec2 pos;
-    attribute vec2 uv;
-    uniform vec2 offset;
-    varying lowp vec2 texcoord;
-    void main() {
-        gl_Position = vec4(pos + offset, 0, 1);
-        texcoord = uv;
-    }"#;
-
-    pub const FRAGMENT: &str = r#"#version 100
-    varying lowp vec2 texcoord;
-    uniform sampler2D tex;
-    void main() {
-        gl_FragColor = texture2D(tex, texcoord);
-    }"#;
-
-    pub fn meta() -> ShaderMeta {
-        ShaderMeta {
-            images: vec!["tex".to_string()],
-            uniforms: UniformBlockLayout {
-                uniforms: vec![miniquad::UniformDesc::new("offset", UniformType::Float2)],
-            },
-        }
-    }
-
-    #[repr(C)]
-    pub struct Uniforms {
-        pub offset: (f32, f32),
-    }
 }

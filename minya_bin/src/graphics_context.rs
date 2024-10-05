@@ -1,4 +1,4 @@
-use crate::{gui::GuiCtx, make_miniquad_texture, shader, Vertex};
+use crate::{make_miniquad_texture, shader, Vertex};
 use cgmath::Vector2;
 use lib_minya::Image;
 use miniquad::{
