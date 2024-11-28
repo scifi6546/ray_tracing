@@ -39,7 +39,7 @@ impl GuiCtx {
                 self.state.top_menu(ui);
             });
             egui::SidePanel::left("entity viewer").show(egui_ctx, |ui| {
-                self.state.entity_menu(ui);
+                self.state.entity_side_bar(ui);
             });
 
             egui::Window::new("Log")

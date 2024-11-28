@@ -1,8 +1,9 @@
 use super::{Aabb, HitRecord, Hittable, Material};
+use std::collections::HashMap;
 
 use crate::{
     prelude::{Ray, RayScalar},
-    ray_tracer::{hittable::RayAreaInfo, rand_unit_vec},
+    ray_tracer::{hittable::RayAreaInfo, rand_unit_vec, ray_tracer_info::EntityField},
 };
 
 use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
@@ -82,6 +83,23 @@ impl Hittable for Sphere {
             area: self.area(),
             direction: end_point - origin,
             end_point,
+        }
+    }
+    fn name(&self) -> String {
+        "Sphere".to_string()
+    }
+    fn fields(&self) -> HashMap<String, EntityField> {
+        let mut map = HashMap::new();
+        map.insert("radius".to_string(), EntityField::Float(self.radius));
+        map
+    }
+    fn set_field(&mut self, key: String, value: EntityField) {
+        match key.as_str() {
+            "radius" => match value {
+                EntityField::Float(v) => self.radius = v,
+                _ => panic!("invalid value type"),
+            },
+            _ => panic!("invalid key name: {}", key),
         }
     }
 }
@@ -171,5 +189,8 @@ impl Hittable for MovingSphere {
     }
     fn generate_ray_in_area(&self, _origin: Point3<RayScalar>, _time: RayScalar) -> RayAreaInfo {
         todo!()
+    }
+    fn name(&self) -> String {
+        "Moving Sphere".to_string()
     }
 }

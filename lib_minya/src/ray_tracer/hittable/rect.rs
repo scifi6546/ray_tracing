@@ -124,6 +124,9 @@ impl Hittable for XYRect {
             end_point,
         }
     }
+    fn name(&self) -> String {
+        "XY Rectangle".to_string()
+    }
 }
 
 pub struct XZRect {
@@ -241,6 +244,9 @@ impl Hittable for XZRect {
             direction: end_point - origin,
             end_point,
         }
+    }
+    fn name(&self) -> String {
+        "XZ Rectangle".to_string()
     }
 }
 
@@ -362,5 +368,8 @@ impl Hittable for YZRect {
             direction: end_point - origin,
             end_point,
         }
+    }
+    fn name(&self) -> String {
+        "YZ Rectangle".to_string()
     }
 }

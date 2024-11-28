@@ -103,4 +103,7 @@ impl Hittable for ConstantMedium {
     fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo {
         self.boundary.generate_ray_in_area(origin, time)
     }
+    fn name(&self) -> String {
+        "Constant Medium".to_string()
+    }
 }

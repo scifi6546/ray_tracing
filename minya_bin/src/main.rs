@@ -76,6 +76,17 @@ impl Handler {
                         GuiPushMessage::SetCameraData((key, value)) => {
                             receiver.set_camera_data(key, value);
                         }
+                        GuiPushMessage::SetEntityInfo {
+                            entity_index,
+                            field_name,
+                            field_value,
+                        } => {
+                            par_img = ParallelImage::new_black(1000, 1000);
+                            receiver.set_object_data(entity_index, field_name, field_value);
+                            sender
+                                .send(GuiSendMessage::UpdateRayTracerInfo(receiver.get_info()))
+                                .expect("failed to send message to gui");
+                        }
                     }
                 }
 

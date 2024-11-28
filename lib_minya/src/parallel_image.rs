@@ -384,7 +384,6 @@ impl ImageReceiver {
 }
 pub(crate) enum RayTracerMessage {
     LoadScenario(String),
-    #[allow(dead_code)]
     SetShader(super::ray_tracer::CurrentShader),
     StopRendering,
     ContinueRendering,
@@ -523,5 +522,26 @@ impl ParallelImageCollector {
         info!("getting ray tracer info");
         let read_lock = self.ray_tracer.read().expect("failed to get read lock");
         read_lock.get_info()
+    }
+    pub fn set_object_data(&mut self, entity_index: usize, key: String, value: EntityField) {
+        self.message_senders.iter_mut().for_each(|s| {
+            s.send(RayTracerMessage::StopRendering)
+                .map_err(|e| error!("failed to send stop rendering message, reason: {}", e))
+                .unwrap();
+        });
+        info!("told ray tracers to stop");
+        self.clear();
+
+        {
+            let mut write_lock = self.ray_tracer.write().expect("failed to read");
+            info!("got write lock for ray tracer now setting data");
+            write_lock.set_entity_data(entity_index, key, value);
+        }
+
+        self.message_senders.iter_mut().for_each(|s| {
+            s.send(RayTracerMessage::ContinueRendering)
+                .map_err(|e| error!("failed to send continue rendering message, reason: {}", e))
+                .unwrap();
+        });
     }
 }

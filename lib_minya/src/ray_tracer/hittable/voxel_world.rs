@@ -673,4 +673,7 @@ impl Hittable for VoxelWorld {
     fn generate_ray_in_area(&self, _origin: Point3<RayScalar>, _time: RayScalar) -> RayAreaInfo {
         todo!()
     }
+    fn name(&self) -> String {
+        "Voxel World".to_string()
+    }
 }

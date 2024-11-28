@@ -10,6 +10,11 @@ pub enum GuiPushMessage {
     SaveFile(std::path::PathBuf),
     SetShader(CurrentShader),
     SetCameraData((String, EntityField)),
+    SetEntityInfo {
+        entity_index: usize,
+        field_name: String,
+        field_value: EntityField,
+    },
 }
 /// Messages that are sent from the ray tracer to the GUI.
 #[derive(Clone, Debug, PartialEq)]

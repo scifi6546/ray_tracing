@@ -37,4 +37,5 @@ pub trait Entity {
 pub enum EntityField {
     Point3(Point3<RayScalar>),
     Angle(Vector3<RayScalar>),
+    Float(RayScalar),
 }

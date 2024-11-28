@@ -48,4 +48,7 @@ impl Hittable for OctTree<VoxelMaterial> {
     fn generate_ray_in_area(&self, _origin: Point3<RayScalar>, _time: RayScalar) -> RayAreaInfo {
         todo!()
     }
+    fn name(&self) -> String {
+        "Oct Tree".to_string()
+    }
 }

@@ -1,7 +1,7 @@
 use crate::messages::GuiPushMessage;
 use cgmath::{Point3, Vector3};
 use lib_minya::ray_tracer::{
-    ray_tracer_info::{Entity, EntityField, RayTracerInfo},
+    ray_tracer_info::{Entity, EntityField, EntityInfo, RayTracerInfo},
     CurrentShader, LogMessage,
 };
 
@@ -72,7 +72,7 @@ impl GuiState {
             });
         });
     }
-    pub fn entity_menu(&mut self, ui: &mut egui::Ui) {
+    pub fn entity_side_bar(&mut self, ui: &mut egui::Ui) {
         egui::CollapsingHeader::new("Main Camera")
             .default_open(true)
             .show(ui, |ui| {
@@ -130,13 +130,98 @@ impl GuiState {
                                 );
                             }
                         }
+                        EntityField::Float(v) => {
+                            ui.label(field_name);
+                            let mut value = *v;
+                            ui.add(egui::DragValue::new(&mut value));
+                            if value != *v {
+                                self.info
+                                    .loaded_entities
+                                    .main_camera
+                                    .set_field(field_name.to_string(), EntityField::Float(value));
+                                self.message_chanel
+                                    .send(GuiPushMessage::SetCameraData((
+                                        field_name.clone(),
+                                        EntityField::Float(value),
+                                    )))
+                                    .expect("failed to send value");
+                            }
+                        }
                     }
                 }
             });
         ui.separator();
-        for entity in self.info.loaded_entities.entities.iter() {
-            ui.label(&entity.name);
+        let entities = self.info.loaded_entities.clone();
+        for (index, entity) in entities.entities.iter().enumerate() {
+            self.entity_sub_menu(entity, index, ui);
         }
+    }
+    fn entity_sub_menu(&mut self, entity: &EntityInfo, index: usize, ui: &mut egui::Ui) {
+        egui::CollapsingHeader::new(&entity.name)
+            .id_source(format!("{}_{}", entity.name, index))
+            .show(ui, |ui| {
+                let mut update_values = vec![];
+                for (field_name, field) in entity.fields.iter() {
+                    match field {
+                        EntityField::Point3(point) => {
+                            let mut x = point.x;
+                            ui.label("x");
+
+                            ui.add(egui::DragValue::new(&mut x).speed(0.1)).changed();
+                            let mut y = point.y;
+                            ui.label("y");
+                            ui.add(egui::DragValue::new(&mut y).speed(0.1)).changed();
+                            let mut z = point.z;
+                            ui.label("z");
+                            ui.add(egui::DragValue::new(&mut z).speed(0.1)).changed();
+                            if x != point.x || y != point.y || z != point.z {
+                                update_values.push((
+                                    field_name.clone(),
+                                    EntityField::Point3(Point3::new(x, y, z)),
+                                ));
+                            }
+                        }
+                        EntityField::Angle(angle) => {
+                            let mut x = angle.x;
+                            ui.label("x");
+
+                            ui.add(egui::DragValue::new(&mut x).speed(0.1)).changed();
+                            let mut y = angle.y;
+                            ui.label("y");
+                            ui.add(egui::DragValue::new(&mut y).speed(0.1)).changed();
+                            let mut z = angle.z;
+                            ui.label("z");
+                            ui.add(egui::DragValue::new(&mut z).speed(0.1)).changed();
+                            if x != angle.x || y != angle.y || z != angle.z {
+                                update_values.push((
+                                    field_name.clone(),
+                                    EntityField::Angle(Vector3::new(x, y, z)),
+                                ));
+                            }
+                        }
+                        EntityField::Float(v) => {
+                            ui.label(field_name);
+                            let mut value = *v;
+                            ui.add(egui::DragValue::new(&mut value));
+                            if value != *v {
+                                update_values.push((field_name.clone(), EntityField::Float(value)));
+                            }
+                        }
+                    }
+                }
+                for (field_name, field_value) in update_values {
+                    self.info.loaded_entities.entities[index]
+                        .fields
+                        .insert(field_name.clone(), field_value.clone());
+                    self.message_chanel
+                        .send(GuiPushMessage::SetEntityInfo {
+                            entity_index: index,
+                            field_name: field_name.clone(),
+                            field_value,
+                        })
+                        .expect("failed to set value");
+                }
+            });
     }
     pub fn log_window(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::new([true, true])

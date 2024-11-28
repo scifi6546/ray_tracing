@@ -179,4 +179,7 @@ impl Hittable for RenderBox {
             panic!()
         }
     }
+    fn name(&self) -> String {
+        "Render Box".to_string()
+    }
 }

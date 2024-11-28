@@ -293,8 +293,12 @@ impl World {
             entities: self.bvh.get_info(),
         }
     }
+
     pub fn set_camera_data(&mut self, key: String, value: EntityField) {
         self.camera.set_field(key, value);
+    }
+    pub fn set_entity_data(&mut self, index: usize, key: String, value: EntityField) {
+        self.bvh.update_entity(index, key, value)
     }
 }
 pub trait ScenarioCtor: Send + Sync + DynClone {

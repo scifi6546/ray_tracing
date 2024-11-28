@@ -106,14 +106,7 @@ impl Shader for LightMapShader {
                 })
                 .fold(RgbColor::BLACK, |acc, x| acc + x);
 
-            RayColorOutput {
-                color,
-                #[cfg(feature = "debug_tracing")]
-                steps: vec![DebugRayTraceStep {
-                    position: record.position,
-                    front_face: true,
-                }],
-            }
+            RayColorOutput { color }
         } else {
             RayColorOutput {
                 color: RgbColor::BLACK,
@@ -411,6 +404,9 @@ impl RayTracer {
     }
     pub fn set_camera_data(&mut self, key: String, value: EntityField) {
         self.world.set_camera_data(key, value)
+    }
+    pub fn set_entity_data(&mut self, entity_index: usize, key: String, value: EntityField) {
+        self.world.set_entity_data(entity_index, key, value);
     }
     fn trace_part(&self, part: &mut ParallelImagePart) {
         let image_width = part.width();

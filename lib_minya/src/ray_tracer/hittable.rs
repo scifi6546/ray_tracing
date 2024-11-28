@@ -312,6 +312,15 @@ impl Hittable for Object {
             end_point,
         }
     }
+    fn name(&self) -> String {
+        self.shape.name()
+    }
+    fn fields(&self) -> HashMap<String, EntityField> {
+        self.shape.fields()
+    }
+    fn set_field(&mut self, key: String, value: EntityField) {
+        self.shape.set_field(key, value)
+    }
 }
 #[derive(Clone, Debug)]
 pub struct HitRay {

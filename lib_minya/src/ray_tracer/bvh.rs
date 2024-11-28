@@ -1,13 +1,12 @@
 use super::{
     hittable::{Hittable, Object},
-    ray_tracer_info::EntityInfo,
+    ray_tracer_info::{Entity, EntityField, EntityInfo},
     HitRecord, Ray,
 };
 use crate::prelude::*;
 
 use cgmath::Point3;
 
-use crate::ray_tracer::ray_tracer_info::Entity;
 use std::cmp::Ordering;
 
 #[derive(Clone, Copy, Debug)]
@@ -87,6 +86,15 @@ impl BvhTree {
                 fields: Entity::fields(obj),
             })
             .collect()
+    }
+    pub fn update_entity(
+        &mut self,
+        entity_index: usize,
+        field_name: String,
+        field_value: EntityField,
+    ) {
+        let update_value = self.objects.get_mut(entity_index).unwrap();
+        Entity::set_field(update_value, field_name, field_value);
     }
 }
 #[derive(Clone)]
