@@ -1,4 +1,26 @@
-# Minya Renderer
+This is the Root repository for my raytracing project.
+There are two ray tracers, a multithreaded cpu based raytracer and an in progress vulkan raytracer.
+
+# Cpu Raytracer
+
+![example render](examples/voxel_world.png)
+The cpu raytracer initially used Raytracing in a Weekend book series by Peter Shirley (https://raytracing.github.io/) as
+a guide.
+It has however expanded far past the material taught in the book.
+
+Supported Features
+
+* Gui Editor
+* Multithreading
+* Post Processing Pipeline
+* Many Materials
+
+# Vulkan Raytracer
+
+The vulkan raytracer is still in progress however it supports runtime configurable render pipelines.
+It uses the vulkan raytracing extensions. It uses shaders writen in glsl and compiled to spir-v at build time.
+
+# Minya Renderer and an inprogress vulkan based raytracer.
 
 A CPU raytracer based off of the Raytracing in a Weekend book series by Peter Shirley (https://raytracing.github.io/)
 and an in progress real time Vulkan rendering engine. It uses a bounding volume hierarchy inorder to accelerate ray
