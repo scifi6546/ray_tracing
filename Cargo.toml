@@ -1,5 +1,5 @@
 [workspace]
-members = ["minya_bin", "base_lib", "vulkan_rt", "choose_vulkan", "lib_minya"]
+members = ["cpu_rt_runner", "base_lib", "vulkan_rt", "choose_vulkan", "cpu_rt"]
 resolver = "2"
 [profile.dev]
 opt-level = 0
