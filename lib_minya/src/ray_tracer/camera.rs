@@ -1,7 +1,14 @@
-use super::ray_tracer_info::{Entity, EntityField};
+use super::{
+    ray_tracer_info::{Entity, EntityField},
+    save_file::{traits::Savable, SceneSaveError},
+};
 use crate::prelude::*;
+
 use cgmath::{num_traits::FloatConst, InnerSpace, Point3, Vector3};
+use rusqlite::Connection;
 use std::collections::HashMap;
+use uuid::Uuid;
+
 /// info used to construct camera
 #[derive(Clone, Debug, PartialEq)]
 pub struct CameraInfo {
@@ -138,5 +145,219 @@ impl Entity for Camera {
             },
             _ => panic!("invalid field: {}", key),
         };
+    }
+}
+impl Savable for Camera {
+    fn database_name() -> &'static str {
+        "camera"
+    }
+
+    fn make_schema(connection: &Connection) -> Result<(), SceneSaveError> {
+        CameraInfo::make_schema(connection)?;
+        let sql = format!(
+            "CREATE TABLE {self_name}(\
+                {self_name}_id BLOB PRIMARY KEY NOT NULL, \
+                {camera_info_name}_id BLOB NOT NULL,\
+                FOREIGN KEY({camera_info_name}_id) REFERENCES {camera_info_name}({camera_info_name}_id)\
+            )STRICT;",
+            self_name = <Self as Savable>::database_name(),
+            camera_info_name = <CameraInfo as Savable>::database_name()
+        );
+
+        connection.execute(&sql, ())?;
+        Ok(())
+    }
+
+    fn delete_schema(connection: &mut Connection) {
+        todo!()
+    }
+
+    fn save(&self, connection: &Connection) -> Result<Uuid, SceneSaveError> {
+        let info_uuid = self.info.save(connection)?;
+        let self_uuid = Uuid::new_v4();
+
+        let sql = format!(
+            "INSERT INTO {self_name}({self_name}_id, {info_name}_id) VALUES (?1, ?2)",
+            self_name = Self::database_name(),
+            info_name = CameraInfo::database_name()
+        );
+        connection.execute(&sql, (self_uuid, info_uuid))?;
+        Ok(self_uuid)
+    }
+
+    fn load(id: Uuid, connection: &Connection) -> Result<Vec<Self>, SceneSaveError> {
+        let query = format!(
+            "SELECT {camera_info_name}_id FROM {self_name} WHERE {self_name}_id = ?1",
+            self_name = Self::database_name(),
+            camera_info_name = CameraInfo::database_name()
+        );
+        let mut statement = connection.prepare(&query)?;
+        let camera_uuids = statement.query_map([&id], |row| row.get::<_, Uuid>(0))?;
+        Ok(camera_uuids
+            .filter_map(|val| match val {
+                Ok(v) => Some(v),
+                Err(error) => {
+                    error!("failed to read camera from database: {:?}", error);
+                    None
+                }
+            })
+            .filter_map(|info_id| match CameraInfo::load(info_id, connection) {
+                Ok(info) => Some(info),
+                Err(error) => {
+                    error!("failed to read camera info from database: {:?}", error);
+                    None
+                }
+            })
+            .flatten()
+            .map(|info| Camera::new(info))
+            .collect::<Vec<_>>())
+    }
+}
+impl Savable for CameraInfo {
+    fn database_name() -> &'static str {
+        "camera_info"
+    }
+
+    fn make_schema(connection: &Connection) -> Result<(), SceneSaveError> {
+        let sql = format!(
+            "CREATE TABLE {self_name}(\
+                {self_name}_id BLOB PRIMARY KEY NOT NULL,\
+                aspect_ratio REAL NOT NULL,\
+                fov REAL NOT NULL,\
+                origin_x REAL NOT NULL,\
+                origin_y REAL NOT NULL,\
+                origin_z REAL NOT NULL,\
+                \
+                look_at_x REAL NOT NULL,\
+                look_at_y REAL NOT NULL,\
+                look_at_z REAL NOT NULL,\
+                \
+                up_vector_x REAL NOT NULL,\
+                up_vector_y REAL NOT NULL,\
+                up_vector_z REAL NOT NULL,\
+                \
+                aperture REAL NOT NULL,\
+                focus_distance REAL NOT NULL,\
+                start_time REAL NOT NULL,\
+                end_time REAL NOT NULL
+            ) STRICT",
+            self_name = <Self as Savable>::database_name()
+        );
+        connection.execute(&sql, ())?;
+        Ok(())
+    }
+
+    fn delete_schema(connection: &mut Connection) {
+        todo!()
+    }
+
+    fn save(&self, connection: &Connection) -> Result<Uuid, SceneSaveError> {
+        let info_uuid = Uuid::new_v4();
+        let sql = format!(
+            "INSERT INTO {self_name}(\
+                {self_name}_id,\
+                aspect_ratio,\
+                fov,\
+                origin_x,\
+                origin_y,\
+                origin_z,\
+                look_at_x,\
+                look_at_y,\
+                look_at_z,\
+                up_vector_x,\
+                up_vector_y,\
+                up_vector_z,\
+                aperture,\
+                focus_distance,\
+                start_time,\
+                end_time
+            ) VALUES (\
+                ?1,\
+                ?2,\
+                ?3,\
+                ?4,\
+                ?5,\
+                ?6,\
+                ?7,\
+                ?8,\
+                ?9,\
+                ?10,\
+                ?11,\
+                ?12,\
+                ?13,\
+                ?14,\
+                ?15,\
+                ?16\
+            );",
+            self_name = Self::database_name()
+        );
+        connection.execute(
+            &sql,
+            (
+                info_uuid,
+                self.aspect_ratio,
+                self.fov,
+                self.origin.x,
+                self.origin.y,
+                self.origin.z,
+                self.look_at.x,
+                self.look_at.y,
+                self.look_at.z,
+                self.up_vector.x,
+                self.up_vector.y,
+                self.up_vector.z,
+                self.aperture,
+                self.focus_distance,
+                self.start_time,
+                self.end_time,
+            ),
+        )?;
+        Ok(info_uuid)
+    }
+
+    fn load(id: Uuid, connection: &Connection) -> Result<Vec<Self>, SceneSaveError> {
+        let query = format!(
+            "SELECT aspect_ratio, \
+            fov, \
+            origin_x, \
+            origin_y, \
+            origin_z, \
+            look_at_x, \
+            look_at_y, \
+            look_at_z, \
+            up_vector_x, \
+            up_vector_y, \
+            up_vector_z, \
+            aperture, \
+            focus_distance, \
+            start_time, \
+            end_time \
+            FROM {self_name} WHERE \
+            {self_name}_id = ?1",
+            self_name = Self::database_name()
+        );
+        let mut statement = connection.prepare(&query)?;
+        let statement_map = statement.query_map([id], |row| {
+            Ok(Self {
+                aspect_ratio: row.get(0)?,
+                fov: row.get(1)?,
+                origin: Point3::new(row.get(2)?, row.get(3)?, row.get(4)?),
+                look_at: Point3::new(row.get(5)?, row.get(6)?, row.get(7)?),
+                up_vector: Vector3::new(row.get(8)?, row.get(9)?, row.get(10)?),
+                aperture: row.get(11)?,
+                focus_distance: row.get(12)?,
+                start_time: row.get(13)?,
+                end_time: row.get(14)?,
+            })
+        })?;
+        Ok(statement_map
+            .filter_map(|v| match v {
+                Ok(v) => Some(v),
+                Err(err) => {
+                    error!("failed to load camera info: \"{}\"", err);
+                    None
+                }
+            })
+            .collect::<Vec<_>>())
     }
 }

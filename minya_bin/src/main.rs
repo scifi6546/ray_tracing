@@ -47,7 +47,8 @@ impl Handler {
 
         let (message_sender, message_reciever) = channel();
         let (image_sender, image_receiver) = channel();
-        let ray_tracer = RayTracer::new(None, None, None);
+        let ray_tracer = RayTracer::builder().build();
+
         let info = ray_tracer.get_info();
         let (sender, receiver) = channel();
         let join_handle = thread::spawn(move || {
@@ -83,6 +84,16 @@ impl Handler {
                         } => {
                             par_img = ParallelImage::new_black(1000, 1000);
                             receiver.set_object_data(entity_index, field_name, field_value);
+                            sender
+                                .send(GuiSendMessage::UpdateRayTracerInfo(receiver.get_info()))
+                                .expect("failed to send message to gui");
+                        }
+                        GuiPushMessage::SaveScene(path) => receiver.save_scene(path),
+                        GuiPushMessage::LoadScene(path) => {
+                            receiver.load_scene(path);
+
+                            par_img = ParallelImage::new_black(1000, 1000);
+
                             sender
                                 .send(GuiSendMessage::UpdateRayTracerInfo(receiver.get_info()))
                                 .expect("failed to send message to gui");

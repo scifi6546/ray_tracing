@@ -19,3 +19,4 @@ base_lib = { path = "../base_lib" }
 lib_minya = { path = "../lib_minya" }
 
 rfd = "0.9.1"
+uuid = { version = "1.11.0", features = ["v4", "fast-rng"] }

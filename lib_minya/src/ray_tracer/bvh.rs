@@ -60,15 +60,22 @@ pub struct BvhTree {
     root_node: BvhTreeNode,
 }
 impl BvhTree {
-    pub fn new(objects: Vec<Object>, time_0: RayScalar, time_1: RayScalar) -> Self {
+    pub fn new(objects: Vec<Object>, start_time: RayScalar, end_time: RayScalar) -> Self {
         if objects.is_empty() {
             Self {
                 objects: Vec::new(),
                 root_node: BvhTreeNode::None,
             }
         } else {
-            let root_node =
-                BvhTreeNode::new(&objects, &objects, 0, objects.len(), 0, time_0, time_1);
+            let root_node = BvhTreeNode::new(
+                &objects,
+                &objects,
+                0,
+                objects.len(),
+                0,
+                start_time,
+                end_time,
+            );
             Self { objects, root_node }
         }
     }

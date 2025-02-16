@@ -32,8 +32,8 @@ use super::{
 };
 
 mod world_prelude {
-    pub use super::super::background::SunSky;
-    pub use super::super::hittable::voxel_world::{
+    pub(crate) use super::super::background::SunSky;
+    pub(crate) use super::super::hittable::voxel_world::{
         CubeMaterial, CubeMaterialIndex, PerlinBuilder, VoxelWorld,
     };
     pub use super::super::sun::Sun;

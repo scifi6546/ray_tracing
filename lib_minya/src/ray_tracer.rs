@@ -8,9 +8,12 @@ pub mod material;
 
 mod pdf;
 pub mod ray_tracer_info;
+mod save_file;
+mod scenario_info;
 mod sun;
 pub mod texture;
 pub mod world;
+
 use ray_tracer_info::{RayTracerInfo, ScenarioInfo};
 
 use super::prelude::*;
@@ -19,6 +22,8 @@ use bloom::bloom;
 
 pub use logger::LogMessage;
 use logger::Logger;
+
+use crate::ray_tracer::ray_tracer_info::EntityField;
 
 use background::{Background, ConstantColor};
 use bvh::Aabb;
@@ -29,16 +34,16 @@ use hittable::{HitRay, HitRecord, Hittable, MaterialEffect};
 use material::{Dielectric, DiffuseLight, Isotropic, Lambertian, Material, Metal};
 use pdf::ScatterRecord;
 use prelude::RayScalar;
-#[allow(unused_imports)]
-use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, SolidColor, Texture};
-pub use world::{ScenarioCtor, World};
-
-use crate::ray_tracer::ray_tracer_info::EntityField;
+use save_file::SceneFile;
+use scenario_info::LoadScenario;
 use std::{
     collections::HashMap,
     sync::{mpsc::channel, Arc, RwLock},
     thread,
 };
+#[allow(unused_imports)]
+use texture::{CheckerTexture, DebugV, ImageTexture, MultiplyTexture, Perlin, SolidColor, Texture};
+pub use world::{ScenarioCtor, World, WorldInfo};
 
 pub fn rand_unit_vec() -> Vector3<RayScalar> {
     loop {
@@ -351,24 +356,35 @@ impl Clone for RayTracer {
 }
 
 impl RayTracer {
-    pub fn new(
-        additional_scenarios: Option<HashMap<String, Box<dyn ScenarioCtor>>>,
-        default_scenario: Option<String>,
-        default_shader: Option<CurrentShader>,
-    ) -> Self {
+    pub const SCENE_FILE_EXTENSION: &'static str = SceneFile::FILE_EXTENSION;
+    fn new(builder: RayTracerBuilder) -> Self {
         Logger::init();
-        let current_shader = default_shader.unwrap_or_else(|| CurrentShader::Raytracing);
+        let current_shader = builder
+            .default_shader
+            .unwrap_or_else(|| CurrentShader::Raytracing);
         let mut scenarios = world::get_scenarios();
-        if let Some(mut add_scenarios) = additional_scenarios {
+        if let Some(mut add_scenarios) = builder.additional_scenarios {
             for (k, scenario) in add_scenarios.drain() {
                 scenarios.items.insert(k, scenario);
             }
         }
-        let default = match default_scenario {
-            Some(s) => s,
-            None => scenarios.default,
+        let world = match builder.default_scenario {
+            LoadScenario::None => scenarios
+                .items
+                .get(&scenarios.default)
+                .expect("scenario not found")
+                .build(),
+            LoadScenario::Prebuilt(key) => {
+                if let Some(world) = scenarios.items.get(&key) {
+                    world.build()
+                } else {
+                    error!("failed to load scenario: \"{}\" loading default", key);
+                    scenarios.items[&scenarios.default].build()
+                }
+            }
+            LoadScenario::Custom(info) => info.build_world(),
         };
-        let world = scenarios.items[&default].build();
+
         Self {
             scenarios: scenarios.items,
             world,
@@ -377,6 +393,9 @@ impl RayTracer {
             light_map_shader: LightMapShader {},
             current_shader,
         }
+    }
+    pub fn builder() -> RayTracerBuilder {
+        RayTracerBuilder::new()
     }
     pub fn get_info(&self) -> RayTracerInfo {
         RayTracerInfo {
@@ -404,6 +423,16 @@ impl RayTracer {
     }
     pub fn set_camera_data(&mut self, key: String, value: EntityField) {
         self.world.set_camera_data(key, value)
+    }
+    pub fn save_scene(&self, scene_path: std::path::PathBuf) {
+        if let Err(e) = SceneFile::builder(scene_path).save(self) {
+            error!("failed to save scene reason: {:?}", e)
+        }
+    }
+    pub fn load_scene(path: std::path::PathBuf) -> Self {
+        Self::builder()
+            .custom_scenario(SceneFile::builder(path).load().unwrap())
+            .build()
     }
     pub fn set_entity_data(&mut self, entity_index: usize, key: String, value: EntityField) {
         self.world.set_entity_data(entity_index, key, value);
@@ -486,7 +515,8 @@ impl RayTracer {
                 loop {
                     for msg in message_receiver.try_iter() {
                         match msg {
-                            RayTracerMessage::LoadScenario(_name) => part.set_black(),
+                            RayTracerMessage::SceneChanged => part.set_black(),
+
                             RayTracerMessage::SetShader(_) => part.set_black(),
                             RayTracerMessage::StopRendering => {
                                 render = false;
@@ -507,5 +537,47 @@ impl RayTracer {
             receivers.push(receiver);
         }
         ParallelImageCollector::new(receivers, senders, self_rw_lock)
+    }
+}
+pub struct RayTracerBuilder {
+    additional_scenarios: Option<HashMap<String, Box<dyn ScenarioCtor>>>,
+    default_scenario: LoadScenario,
+    default_shader: Option<CurrentShader>,
+}
+impl RayTracerBuilder {
+    pub fn new() -> Self {
+        Self {
+            additional_scenarios: None,
+            default_scenario: LoadScenario::None,
+            default_shader: None,
+        }
+    }
+    pub fn add_scenarios(
+        mut self,
+        additional_scenarios: HashMap<String, Box<dyn ScenarioCtor>>,
+    ) -> Self {
+        if let Some(map) = self.additional_scenarios.as_mut() {
+            for (key, value) in additional_scenarios {
+                map.insert(key, value);
+            }
+        } else {
+            self.additional_scenarios = Some(additional_scenarios)
+        }
+        self
+    }
+    pub fn set_scenario(mut self, default_scenario: String) -> Self {
+        self.default_scenario = LoadScenario::Prebuilt(default_scenario);
+        self
+    }
+    pub fn set_default_shader(mut self, shader: CurrentShader) -> Self {
+        self.default_shader = Some(shader);
+        self
+    }
+    pub fn custom_scenario(mut self, scenario: WorldInfo) -> Self {
+        self.default_scenario = LoadScenario::Custom(scenario);
+        self
+    }
+    pub fn build(self) -> RayTracer {
+        RayTracer::new(self)
     }
 }

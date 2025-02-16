@@ -15,6 +15,10 @@ pub enum GuiPushMessage {
         field_name: String,
         field_value: EntityField,
     },
+    /// saves scene to given file
+    SaveScene(std::path::PathBuf),
+    /// loads scene from file
+    LoadScene(std::path::PathBuf),
 }
 /// Messages that are sent from the ray tracer to the GUI.
 #[derive(Clone, Debug, PartialEq)]

@@ -383,10 +383,10 @@ impl ImageReceiver {
     }
 }
 pub(crate) enum RayTracerMessage {
-    LoadScenario(String),
     SetShader(super::ray_tracer::CurrentShader),
     StopRendering,
     ContinueRendering,
+    SceneChanged,
     SetCameraData((String, EntityField)),
 }
 struct PartContainer {
@@ -456,8 +456,8 @@ impl ParallelImageCollector {
         }
         for sender in self.message_senders.iter() {
             sender
-                .send(RayTracerMessage::LoadScenario(name.clone()))
-                .expect("failed to send")
+                .send(RayTracerMessage::SceneChanged)
+                .expect("failed to send");
         }
         self.message_senders.iter_mut().for_each(|s| {
             s.send(RayTracerMessage::ContinueRendering)
@@ -490,6 +490,30 @@ impl ParallelImageCollector {
                 .expect("failed to send shader")
         }
     }
+    /// saves current scene to file
+    pub fn save_scene(&mut self, path: std::path::PathBuf) {
+        let mut write_lock = self.ray_tracer.read().expect("failed to read");
+        write_lock.save_scene(path)
+    }
+    /// Loads scene from file
+    pub fn load_scene(&mut self, path: std::path::PathBuf) {
+        self.message_senders.iter_mut().for_each(|s| {
+            s.send(RayTracerMessage::StopRendering)
+                .map_err(|e| error!("failed to send stop rendering message, reason: {}", e))
+                .unwrap();
+        });
+        self.clear();
+        {
+            let mut write_lock = self.ray_tracer.write().expect("failed to read");
+            *write_lock = RayTracer::load_scene(path);
+        }
+
+        self.message_senders.iter_mut().for_each(|s| {
+            s.send(RayTracerMessage::ContinueRendering)
+                .map_err(|e| error!("failed to send continue rendering message, reason: {}", e))
+                .unwrap();
+        });
+    }
     pub fn set_camera_data(&mut self, key: String, value: EntityField) {
         self.message_senders.iter_mut().for_each(|s| {
             s.send(RayTracerMessage::StopRendering)
@@ -512,11 +536,6 @@ impl ParallelImageCollector {
                 )))
                 .expect("failed to send data");
         }
-        self.message_senders.iter_mut().for_each(|s| {
-            s.send(RayTracerMessage::ContinueRendering)
-                .map_err(|e| error!("failed to send continue rendering message, reason: {}", e))
-                .unwrap();
-        });
     }
     pub fn get_info(&self) -> RayTracerInfo {
         info!("getting ray tracer info");
