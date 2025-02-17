@@ -1,16 +1,35 @@
+# Build Instructions
+
+First install the rust toolchain. An easy installer can be found at https://rustup.rs/.
+
+Next git clone this repository with the command
+
+```
+git clone https://github.com/scifi6546/ray_tracing.git
+cd ray_tracing
+```
+
+Finally, run and build the ray tracer with the below command. Dependencies will be pulled automatically by Cargo the
+rust
+package manager.
+
+```
+cargo run --bin cpu_rt_runner --release
+```
+
 ### Lambertian
 
 A diffuse material that scatters light in random directions and absorbs a specific color based on the color of the
 object. The following example render can be used by loading the "Lambertian Demonstration" scenario.
 
-![lambertian](examples/lambertian.png)
+![lambertian](../examples/lambertian.png)
 
 ### Metal
 
 Models a metallic surface. It reflects rays about the normal vector with a random blur based on a predifined "fuzz"
 variable inorder to model metalic surfaces that are not completly polished.
 An example of a smooth render is shown below.
-![metallic smooth](examples/metallic_smooth.png)
+![metallic smooth](../examples/metallic_smooth.png)
 
 When a surface is rough the rays are more likely to be reflected in a random direction and the same scene as above
 is shown except with a fuzz of 0.6.
