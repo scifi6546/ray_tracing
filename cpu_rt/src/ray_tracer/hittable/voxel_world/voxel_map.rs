@@ -31,7 +31,9 @@ pub(crate) struct VoxelMap {
 }
 impl VoxelMap {
     pub(crate) fn load<P: AsRef<std::path::Path>>(p: P) -> Self {
-        let file = File::open(p).expect("failed to open file");
+        let p_as_ref = p.as_ref();
+        let file_name = p_as_ref.as_os_str();
+        let file = File::open(p_as_ref).expect(&format!("failed to open file: {:?}", file_name));
         let s: VoxelMap = serde_yaml::from_reader(file).expect("failed to parse");
 
         assert!(s
