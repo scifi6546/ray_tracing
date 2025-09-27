@@ -576,7 +576,7 @@ impl<T: Leafable + PartialEq> OctTree<T> {
     }
 }
 impl<T: Leafable + PartialEq> PartialEq for OctTreeNode<T> {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         todo!()
     }
 }
