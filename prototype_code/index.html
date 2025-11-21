@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+
+<head>
+
+    <!--
+      <script src="/index2.js"></script>
+   -->
+
+</head>
+
+<body>
+    <script>
+
+        const loadScript = async => new Promise((resolve, reject) => {
+            const now = Date.now();
+            let script_tag = document.createElement("script");
+            script_tag.setAttribute('src', `/index2.js?v=${now}`)
+
+            console.log(script_tag.src)
+            script_tag.addEventListener('load', resolve);
+            script_tag.addEventListener('error', reject);
+            document.body.appendChild(script_tag);
+
+        })
+        async function run(params) {
+            await loadScript()
+            main();
+        }
+        run()
+
+    </script>
+    <div class="c1">
+        <canvas width="500px" height="500px" id="render_canvas">
+
+        </canvas>
+    </div>
+    <div class="c2">
+        <div id="debug_box"></div>
+    </div>
+
+
+    </div>
+</body>
+<style>
+    body {
+        display: flex;
+        flex-direction: row;
+    }
+
+    .c2 {
+        padding: .5cm;
+    }
+</style>
