@@ -81,7 +81,7 @@ class Node {
     constructor(size) {
         this.size = size;
         this.children = null;
-        if (this.size >= 2) {
+        if (this.size >= 1) {
             const random_number = getRandomInt(1);
             console.log(random_number);
             if (random_number == 1) {
@@ -438,7 +438,7 @@ class Node {
     }
     childrenXYWorld() {
         if (this.size <= 1) {
-            throw "Can not look for children as size is 1"
+            //    throw "Can not look for children as size is 1"
         }
         return Node.childrenXY().map((value) => value.times(Math.pow(2, this.size - 1)))
     }

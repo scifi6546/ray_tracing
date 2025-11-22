@@ -10,7 +10,34 @@
 
 <body>
     <script>
+        class ImagePixelData {
+            constructor(data, width, height) {
+                this.data = data;
+                this.width = width;
+                this.height = height;
+            }
+            get(x, y) {
+                return [100, 0, 0, 255]
+            }
+            getColorCode(x, y) {
+                const [r, g, b, a] = this.get(x, y)
+                return `#${r.toString(16)}${g.toString(16)}${b.toString(16)}${a.toString(16)}`
+            }
+            writeToCanvas(canvas_id) {
+                const canvas = document.getElementById(canvas_id);
+                canvas.width = this.width;
+                canvas.height = this.height;
+                let context = canvas.getContext('2d');
+                for (let x = 0; x < this.width; x++) {
+                    for (let y = 0; y < this.height; y++) {
+                        let color = this.getColorCode(x, y);
+                        context.fillStyle = color;
+                        context.fillRect(x, y, 1, 1)
+                    }
+                }
+            }
 
+        }
         const loadScript = async => new Promise((resolve, reject) => {
             const now = Date.now();
             let script_tag = document.createElement("script");
@@ -27,6 +54,46 @@
             main();
         }
         run()
+        function outer_submit(event) {
+            console.log("submit")
+            console.log(event)
+            create_image(URL.createObjectURL(event.target.files[0]), handle_image)
+        }
+        function create_image(imageFile, callback) {
+            const image = document.createElement('img');
+            image.onload = () => callback(image);
+            image.setAttribute('src', imageFile);
+
+        }
+        function handle_image(image) {
+            const image_data = convertImage(image);
+            image_data.writeToCanvas("bw_canvas")
+        }
+        function convertImage(image) {
+            const canvas = drawImageToCanvas(image);
+            const ctx = canvas.getContext('2d');
+            array = new Uint8Array(canvas.height * canvas.width * 4);
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    let data = ctx.getImageData(x, y, 1, 1, { pixelFormat: "rgba-unorm8" }).data;
+                    start_index = (x * canvas.height + y) * 4;
+                    for (let i = 0; i < 4; i++) {
+                        array[start_index + i] = data[i];
+                    }
+
+                }
+            }
+            return new ImagePixelData(array, canvas.width, canvas.height);
+
+        }
+
+        function drawImageToCanvas(image) {
+            const canvas = document.getElementById("preview_canvas");
+            canvas.width = image.width;
+            canvas.height = image.height;
+            canvas.getContext('2d').drawImage(image, 0, 0, image.width, image.height);
+            return canvas;
+        }
 
     </script>
     <div class="c1">
@@ -37,14 +104,30 @@
     <div class="c2">
         <div id="debug_box"></div>
     </div>
+    <div class="preview div">
+        <canvas width="500px" height="500px" id="preview_canvas">
+
+        </canvas>
+    </div>
+    <div class="bw_div">
+        <canvas width="500px" height="500px" id="bw_canvas">
+
+        </canvas>
+    </div>
 
 
     </div>
+    <input type="file" accept="image/*" onchange="outer_submit(event)" />
+    <pre id="result"></pre>
 </body>
 <style>
     body {
         display: flex;
         flex-direction: row;
+    }
+
+    #preview_canvas {
+        width: 10cm
     }
 
     .c2 {
