@@ -14,7 +14,7 @@
         const loadScript = async => new Promise((resolve, reject) => {
             const now = Date.now();
             let script_tag = document.createElement("script");
-            script_tag.setAttribute('src', `/index2.js?v=${now}`)
+            script_tag.setAttribute('src', `/index.js?v=${now}`)
 
             console.log(script_tag.src)
             script_tag.addEventListener('load', resolve);
