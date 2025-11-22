@@ -307,22 +307,25 @@ class Node {
                 let first_step = true;
                 // starting infinite loop
                 for (let i = 0; i < 20; i++) {
+                    block_history.push(new Vec2(block_x, block_y));
                     if (this.isBlockPosInRange(block_x, block_y) === false) {
                         debug_text += `<br>breaking at block pos <${block_x}, ${block_y}>`
                         break;
                     }
                     first_step = false;
                     step_size = this.getStepSize(block_x, block_y);
-                    block_x = floor_value(block_x, step_size);
-                    block_y = floor_value(block_y, step_size);
-                    block_history.push(new Vec2(block_x, block_y));
+                    //block_x = floor_value(block_x, step_size);
+                    //block_y = floor_value(block_y, step_size);
+
                     debug_text += `<br>block: <${block_x}, ${block_y}>`
+                    debug_text += `<br> position: <${position.x.toFixed(2)}, ${position.y.toFixed(2)}>`
                     output.push(position.clone())
                     let t = 0;
                     if (Math.sign(direction.x) == 1) {
                         t = 1;
                     }
-                    let t_x = (floor_value(position.x, step_size) + step_size * t - position.x) / direction.x;
+                    let t_x = (block_x + step_size * t - position.x) / direction.x;
+                    //t_x = (floor_value(position.x, step_size) + step_size * Math.sign(direction.x) - position.x) / direction.x;
                     if (t_x == Number.NEGATIVE_INFINITY) {
                         t_x = Number.POSITIVE_INFINITY
                     }
@@ -332,22 +335,33 @@ class Node {
                         t = 1;
                     }
                     let t_y = (floor_value(position.y, step_size) + step_size * Math.sign(direction.y) - position.y) / direction.y;
+                    t_y = (block_y + step_size * t - position.y) / direction.y;
                     if (t_y == Number.NEGATIVE_INFINITY) {
                         t_y = Number.POSITIVE_INFINITY
+                    }
+                    if (t_x < 0) {
+                        debug_text += `<br>t_x negative: ${t_x}`
+                        break;
+
+                    }
+                    if (t_y < 0) {
+                        debug_text += `<br>t_y negative: ${t_y}`
+                        break;
                     }
                     if (t_y < t_x) {
 
 
-
+                        debug_text += `<br>t_y < t_x<br> ${t_y.toFixed(2)} < ${t_x.toFixed(2)}`;
 
                         debug_text += `<br>step size: ${step_size}`
                         position.x = position.x + t_y * direction.x;
 
-                        //block_x = floor_value(position.x, step_size);
+
                         if (direction.y >= 0) {
                             block_y = block_y + step_size * Math.sign(direction.y);
-                            position.y = position.y + step_size * Math.sign(direction.y);
-                            if (this.isBlockPosInRange(block_x, block_y)) {
+
+                            position.y = position.y + t_y * direction.y;
+                            if (this.isBlockPosInRange(floor_value(position.x, 1), block_y)) {
                                 const next_step_size = this.getStepSize(floor_value(position.x, 1), block_y);
                                 block_x = floor_value(position.x, next_step_size)
                             } else {
@@ -355,7 +369,8 @@ class Node {
                             }
                         } else {
                             if (this.isBlockPosInRange(block_x, block_y - 1)) {
-                                position.y = position.y + step_size * Math.sign(direction.y);
+
+                                position.y = position.y + t_y * direction.y;
                                 const next_step_size = this.getStepSize(floor_value(position.x, 1), block_y - 1);
                                 block_x = floor_value(position.x, next_step_size);
                                 block_y = block_y - next_step_size;
@@ -369,13 +384,47 @@ class Node {
                             }
                         }
                     } else {
-                        debug_text += `<br>t_x < t_y: ${t_x} < ${t_y}`;
-                        break;
+                        debug_text += `<br>t_x < t_y <br> ${t_x.toFixed(2)} < ${t_y.toFixed(2)}`;
+                        debug_text += `<br>step size: ${step_size}`
+                        position.y = position.y + t_x * direction.y;
+
+                        //block_x = floor_value(position.x, step_size);
+                        if (direction.x >= 0) {
+                            block_x = block_x + step_size * Math.sign(direction.x);
+                            //position.x = position.x + step_size * Math.sign(direction.x);
+                            position.x = position.x + t_x * direction.x;
+                            if (this.isBlockPosInRange(block_x, floor_value(position.y, 1))) {
+                                const next_step_size = this.getStepSize(block_x, floor_value(position.y, 1));
+                                block_y = floor_value(position.y, next_step_size)
+                            } else {
+                                debug_text += "<br>done!"
+                            }
+                        } else {
+
+                            if (this.isBlockPosInRange(block_x - 1, block_y)) {
+                                // position.x = position.x + step_size * Math.sign(direction.x);
+                                position.x = position.x + t_x * direction.x;
+                                const next_step_size = this.getStepSize(block_x - 1, floor_value(position.y, 1));
+                                block_y = floor_value(position.y, next_step_size);
+                                block_x = block_x - next_step_size;
+                                step_size = next_step_size;
+
+
+                            } else {
+                                debug_text += "<br>done!"
+
+                                block_x = block_x - step_size;
+                                block_y = floor_value(position.y, step_size);
+
+
+                            }
+                        }
+
                     }
                     debug_text += "<hr>"
                 }
 
-
+                return [output, { "debug_text": debug_text }]
                 return [output.concat(block_history), { "debug_text": debug_text }]
             } else {
                 return [[], { "debug_text": "" }]
@@ -436,17 +485,31 @@ function draw_circle(position, ctx, color, text = null) {
 function main() {
     let cursor_pos = null;
     let clicked_cursor_pos = null;
+    let running = true;
     canvas = document.getElementById("render_canvas");
     canvas.addEventListener("mousemove", (e) => {
 
+        if (running) {
+            cursor_pos = event_to_world_vec(e)
+        }
 
-        cursor_pos = event_to_world_vec(e)
     });
     canvas.addEventListener("mousedown", (event) => {
-        clicked_cursor_pos = event_to_world_vec(event);
+        if (running) {
+            clicked_cursor_pos = event_to_world_vec(event);
+        }
+
 
 
     })
+    document.addEventListener("keydown", (e) => {
+        if (e.key == ' ') {
+            running = !running;
+        }
+
+    })
+
+
 
     const ctx = canvas.getContext("2d");
     const root_node = new Node(4);
