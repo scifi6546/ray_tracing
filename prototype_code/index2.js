@@ -272,7 +272,7 @@ class Node {
 
                 debug_text += `block_pos: (${first_collision[1][0]},${first_collision[1][1]})`;
 
-                let node = this.getNode(first_collision[1][0], first_collision[1][1]);
+
                 const grid_x = first_collision[1][0];
                 const grid_y = first_collision[1][1];
                 let position = new Vec2(output_position.x, output_position.y);
@@ -284,27 +284,14 @@ class Node {
 
 
                 let block_x = grid_x - grid_x % step_size;
-                /*
-                if (direction.x < 0.) {
-                    block_x = block_x - step_size;
-                }
-                    */
 
                 let block_y = grid_y - grid_y % step_size;
-                if (first_collision[0].y == 16) {
-                    // block_y = 16;
 
-                }
-                /*
-                if (direction.y < 0.) {
-                    block_y = block_y - step_size;
-                }
-                    */
                 debug_text += `block coords: <${block_x}, ${block_y}><br>step_size: ${step_size}`
                 let output = [new Vec2(output_position.x, output_position.y)];
                 output = []
                 const block_history = []
-                let first_step = true;
+
                 // starting infinite loop
                 for (let i = 0; i < 20; i++) {
                     block_history.push(new Vec2(block_x, block_y));
@@ -312,10 +299,9 @@ class Node {
                         debug_text += `<br>breaking at block pos <${block_x}, ${block_y}>`
                         break;
                     }
-                    first_step = false;
+
                     step_size = this.getStepSize(block_x, block_y);
-                    //block_x = floor_value(block_x, step_size);
-                    //block_y = floor_value(block_y, step_size);
+
 
                     debug_text += `<br>block: <${block_x}, ${block_y}>`
                     debug_text += `<br> position: <${position.x.toFixed(2)}, ${position.y.toFixed(2)}>`
@@ -325,11 +311,11 @@ class Node {
                         t = 1;
                     }
                     let t_x = (block_x + step_size * t - position.x) / direction.x;
-                    //t_x = (floor_value(position.x, step_size) + step_size * Math.sign(direction.x) - position.x) / direction.x;
+
                     if (t_x == Number.NEGATIVE_INFINITY) {
                         t_x = Number.POSITIVE_INFINITY
                     }
-                    //let t_y = (block_y + step_size * Math.sign(direction.y) - position.y) / direction.y;
+
                     t = 0;
                     if (Math.sign(direction.y) == 1) {
                         t = 1;
@@ -388,10 +374,10 @@ class Node {
                         debug_text += `<br>step size: ${step_size}`
                         position.y = position.y + t_x * direction.y;
 
-                        //block_x = floor_value(position.x, step_size);
+
                         if (direction.x >= 0) {
                             block_x = block_x + step_size * Math.sign(direction.x);
-                            //position.x = position.x + step_size * Math.sign(direction.x);
+
                             position.x = position.x + t_x * direction.x;
                             if (this.isBlockPosInRange(block_x, floor_value(position.y, 1))) {
                                 const next_step_size = this.getStepSize(block_x, floor_value(position.y, 1));
@@ -402,7 +388,6 @@ class Node {
                         } else {
 
                             if (this.isBlockPosInRange(block_x - 1, block_y)) {
-                                // position.x = position.x + step_size * Math.sign(direction.x);
                                 position.x = position.x + t_x * direction.x;
                                 const next_step_size = this.getStepSize(block_x - 1, floor_value(position.y, 1));
                                 block_y = floor_value(position.y, next_step_size);
@@ -425,7 +410,7 @@ class Node {
                 }
 
                 return [output, { "debug_text": debug_text }]
-                return [output.concat(block_history), { "debug_text": debug_text }]
+
             } else {
                 return [[], { "debug_text": "" }]
             }
