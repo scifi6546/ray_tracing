@@ -28,8 +28,15 @@ impl<T: Leafable> OctTreeNode<T> {
         let is_good = position.map(|v| v >= 0 && v < self.size as i32);
         is_good[0] && is_good[1] && is_good[2]
     }
-
+    ///traces, assumes that ray is either on boundry or on border
     fn trace(&self, ray: Ray) -> Option<OctTreeHitInfo<T>> {
+        // returns a floored to the nearest multiple of b
+        fn floor_value_scalar(a: RayScalar, b: RayScalar) -> i64 {
+            (a as i64) - (a as i64) % (b as i64)
+        }
+        fn floor_value_integer(a: i64, b: i64) -> i64 {
+            a - (a % b)
+        }
         /// does the eqalivalent of fract but for different bases
         fn base_fract(a: RayScalar, b: RayScalar) -> RayScalar {
             (a / b).fract() * b

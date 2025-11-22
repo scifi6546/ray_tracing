@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use uuid::Uuid;
 /// implements interface for saving scenes as sqlite databases. Each entity type will have its own table
 /// however each entity must share the same table with entities of the same type
-pub(crate) trait DynSavable {
+pub trait DynSavable {
     /// name of table that will be used for object
     fn database_name(&self) -> String;
     /// creates schema for table

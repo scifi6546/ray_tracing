@@ -17,6 +17,6 @@ use dyn_clone::DynClone;
 pub(crate) use sky::Sky;
 pub(crate) use sun_sky::SunSky;
 
-pub(crate) trait Background: Send + Sync + DynClone + DynSavable {
+pub trait Background: Send + Sync + DynClone + DynSavable {
     fn color(&self, ray: Ray) -> RgbColor;
 }

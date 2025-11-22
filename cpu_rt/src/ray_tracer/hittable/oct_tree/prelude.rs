@@ -66,6 +66,7 @@ pub(crate) fn get_child_index_size2(x: u32, y: u32, z: u32) -> usize {
 }
 
 impl<T: Leafable> LeafType<T> {
+    ///Returns Some(T) if this node is solid, returns `None` if Self is not solid
     pub(crate) fn try_solid(&self) -> Option<&T> {
         match self {
             Self::Solid(leaf) => Some(leaf),
