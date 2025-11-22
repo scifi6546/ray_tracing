@@ -189,11 +189,15 @@ class Node {
         }
 
     }
+    // returns a floored to the nearest multiple of b
+    _floor_value(a, b) {
+        return Math.floor(a) - Math.floor(a) % b
+    }
     _rayIteration(block_x, block_y, position, direction, step_size) {
-        // returns a floored to the nearest multiple of b
-        function floor_value(a, b) {
-            return Math.floor(a) - Math.floor(a) % b
+        if (direction.x == 0 || direction.y == 0) {
+            return [[], {}]
         }
+
         let block_history = [];
         let debug_text = "";
         let output = []
@@ -224,7 +228,7 @@ class Node {
             if (Math.sign(direction.y) == 1) {
                 t = 1;
             }
-            let t_y = (floor_value(position.y, step_size) + step_size * Math.sign(direction.y) - position.y) / direction.y;
+            let t_y = (this._floor_value(position.y, step_size) + step_size * Math.sign(direction.y) - position.y) / direction.y;
             t_y = (block_y + step_size * t - position.y) / direction.y;
             if (t_y == Number.NEGATIVE_INFINITY) {
                 t_y = Number.POSITIVE_INFINITY
@@ -251,8 +255,8 @@ class Node {
                     block_y = block_y + step_size * Math.sign(direction.y);
 
                     position.y = position.y + t_y * direction.y;
-                    if (this.isBlockPosInRange(floor_value(position.x, 1), block_y)) {
-                        const next_step_size = this.getStepSize(floor_value(position.x, 1), block_y);
+                    if (this.isBlockPosInRange(this._floor_value(position.x, 1), block_y)) {
+                        const next_step_size = this.getStepSize(this._floor_value(position.x, 1), block_y);
                         block_x = floor_value(position.x, next_step_size)
                     } else {
                         debug_text += "<br>done!"
@@ -261,15 +265,15 @@ class Node {
                     if (this.isBlockPosInRange(block_x, block_y - 1)) {
 
                         position.y = position.y + t_y * direction.y;
-                        const next_step_size = this.getStepSize(floor_value(position.x, 1), block_y - 1);
-                        block_x = floor_value(position.x, next_step_size);
+                        const next_step_size = this.getStepSize(this._floor_value(position.x, 1), block_y - 1);
+                        block_x = this._floor_value(position.x, next_step_size);
                         block_y = block_y - next_step_size;
                         step_size = next_step_size;
 
 
                     } else {
                         debug_text += "<br>done!"
-                        block_x = floor_value(position.x, step_size);
+                        block_x = this._floor_value(position.x, step_size);
                         block_y = block_y - step_size;
                     }
                 }
@@ -283,9 +287,9 @@ class Node {
                     block_x = block_x + step_size * Math.sign(direction.x);
 
                     position.x = position.x + t_x * direction.x;
-                    if (this.isBlockPosInRange(block_x, floor_value(position.y, 1))) {
-                        const next_step_size = this.getStepSize(block_x, floor_value(position.y, 1));
-                        block_y = floor_value(position.y, next_step_size)
+                    if (this.isBlockPosInRange(block_x, this._floor_value(position.y, 1))) {
+                        const next_step_size = this.getStepSize(block_x, this._floor_value(position.y, 1));
+                        block_y = this._floor_value(position.y, next_step_size)
                     } else {
                         debug_text += "<br>done!"
                     }
@@ -293,8 +297,8 @@ class Node {
 
                     if (this.isBlockPosInRange(block_x - 1, block_y)) {
                         position.x = position.x + t_x * direction.x;
-                        const next_step_size = this.getStepSize(block_x - 1, floor_value(position.y, 1));
-                        block_y = floor_value(position.y, next_step_size);
+                        const next_step_size = this.getStepSize(block_x - 1, this._floor_value(position.y, 1));
+                        block_y = this._floor_value(position.y, next_step_size);
                         block_x = block_x - next_step_size;
                         step_size = next_step_size;
 
@@ -303,7 +307,7 @@ class Node {
                         debug_text += "<br>done!"
 
                         block_x = block_x - step_size;
-                        block_y = floor_value(position.y, step_size);
+                        block_y = this._floor_value(position.y, step_size);
 
 
                     }
@@ -415,7 +419,7 @@ class Node {
                 const block_history = []
 
                 // starting infinite loop
-                return this._rayIteration(block_x, block_y, position, direction, step_size)
+                return this._rayIteration(block_x, block_y, position.clone(), direction, step_size)
 
 
 
@@ -424,7 +428,13 @@ class Node {
             }
 
         } else {
-            return [[], {}]
+            const grid_x = this._floor_value(ray.origin.x, 1)
+            const grid_y = this._floor_value(ray.origin.y, 1)
+            const step_size = this.getStepSize(grid_x, grid_y);
+            const block_x = this._floor_value(grid_x, step_size)
+            const block_y = this._floor_value(grid_y, step_size)
+            return this._rayIteration(block_x, block_y, ray.origin.clone(), ray.direction.clone(), step_size)
+
         }
 
     }
