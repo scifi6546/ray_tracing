@@ -184,7 +184,7 @@ class Node {
         if (node.children == null) {
             return Math.pow(2, node.size)
         } else {
-            return Math.pow(2, node.size - 1)
+            throw "Children is NULL!!!"
 
         }
 
@@ -194,6 +194,7 @@ class Node {
         function floor_value(a, b) {
             return Math.floor(a) - Math.floor(a) % b
         }
+        let debug_text = "";
         const max_side_length = Math.pow(2, this.size);
         const ray = new Ray(origin, direction);
         if (this.isRayOutside(ray)) {
@@ -263,13 +264,20 @@ class Node {
             if (positions.length >= 1) {
                 const first_collision = positions[0];
                 const output_position = first_collision[0];
-                let debug_text = `block_pos: (${first_collision[1][0]},${first_collision[1][1]})`;
+                if (first_collision[0].y == 16) {
+                    debug_text += "16!!!\n"
+                } else {
+                    debug_text += `y: ${first_collision[0].y}`
+                }
+
+                debug_text += `block_pos: (${first_collision[1][0]},${first_collision[1][1]})`;
 
                 let node = this.getNode(first_collision[1][0], first_collision[1][1]);
                 const grid_x = first_collision[1][0];
                 const grid_y = first_collision[1][1];
                 let position = new Vec2(output_position.x, output_position.y);
                 let direction = ray.direction;
+
 
                 let step_size = this.getStepSize(grid_x, grid_y);
 
@@ -283,86 +291,88 @@ class Node {
                     */
 
                 let block_y = grid_y - grid_y % step_size;
+                if (first_collision[0].y == 16) {
+                    // block_y = 16;
+
+                }
                 /*
                 if (direction.y < 0.) {
                     block_y = block_y - step_size;
                 }
                     */
-                debug_text = `block coords: <${block_x}, ${block_y}>\nstep_size: ${step_size}`
+                debug_text += `block coords: <${block_x}, ${block_y}><br>step_size: ${step_size}`
                 let output = [new Vec2(output_position.x, output_position.y)];
                 output = []
                 const block_history = []
-
+                let first_step = true;
                 // starting infinite loop
                 for (let i = 0; i < 20; i++) {
+                    if (this.isBlockPosInRange(block_x, block_y) === false) {
+                        debug_text += `<br>breaking at block pos <${block_x}, ${block_y}>`
+                        break;
+                    }
+                    first_step = false;
+                    step_size = this.getStepSize(block_x, block_y);
+                    block_x = floor_value(block_x, step_size);
+                    block_y = floor_value(block_y, step_size);
                     block_history.push(new Vec2(block_x, block_y));
+                    debug_text += `<br>block: <${block_x}, ${block_y}>`
                     output.push(position.clone())
-                    let t_x = (floor_value(position.x, step_size) + step_size * Math.sign(direction.x) - position.x) / direction.x;
+                    let t = 0;
+                    if (Math.sign(direction.x) == 1) {
+                        t = 1;
+                    }
+                    let t_x = (floor_value(position.x, step_size) + step_size * t - position.x) / direction.x;
                     if (t_x == Number.NEGATIVE_INFINITY) {
                         t_x = Number.POSITIVE_INFINITY
                     }
                     //let t_y = (block_y + step_size * Math.sign(direction.y) - position.y) / direction.y;
+                    t = 0;
+                    if (Math.sign(direction.y) == 1) {
+                        t = 1;
+                    }
                     let t_y = (floor_value(position.y, step_size) + step_size * Math.sign(direction.y) - position.y) / direction.y;
                     if (t_y == Number.NEGATIVE_INFINITY) {
                         t_y = Number.POSITIVE_INFINITY
                     }
                     if (t_y < t_x) {
 
-                        const new_block_x = block_x;
-                        //const new_block_x = floor_value(position.x, step_size);
-                        const new_block_y = block_y + Math.sign(direction.y) * 1
-                        debug_text += `\nchecking <${new_block_x}, ${new_block_y}>`;
 
-                        if (this.isBlockPosInRange(new_block_x, new_block_y) == false) {
-                            debug_text += `\nOUT OF RANGE: checked: <${new_block_x}, ${new_block_y}>`
-                            break;
-                        }
-                        let new_step_size = this.getStepSize(new_block_x, new_block_y);
-                        debug_text += `\nstep size: ${new_step_size}`
-                        if (new_step_size == step_size) {
 
-                            debug_text += `\nnew_step_size == step_size`;
-                            block_x = block_x;
-                            block_y = block_y + Math.sign(direction.y) * step_size;
-                            step_size = new_step_size;
-                            position.x = position.x + t_y * direction.x;
+
+                        debug_text += `<br>step size: ${step_size}`
+                        position.x = position.x + t_y * direction.x;
+
+                        //block_x = floor_value(position.x, step_size);
+                        if (direction.y >= 0) {
+                            block_y = block_y + step_size * Math.sign(direction.y);
                             position.y = position.y + step_size * Math.sign(direction.y);
-
-                        } else if (new_step_size < step_size) {
-                            debug_text += `\nnew_step_size < step_size`
-                            debug_text += `\n\told block: <${block_x}, ${block_y}>`
-                            position.x = position.x + t_y * direction.x;
-                            position.y = position.y + step_size * Math.sign(direction.y);
-
-                            block_x = floor_value(position.x, new_step_size)
-                            block_y = block_y + step_size * Math.sign(direction.y)
-                            debug_text += `\n\tnew block: <${block_x}, ${block_y}>`
-
-
-
-                            step_size = new_step_size;
-
-
-                        } else if (new_step_size > step_size) {
-                            debug_text += `\nnew_step_size > step_size`
-                            position.x = position.x + t_y * direction.x;
-                            position.y = position.y + new_step_size * Math.sign(direction.y);
-                            block_x = floor_value(position.x, new_step_size);
-                            block_y = floor_value(block_y + step_size, new_step_size);
-
-
-                            step_size = new_step_size
-
+                            if (this.isBlockPosInRange(block_x, block_y)) {
+                                const next_step_size = this.getStepSize(floor_value(position.x, 1), block_y);
+                                block_x = floor_value(position.x, next_step_size)
+                            } else {
+                                debug_text += "<br>done!"
+                            }
                         } else {
-                            debug_text += `\nSHOULD NEVER GET HERE`;
-                            break;
+                            if (this.isBlockPosInRange(block_x, block_y - 1)) {
+                                position.y = position.y + step_size * Math.sign(direction.y);
+                                const next_step_size = this.getStepSize(floor_value(position.x, 1), block_y - 1);
+                                block_x = floor_value(position.x, next_step_size);
+                                block_y = block_y - next_step_size;
+                                step_size = next_step_size;
+
+
+                            } else {
+                                debug_text += "<br>done!"
+                                block_x = floor_value(position.x, step_size);
+                                block_y = block_y - step_size;
+                            }
                         }
-
-
                     } else {
-                        debug_text += `\nt_x < t_y: ${t_x} < ${t_y}`;
+                        debug_text += `<br>t_x < t_y: ${t_x} < ${t_y}`;
                         break;
                     }
+                    debug_text += "<hr>"
                 }
 
 
@@ -461,7 +471,7 @@ function main() {
 
                 let [collisions, info] = root_node.getCollisions(clicked_cursor_pos, cursor_pos.minus(clicked_cursor_pos));
                 let dom_element = document.getElementById("debug_box");
-                dom_element.innerText = info["debug_text"];
+                dom_element.innerHTML = info["debug_text"];
 
                 collisions.forEach((element, index) => {
 
