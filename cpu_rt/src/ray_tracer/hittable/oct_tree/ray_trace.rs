@@ -57,7 +57,7 @@ impl<T: Leafable> OctTreeNode<T> {
                 .expect("Index is out of range")
                 .size
         }
-        const MAX_NUMBER_RAY_ITERATIONS: usize = 300;
+        const MAX_NUMBER_RAY_ITERATIONS: usize = 3000;
         let original_origin = ray.origin;
         let mut step_size = get_step_size(self, block_coordinates);
         block_coordinates = floor_point3_integer(block_coordinates, step_size as i64);

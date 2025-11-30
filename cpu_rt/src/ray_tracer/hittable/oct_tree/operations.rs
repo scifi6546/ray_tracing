@@ -519,6 +519,28 @@ impl<T: Leafable + PartialEq> OctTree<T> {
                     );
 
                     update_node(&mut children[oct_tree_index], sub_position, value);
+                    // checking if the node can be simplified
+                    let are_all_children_leaf = children[0].is_leaf()
+                        && children[1].is_leaf()
+                        && children[2].is_leaf()
+                        && children[3].is_leaf()
+                        && children[4].is_leaf()
+                        && children[5].is_leaf()
+                        && children[6].is_leaf()
+                        && children[7].is_leaf();
+                    if are_all_children_leaf {
+                        if children[0] == children[1]
+                            && children[0] == children[2]
+                            && children[0] == children[3]
+                            && children[0] == children[4]
+                            && children[0] == children[5]
+                            && children[0] == children[6]
+                            && children[0] == children[7]
+                        {
+                            node.children =
+                                OctTreeChildren::Leaf(children[0].leaf_value().unwrap().clone())
+                        }
+                    }
                 }
             }
         }
@@ -576,8 +598,30 @@ impl<T: Leafable + PartialEq> OctTree<T> {
     }
 }
 impl<T: Leafable + PartialEq> PartialEq for OctTreeNode<T> {
-    fn eq(&self, _other: &Self) -> bool {
-        todo!()
+    fn eq(&self, other: &Self) -> bool {
+        if other.size == self.size {
+            match &self.children {
+                OctTreeChildren::Leaf(self_leaf_value) => match &other.children {
+                    OctTreeChildren::Leaf(other_leaf_value) => self_leaf_value == other_leaf_value,
+                    OctTreeChildren::ParentNode(_) => false,
+                },
+                OctTreeChildren::ParentNode(self_children) => match &other.children {
+                    OctTreeChildren::Leaf(_) => false,
+                    OctTreeChildren::ParentNode(other_children) => {
+                        self_children[0] == other_children[0]
+                            && self_children[1] == other_children[1]
+                            && self_children[2] == other_children[2]
+                            && self_children[3] == other_children[3]
+                            && self_children[4] == other_children[4]
+                            && self_children[5] == other_children[5]
+                            && self_children[6] == other_children[6]
+                            && self_children[7] == other_children[7]
+                    }
+                },
+            }
+        } else {
+            false
+        }
     }
 }
 impl<T: Leafable> std::fmt::Debug for OctTree<T> {
@@ -585,5 +629,37 @@ impl<T: Leafable> std::fmt::Debug for OctTree<T> {
         f.debug_struct("OctTreee")
             .field("children", &self.get_debug_string())
             .finish()
+    }
+}
+#[cfg(test)]
+mod test {
+    use cgmath::Point3;
+
+    use crate::ray_tracer::hittable::OctTree;
+
+    #[test]
+    fn update_single() {
+        let mut oct_tree = OctTree::<bool>::empty();
+        oct_tree.update(Point3::new(0, 0, 0), true);
+        assert_eq!(oct_tree.root_node.size, 1);
+        let leaf = oct_tree.root_node.leaf_value().expect("should be leaf");
+        assert_eq!(*leaf.try_solid().expect("must be solid"), true)
+    }
+    #[test]
+    fn update_eight() {
+        let mut oct_tree = OctTree::<bool>::empty();
+        oct_tree.update(Point3::new(0, 0, 0), true);
+        oct_tree.update(Point3::new(0, 0, 1), true);
+        oct_tree.update(Point3::new(0, 1, 0), true);
+        oct_tree.update(Point3::new(0, 1, 1), true);
+
+        oct_tree.update(Point3::new(1, 0, 0), true);
+        oct_tree.update(Point3::new(1, 0, 1), true);
+        oct_tree.update(Point3::new(1, 1, 0), true);
+        oct_tree.update(Point3::new(1, 1, 1), true);
+        assert_eq!(oct_tree.root_node.size, 2);
+        let leaf = oct_tree.root_node.leaf_value().expect("should be leaf");
+
+        assert_eq!(*leaf.try_solid().expect("must be solid"), true)
     }
 }
