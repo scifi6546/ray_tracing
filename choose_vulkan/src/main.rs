@@ -134,8 +134,8 @@ unsafe extern "system" fn vulkan_debug_callback(
         message,
     );
     if message_severity == vk::DebugUtilsMessageSeverityFlagsEXT::ERROR {
-        let bt = backtrace::Backtrace::new();
-        println!("{:?}", bt);
+        // let bt = backtrace::Backtrace::new();
+        //println!("{:?}", bt);
         panic!()
     }
 

@@ -89,6 +89,7 @@ impl<T: Leafable> OctTreeNode<T> {
         }
     }
     /// return the chunk that the pos is contained in, if the pos is inside of a leaf returns the entire leaf
+    /// returns none if pos is out of range
     pub(crate) fn get_chunk(&self, pos: Point3<u32>) -> Option<&OctTreeNode<T>> {
         if pos.x < self.size && pos.y < self.size && pos.z < self.size {
             match &self.children {
@@ -111,6 +112,7 @@ impl<T: Leafable> OctTreeNode<T> {
         }
     }
     /// gets the largest possible homogenous chunk for given pos
+    /// returns `None` if pos is out of range
     pub(crate) fn get_homogenous_chunk(&self, pos: Point3<u32>) -> Option<&OctTreeNode<T>> {
         if let Some(chunk) = self.get_chunk(pos) {
             if chunk.is_leaf() {

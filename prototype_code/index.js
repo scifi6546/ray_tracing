@@ -78,6 +78,7 @@ class Ray {
 class Node {
     size;
     children;
+    is_solid;
     constructor(size) {
         this.size = size;
         this.children = null;
@@ -88,6 +89,13 @@ class Node {
                 console.log("creating children for size: %d", this.size);
                 const new_size = size - 1;
                 this.children = [new Node(new_size), new Node(new_size), new Node(new_size), new Node(new_size)]
+            } else {
+                const random_number = getRandomInt(1);
+                if (random_number == 1) {
+                    this.is_solid = true;
+                } else {
+                    this.is_solid = false;
+                }
             }
         }
         if (this.children != null) {
@@ -99,10 +107,20 @@ class Node {
         this.size = size;
     }
     getColor() {
+        if (this.children != null) {
+            const colors = ["#25008bff", "#ff00b3ff", "#009908ff", "#ff0000ff", "#3700ffff"];
+            const colors_index = Math.min(this.size - 1, colors.length - 1);
+            return colors[colors_index];
+        } else {
+            if (this.is_solid) {
+                return "#ffffff"
+            } else {
+                return "#ffffff00"
+            }
 
-        const colors = ["#25008bff", "#ff00b3ff", "#009908ff", "#ff0000ff", "#3700ffff"];
-        const colors_index = Math.min(this.size - 1, colors.length - 1);
-        return colors[colors_index];
+        }
+
+
     }
     draw(ctx, origin = new Vec2(0., 0.)) {
 
@@ -201,6 +219,7 @@ class Node {
         let block_history = [];
         let debug_text = "";
         let output = []
+        let normal = new Vec2(0., 0.)
         for (let i = 0; i < 20; i++) {
             block_history.push(new Vec2(block_x, block_y));
             if (this.isBlockPosInRange(block_x, block_y) === false) {
@@ -220,7 +239,7 @@ class Node {
             }
             let t_x = (block_x + step_size * t - position.x) / direction.x;
 
-            if (t_x == Number.NEGATIVE_INFINITY) {
+            if (t_x == Number.NEGATIVE_INFINITY || t_x == -0) {
                 t_x = Number.POSITIVE_INFINITY
             }
 
@@ -230,7 +249,7 @@ class Node {
             }
             let t_y = (this._floor_value(position.y, step_size) + step_size * Math.sign(direction.y) - position.y) / direction.y;
             t_y = (block_y + step_size * t - position.y) / direction.y;
-            if (t_y == Number.NEGATIVE_INFINITY) {
+            if (t_y == Number.NEGATIVE_INFINITY || t_y == -0) {
                 t_y = Number.POSITIVE_INFINITY
             }
             if (t_x < 0) {
@@ -257,7 +276,13 @@ class Node {
                     position.y = position.y + t_y * direction.y;
                     if (this.isBlockPosInRange(this._floor_value(position.x, 1), block_y)) {
                         const next_step_size = this.getStepSize(this._floor_value(position.x, 1), block_y);
-                        block_x = floor_value(position.x, next_step_size)
+                        block_x = this._floor_value(position.x, next_step_size)
+                        let node = this.getNode(block_x, block_y);
+                        if (node.is_solid === true) {
+                            const normal = new Vec2(0, -1.0 * Math.sign(direction.y));
+                            debug_text += `<hr>NODE ${block_x}, ${block_y} is solid<br>normal: <${normal.x}, ${normal.y}>`
+                            return [[position.clone(), new Vec2(block_x, block_y)], { "debug_text": debug_text }]
+                        }
                     } else {
                         debug_text += "<br>done!"
                     }
@@ -269,6 +294,12 @@ class Node {
                         block_x = this._floor_value(position.x, next_step_size);
                         block_y = block_y - next_step_size;
                         step_size = next_step_size;
+                        let node = this.getNode(block_x, block_y);
+                        if (node.is_solid === true) {
+                            const normal = new Vec2(0, 1.0 * Math.sign(direction.y));
+                            debug_text += `<hr>NODE ${block_x}, ${block_y} is solid<br>normal: <${normal.x}, ${normal.y}>`
+                            return [[position.clone(), new Vec2(block_x, block_y)], { "debug_text": debug_text }]
+                        }
 
 
                     } else {
@@ -289,7 +320,13 @@ class Node {
                     position.x = position.x + t_x * direction.x;
                     if (this.isBlockPosInRange(block_x, this._floor_value(position.y, 1))) {
                         const next_step_size = this.getStepSize(block_x, this._floor_value(position.y, 1));
-                        block_y = this._floor_value(position.y, next_step_size)
+                        block_y = this._floor_value(position.y, next_step_size);
+                        let node = this.getNode(block_x, block_y);
+                        if (node.is_solid === true) {
+                            const normal = new Vec2(-1.0 * Math.sign(direction.y), 0.);
+                            debug_text += `<hr>NODE ${block_x}, ${block_y} is solid<br>normal: <${normal.x}, ${normal.y}>`
+                            return [[position.clone(), new Vec2(block_x, block_y)], { "debug_text": debug_text }]
+                        }
                     } else {
                         debug_text += "<br>done!"
                     }
@@ -297,11 +334,20 @@ class Node {
 
                     if (this.isBlockPosInRange(block_x - 1, block_y)) {
                         position.x = position.x + t_x * direction.x;
+
                         const next_step_size = this.getStepSize(block_x - 1, this._floor_value(position.y, 1));
+
                         block_y = this._floor_value(position.y, next_step_size);
+
                         block_x = block_x - next_step_size;
                         step_size = next_step_size;
 
+                        let node = this.getNode(block_x, block_y);
+                        if (node.is_solid === true) {
+                            const normal = new Vec2(1.0 * Math.sign(direction.y), 0.);
+                            debug_text += `<hr>NODE ${block_x}, ${block_y} is solid<br>normal: <${normal.x}, ${normal.y}>`
+                            return [[position.clone(), new Vec2(block_x, block_y)], { "debug_text": debug_text }]
+                        }
 
                     } else {
                         debug_text += "<br>done!"
@@ -409,9 +455,9 @@ class Node {
 
 
 
-                let block_x = grid_x - grid_x % step_size;
+                let block_x = this._floor_value(grid_x, step_size);
 
-                let block_y = grid_y - grid_y % step_size;
+                let block_y = this._floor_value(grid_y, step_size);
 
                 debug_text += `block coords: <${block_x}, ${block_y}><br>step_size: ${step_size}`
                 let output = [new Vec2(output_position.x, output_position.y)];
