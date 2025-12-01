@@ -48,7 +48,7 @@ impl Savable for Sky {
         Ok(())
     }
 
-    fn delete_schema(connection: &mut Connection) {
+    fn delete_schema(_connection: &mut Connection) {
         todo!()
     }
 

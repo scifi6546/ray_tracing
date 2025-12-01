@@ -35,15 +35,15 @@ impl Savable for ConstantColor {
         Ok(())
     }
 
-    fn delete_schema(connection: &mut Connection) {
+    fn delete_schema(_connection: &mut Connection) {
         todo!()
     }
 
-    fn save(&self, connection: &Connection) -> Result<Uuid, SceneSaveError> {
+    fn save(&self, _connection: &Connection) -> Result<Uuid, SceneSaveError> {
         todo!()
     }
 
-    fn load(id: Uuid, connection: &Connection) -> Result<Vec<Self>, SceneSaveError> {
+    fn load(_id: Uuid, _connection: &Connection) -> Result<Vec<Self>, SceneSaveError> {
         todo!("load constant color")
     }
 }

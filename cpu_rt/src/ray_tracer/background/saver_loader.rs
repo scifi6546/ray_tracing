@@ -89,7 +89,7 @@ pub(crate) fn load_background(
         let mut background_statement =
             connection.prepare("SELECT background_id FROM scene WHERE scene_id = ?1")?;
         let mut background_query = background_statement.query([scene_id])?;
-        let mut row = background_query.next()?.unwrap();
+        let row = background_query.next()?.unwrap();
 
         row.get(0)?
     };
@@ -115,7 +115,7 @@ pub(crate) fn load_background(
         names_id_pair
             .iter()
             .enumerate()
-            .filter_map(|(index, (name, column_name))| {
+            .filter_map(|(index, (name, _column_name))| {
                 if let Some(uuid) = row
                     .get::<_, Option<Uuid>>(index)
                     .expect("failed to get column")
