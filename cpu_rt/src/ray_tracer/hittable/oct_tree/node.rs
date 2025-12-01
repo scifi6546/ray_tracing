@@ -1,6 +1,6 @@
 use super::{prelude::*, LeafType, Leafable, OctTreeChildren};
 use cgmath::Point3;
-use log::info;
+
 #[derive(Clone, Debug)]
 pub(crate) struct OctTreeNode<T: Leafable> {
     pub children: OctTreeChildren<T>,
@@ -11,36 +11,34 @@ impl<T: Leafable> OctTreeNode<T> {
         match &self.children {
             OctTreeChildren::Leaf(_) => true,
             OctTreeChildren::ParentNode(children) => {
-                let mut val = match &children[0].children {
-                    OctTreeChildren::Leaf(val) => Some(val),
+                let mut all_leaves_equal = true;
+                let mut all_children_optimal = true;
+                let mut first_leaf = match &children[0].children {
                     OctTreeChildren::ParentNode(_) => None,
+                    OctTreeChildren::Leaf(leaf) => Some(leaf),
                 };
-                if val.is_some() {
-                    for i in 1..8 {
-                        match &children[i].children {
-                            OctTreeChildren::Leaf(val2) => {
-                                if Some(val2) != val {
-                                    val = None;
-                                    break;
-                                }
-                            }
-                            OctTreeChildren::ParentNode(_) => {
-                                val = None;
-                                break;
+                for child in children.iter().skip(1) {
+                    match &child.children {
+                        OctTreeChildren::ParentNode(children_array) => {
+                            first_leaf = None;
+                            all_children_optimal = all_children_optimal
+                                && children_array
+                                    .iter()
+                                    .map(|child| child.is_optimal(debug_print))
+                                    .fold(true, |acc, x| acc && x);
+                        }
+                        OctTreeChildren::Leaf(leaf_value) => {
+                            if let Some(first_leaf) = first_leaf {
+                                all_leaves_equal = all_leaves_equal && first_leaf == leaf_value;
                             }
                         }
                     }
                 }
-                if debug_print {
-                    info!("node not optimal size: {:#?}", self.size);
-                }
-                if val.is_some() {
-                    false
+
+                if first_leaf.is_some() {
+                    !all_leaves_equal && all_children_optimal
                 } else {
-                    children
-                        .iter()
-                        .map(|c| c.is_optimal(debug_print))
-                        .fold(true, |acc, x| acc && x)
+                    all_children_optimal
                 }
             }
         }
@@ -134,5 +132,106 @@ impl<T: Leafable> OctTreeNode<T> {
         } else {
             None
         }
+    }
+}
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn one_optimal() {
+        let node = OctTreeNode {
+            children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+            size: 1,
+        };
+        assert!(node.is_optimal(true))
+    }
+    #[test]
+    fn four_optimal() {
+        let children = [
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Empty),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+        ];
+
+        let node = OctTreeNode {
+            children: OctTreeChildren::ParentNode(Box::new(children)),
+            size: 1,
+        };
+
+        assert!(node.is_optimal(true))
+    }
+    #[test]
+    fn four_suboptimal() {
+        let children = [
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+            OctTreeNode {
+                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                size: 1,
+            },
+        ];
+
+        let node = OctTreeNode {
+            children: OctTreeChildren::ParentNode(Box::new(children)),
+            size: 1,
+        };
+
+        assert_eq!(node.is_optimal(true), false)
     }
 }
