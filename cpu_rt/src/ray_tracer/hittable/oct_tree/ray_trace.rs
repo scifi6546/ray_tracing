@@ -16,26 +16,26 @@ impl<T: Leafable> OctTreeNode<T> {
     }
     fn ray_iteration(
         &self,
-        mut block_coordinates: Point3<i64>,
+        mut block_coordinates: Point3<i32>,
         mut ray: Ray,
     ) -> Option<OctTreeHitInfo<T>> {
         let original_ray = ray;
 
-        fn floor_value_integer(a: i64, b: i64) -> i64 {
+        fn floor_value_integer(a: i32, b: i32) -> i32 {
             a - (a % b)
         }
-        fn floor_point3_integer(coord: Point3<i64>, b: i64) -> Point3<i64> {
+        fn floor_point3_integer(coord: Point3<i32>, b: i32) -> Point3<i32> {
             coord.map(|v| floor_value_integer(v, b))
         }
         // gets the sign of the value, for example -123 -> -1 or 123 -> 1.
-        fn int_sign(a: RayScalar) -> i64 {
+        fn int_sign(a: RayScalar) -> i32 {
             if a.is_sign_positive() {
                 1
             } else {
                 -1
             }
         }
-        fn get_step_size<T: Leafable>(s: &OctTreeNode<T>, coordinates: Point3<i64>) -> u32 {
+        fn get_step_size<T: Leafable>(s: &OctTreeNode<T>, coordinates: Point3<i32>) -> u32 {
             s.get_homogenous_chunk(coordinates.map(|v| v as u32))
                 .expect("Index is out of range")
                 .size
@@ -45,7 +45,7 @@ impl<T: Leafable> OctTreeNode<T> {
 
         block_coordinates = floor_point3_integer(
             block_coordinates,
-            get_step_size(self, block_coordinates) as i64,
+            get_step_size(self, block_coordinates) as i32,
         );
         let x_sign = if ray.direction.x.is_sign_positive() {
             1
@@ -118,7 +118,7 @@ impl<T: Leafable> OctTreeNode<T> {
                 ray.origin.z = ray.origin.z + t_x * ray.direction.z;
                 if ray.direction.x >= 0. {
                     block_coordinates.x =
-                        block_coordinates.x + step_size as i64 * int_sign(ray.direction.x);
+                        block_coordinates.x + step_size as i32 * int_sign(ray.direction.x);
                     ray.origin.x = ray.origin.x + t_x * ray.direction.x;
                     if self.in_range(Point3::new(
                         block_coordinates.x as i32,
@@ -129,14 +129,14 @@ impl<T: Leafable> OctTreeNode<T> {
                             self,
                             Point3::new(
                                 block_coordinates.x,
-                                ray.origin.y as i64,
-                                ray.origin.z as i64,
+                                ray.origin.y as i32,
+                                ray.origin.z as i32,
                             ),
-                        ) as i64;
+                        ) as i32;
                         block_coordinates.y =
-                            floor_value_integer(ray.origin.y as i64, next_step_size);
+                            floor_value_integer(ray.origin.y as i32, next_step_size);
                         block_coordinates.z =
-                            floor_value_integer(ray.origin.z as i64, next_step_size);
+                            floor_value_integer(ray.origin.z as i32, next_step_size);
 
                         let node = self
                             .get_chunk(block_coordinates.map(|v| v as u32))
@@ -169,16 +169,16 @@ impl<T: Leafable> OctTreeNode<T> {
                             self,
                             Point3::new(
                                 block_coordinates.x - 1,
-                                ray.origin.y as i64,
-                                ray.origin.z as i64,
+                                ray.origin.y as i32,
+                                ray.origin.z as i32,
                             ),
                         );
 
                         block_coordinates.y =
-                            floor_value_integer(ray.origin.y as i64, next_step_size as i64);
+                            floor_value_integer(ray.origin.y as i32, next_step_size as i32);
                         block_coordinates.z =
-                            floor_value_integer(ray.origin.z as i64, next_step_size as i64);
-                        block_coordinates.x = block_coordinates.x - next_step_size as i64;
+                            floor_value_integer(ray.origin.z as i32, next_step_size as i32);
+                        block_coordinates.x = block_coordinates.x - next_step_size as i32;
 
                         let node = self
                             .get_chunk(block_coordinates.map(|v| v as u32))
@@ -207,7 +207,7 @@ impl<T: Leafable> OctTreeNode<T> {
                 ray.origin.z = ray.origin.z + t_y * ray.direction.z;
                 if ray.direction.y >= 0. {
                     block_coordinates.y =
-                        block_coordinates.y + step_size as i64 * int_sign(ray.direction.y);
+                        block_coordinates.y + step_size as i32 * int_sign(ray.direction.y);
                     ray.origin.y = ray.origin.y + t_y * ray.direction.y;
                     if self.in_range(Point3::new(
                         ray.origin.x as i32,
@@ -217,15 +217,15 @@ impl<T: Leafable> OctTreeNode<T> {
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
-                                ray.origin.x as i64,
+                                ray.origin.x as i32,
                                 block_coordinates.y,
-                                ray.origin.z as i64,
+                                ray.origin.z as i32,
                             ),
-                        ) as i64;
+                        ) as i32;
                         block_coordinates.x =
-                            floor_value_integer(ray.origin.x as i64, next_step_size);
+                            floor_value_integer(ray.origin.x as i32, next_step_size);
                         block_coordinates.z =
-                            floor_value_integer(ray.origin.z as i64, next_step_size);
+                            floor_value_integer(ray.origin.z as i32, next_step_size);
 
                         let node = self
                             .get_chunk(block_coordinates.map(|v| v as u32))
@@ -257,16 +257,16 @@ impl<T: Leafable> OctTreeNode<T> {
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
-                                ray.origin.x as i64,
-                                block_coordinates.y as i64 - 1,
-                                ray.origin.z as i64,
+                                ray.origin.x as i32,
+                                block_coordinates.y - 1,
+                                ray.origin.z as i32,
                             ),
                         );
                         block_coordinates.x =
-                            floor_value_integer(ray.origin.x as i64, next_step_size as i64);
+                            floor_value_integer(ray.origin.x as i32, next_step_size as i32);
                         block_coordinates.z =
-                            floor_value_integer(ray.origin.z as i64, next_step_size as i64);
-                        block_coordinates.y = block_coordinates.y - next_step_size as i64;
+                            floor_value_integer(ray.origin.z as i32, next_step_size as i32);
+                        block_coordinates.y = block_coordinates.y - next_step_size as i32;
                         let node = self
                             .get_chunk(block_coordinates.map(|v| v as u32))
                             .expect("should be in range");
@@ -294,7 +294,7 @@ impl<T: Leafable> OctTreeNode<T> {
                 ray.origin.x = ray.origin.x + t_z * ray.direction.x;
                 if ray.direction.z >= 0. {
                     block_coordinates.z =
-                        block_coordinates.z + step_size as i64 * int_sign(ray.direction.z);
+                        block_coordinates.z + step_size as i32 * int_sign(ray.direction.z);
                     ray.origin.z = ray.origin.z + t_z * ray.direction.z;
                     if self.in_range(Point3::new(
                         ray.origin.x as i32,
@@ -304,15 +304,15 @@ impl<T: Leafable> OctTreeNode<T> {
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
-                                ray.origin.x as i64,
-                                ray.origin.y as i64,
-                                block_coordinates.z as i64,
+                                ray.origin.x as i32,
+                                ray.origin.y as i32,
+                                block_coordinates.z as i32,
                             ),
-                        ) as i64;
+                        ) as i32;
                         block_coordinates.y =
-                            floor_value_integer(ray.origin.y as i64, next_step_size);
+                            floor_value_integer(ray.origin.y as i32, next_step_size);
                         block_coordinates.x =
-                            floor_value_integer(ray.origin.x as i64, next_step_size);
+                            floor_value_integer(ray.origin.x as i32, next_step_size);
 
                         let node = self
                             .get_chunk(block_coordinates.map(|v| v as u32))
@@ -344,17 +344,17 @@ impl<T: Leafable> OctTreeNode<T> {
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
-                                ray.origin.x as i64,
-                                ray.origin.y as i64,
-                                block_coordinates.z as i64 - 1,
+                                ray.origin.x as i32,
+                                ray.origin.y as i32,
+                                block_coordinates.z - 1,
                             ),
                         );
                         block_coordinates.x =
-                            floor_value_integer(ray.origin.x as i64, next_step_size as i64);
+                            floor_value_integer(ray.origin.x as i32, next_step_size as i32);
                         block_coordinates.y =
-                            floor_value_integer(ray.origin.y as i64, next_step_size as i64);
+                            floor_value_integer(ray.origin.y as i32, next_step_size as i32);
 
-                        block_coordinates.z = block_coordinates.z - next_step_size as i64;
+                        block_coordinates.z = block_coordinates.z - next_step_size as i32;
 
                         let node = self
                             .get_chunk(block_coordinates.map(|v| v as u32))
@@ -392,7 +392,7 @@ impl<T: Leafable> OctTreeNode<T> {
             intersect_time: RayScalar,
             normal_vector: Vector3<RayScalar>,
             intersect_position: Point3<RayScalar>,
-            block_coordinate: Point3<i64>,
+            block_coordinate: Point3<i32>,
         }
         let mut solutions = (0..3)
             .flat_map(|normal_axis| {
@@ -411,9 +411,9 @@ impl<T: Leafable> OctTreeNode<T> {
                         ),
                         intersect_position: zero_intersect_position,
                         block_coordinate: Point3::new(
-                            zero_intersect_position.x as i64,
-                            zero_intersect_position.y as i64,
-                            zero_intersect_position.z as i64,
+                            zero_intersect_position.x as i32,
+                            zero_intersect_position.y as i32,
+                            zero_intersect_position.z as i32,
                         ),
                     },
                     PlaneIntersection {
@@ -427,19 +427,19 @@ impl<T: Leafable> OctTreeNode<T> {
                         intersect_position: size_intersect_position,
                         block_coordinate: Point3::new(
                             if normal_axis == 0 {
-                                size_intersect_position.x as i64 - 1
+                                size_intersect_position.x as i32 - 1
                             } else {
-                                size_intersect_position.x as i64
+                                size_intersect_position.x as i32
                             },
                             if normal_axis == 1 {
-                                size_intersect_position.y as i64 - 1
+                                size_intersect_position.y as i32 - 1
                             } else {
-                                size_intersect_position.y as i64
+                                size_intersect_position.y as i32
                             },
                             if normal_axis == 2 {
-                                size_intersect_position.z as i64 - 1
+                                size_intersect_position.z as i32 - 1
                             } else {
-                                size_intersect_position.z as i64
+                                size_intersect_position.z as i32
                             },
                         ),
                     },
@@ -467,9 +467,9 @@ impl<T: Leafable> OctTreeNode<T> {
         {
             self.ray_iteration(
                 Point3::new(
-                    ray.origin.x as i64,
-                    ray.origin.y as i64,
-                    ray.origin.z as i64,
+                    ray.origin.x as i32,
+                    ray.origin.y as i32,
+                    ray.origin.z as i32,
                 ),
                 Ray {
                     origin: ray.origin,
