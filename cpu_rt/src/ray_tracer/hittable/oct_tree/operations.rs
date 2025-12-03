@@ -1,11 +1,8 @@
 use super::prelude::*;
-use super::{
-    prelude::{aabb_intersect, get_children_offsets, get_next_power},
-    LeafType, Leafable, OctTree, OctTreeChildren, OctTreeNode,
-};
+use super::{LeafType, Leafable, OctTree, OctTreeChildren, OctTreeNode};
 use cgmath::Point3;
 use log::info;
-use std::cmp::{max, PartialEq};
+use std::cmp::PartialEq;
 mod combine;
 impl<T: Leafable> OctTree<T> {
     pub fn is_optimal(&self, debug_print: bool) -> bool {
@@ -15,7 +12,7 @@ impl<T: Leafable> OctTree<T> {
     // gets offsets of children
 }
 impl<T: Leafable + PartialEq> OctTree<T> {
-    pub fn update(&mut self, position: Point3<u32>, value: T) {
+    pub fn set(&mut self, position: Point3<u32>, value: T) {
         fn update_node<T: Leafable>(node: &mut OctTreeNode<T>, position: Point3<u32>, value: T) {
             match &mut node.children {
                 OctTreeChildren::Leaf(leaf_value) => {
@@ -133,7 +130,7 @@ impl<T: Leafable + PartialEq> OctTree<T> {
             };
             self.root_node = new_root_node;
             self.size = new_size;
-            self.update(position, value);
+            self.set(position, value);
         }
     }
     pub(crate) fn get_debug_string(&self) -> String {
@@ -206,7 +203,7 @@ mod test {
     #[test]
     fn update_single() {
         let mut oct_tree = OctTree::<bool>::empty();
-        oct_tree.update(Point3::new(0, 0, 0), true);
+        oct_tree.set(Point3::new(0, 0, 0), true);
         assert_eq!(oct_tree.root_node.size, 1);
         let leaf = oct_tree.root_node.leaf_value().expect("should be leaf");
         assert_eq!(*leaf.try_solid().expect("must be solid"), true)
@@ -214,15 +211,15 @@ mod test {
     #[test]
     fn update_eight() {
         let mut oct_tree = OctTree::<bool>::empty();
-        oct_tree.update(Point3::new(0, 0, 0), true);
-        oct_tree.update(Point3::new(0, 0, 1), true);
-        oct_tree.update(Point3::new(0, 1, 0), true);
-        oct_tree.update(Point3::new(0, 1, 1), true);
+        oct_tree.set(Point3::new(0, 0, 0), true);
+        oct_tree.set(Point3::new(0, 0, 1), true);
+        oct_tree.set(Point3::new(0, 1, 0), true);
+        oct_tree.set(Point3::new(0, 1, 1), true);
 
-        oct_tree.update(Point3::new(1, 0, 0), true);
-        oct_tree.update(Point3::new(1, 0, 1), true);
-        oct_tree.update(Point3::new(1, 1, 0), true);
-        oct_tree.update(Point3::new(1, 1, 1), true);
+        oct_tree.set(Point3::new(1, 0, 0), true);
+        oct_tree.set(Point3::new(1, 0, 1), true);
+        oct_tree.set(Point3::new(1, 1, 0), true);
+        oct_tree.set(Point3::new(1, 1, 1), true);
         assert_eq!(oct_tree.root_node.size, 2);
         let leaf = oct_tree.root_node.leaf_value().expect("should be leaf");
 
@@ -234,7 +231,7 @@ mod test {
         for x in 0..4 {
             for y in 0..4 {
                 for z in 0..4 {
-                    oct_tree.update(Point3::new(x, y, z), true);
+                    oct_tree.set(Point3::new(x, y, z), true);
                     assert!(oct_tree.is_optimal(true));
                 }
             }

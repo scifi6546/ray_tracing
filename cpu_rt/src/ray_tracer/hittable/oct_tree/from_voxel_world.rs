@@ -34,7 +34,7 @@ impl From<VoxelWorld> for OctTree<VoxelMaterial> {
                         }
                         CubeMaterialIndex::Translucent { .. } => todo!("translucent"),
                     };
-                    world.update(get_point, update_material);
+                    world.set(get_point, update_material);
                 }
             }
         }
