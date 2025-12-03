@@ -61,6 +61,7 @@ pub fn rand_vec() -> Vector3<RayScalar> {
         z: rand::random(),
     }
 }
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub(crate) struct DebugRayTraceStep {
     #[allow(dead_code)]

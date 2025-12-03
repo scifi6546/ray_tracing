@@ -492,7 +492,7 @@ impl ParallelImageCollector {
     }
     /// saves current scene to file
     pub fn save_scene(&mut self, path: std::path::PathBuf) {
-        let mut write_lock = self.ray_tracer.read().expect("failed to read");
+        let write_lock = self.ray_tracer.read().expect("failed to read");
         write_lock.save_scene(path)
     }
     /// Loads scene from file

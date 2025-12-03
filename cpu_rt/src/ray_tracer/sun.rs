@@ -42,7 +42,7 @@ impl Savable for Sun {
         Ok(())
     }
 
-    fn delete_schema(connection: &mut Connection) {
+    fn delete_schema(_connection: &mut Connection) {
         todo!()
     }
 
@@ -56,7 +56,7 @@ impl Savable for Sun {
         Ok(self_uuid)
     }
 
-    fn load(id: Uuid, connection: &Connection) -> Result<Vec<Self>, SceneSaveError> {
+    fn load(_id: Uuid, _connection: &Connection) -> Result<Vec<Self>, SceneSaveError> {
         todo!()
     }
 }

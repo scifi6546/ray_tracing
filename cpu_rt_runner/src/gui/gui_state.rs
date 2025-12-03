@@ -4,10 +4,9 @@ use crate::messages::GuiPushMessage;
 use cgmath::{Point3, Vector3};
 use lib_minya::ray_tracer::{
     ray_tracer_info::{Entity, EntityField, EntityInfo, RayTracerInfo},
-    CurrentShader, LogMessage,
+    LogMessage,
 };
 
-use log::{error, info};
 use std::sync::mpsc::Sender;
 
 pub struct GuiState {
