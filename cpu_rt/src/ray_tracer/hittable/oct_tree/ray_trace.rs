@@ -42,10 +42,13 @@ impl<T: Leafable> OctTreeNode<T> {
         }
         const MAX_NUMBER_RAY_ITERATIONS: usize = 3000;
         let original_origin = ray.origin;
-        let mut step_size = get_step_size(self, block_coordinates);
-        block_coordinates = floor_point3_integer(block_coordinates, step_size as i64);
+
+        block_coordinates = floor_point3_integer(
+            block_coordinates,
+            get_step_size(self, block_coordinates) as i64,
+        );
         for _ in 0..MAX_NUMBER_RAY_ITERATIONS {
-            step_size = get_step_size(self, block_coordinates);
+            let step_size = get_step_size(self, block_coordinates);
 
             if self.in_range(block_coordinates.map(|v| v as i32)) == false {
                 return None;
@@ -468,21 +471,8 @@ impl<T: Leafable> OctTreeNode<T> {
                     time: ray.time,
                 },
             )
-            //self.trace(ray)
         } else {
             if let Some(intersection) = solutions.first() {
-                /*
-                if let Some(solid) = self
-                    .get(intersection.intersect_position.map(|v| v as u32).map(|v| {
-                        if v < self.size {
-                            v
-                        } else {
-                            self.size - 1
-                        }
-                    }))
-                    .try_solid()
-                {
-                 */
                 if let Some(solid) = self
                     .get(intersection.block_coordinate.map(|v| v as u32).map(|v| v))
                     .try_solid()

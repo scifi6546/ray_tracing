@@ -3,7 +3,7 @@ use super::{
     background::saver_loader as background_saver, camera::Camera, sun::Sun, world::WorldInfo,
     RayTracer,
 };
-use crate::prelude::RayScalar;
+
 use log::error;
 use log::info;
 use rusqlite::{Connection, Error as SqliteError, OpenFlags};
