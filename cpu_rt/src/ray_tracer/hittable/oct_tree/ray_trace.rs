@@ -394,70 +394,7 @@ impl<T: Leafable> OctTreeNode<T> {
             intersect_position: Point3<RayScalar>,
             block_coordinate: Point3<i32>,
         }
-        let mut solutions = (0..3)
-            .flat_map(|normal_axis| {
-                let zero_intersect_time = ray.intersect_axis(normal_axis, 0.);
-                let zero_intersect_position = ray.at(zero_intersect_time);
-                let size_intersect_time = ray.intersect_axis(normal_axis, self.size as RayScalar);
-                let size_intersect_position = ray.at(size_intersect_time);
-                [
-                    PlaneIntersection {
-                        normal_axis,
-                        intersect_time: zero_intersect_time,
-                        normal_vector: Vector3::new(
-                            if normal_axis == 0 { -1.0 } else { 0.0 },
-                            if normal_axis == 1 { -1.0 } else { 0.0 },
-                            if normal_axis == 2 { -1.0 } else { 0.0 },
-                        ),
-                        intersect_position: zero_intersect_position,
-                        block_coordinate: Point3::new(
-                            zero_intersect_position.x as i32,
-                            zero_intersect_position.y as i32,
-                            zero_intersect_position.z as i32,
-                        ),
-                    },
-                    PlaneIntersection {
-                        normal_axis,
-                        intersect_time: size_intersect_time,
-                        normal_vector: Vector3::new(
-                            if normal_axis == 0 { 1.0 } else { 0.0 },
-                            if normal_axis == 1 { 1.0 } else { 0.0 },
-                            if normal_axis == 2 { 1.0 } else { 0.0 },
-                        ),
-                        intersect_position: size_intersect_position,
-                        block_coordinate: Point3::new(
-                            if normal_axis == 0 {
-                                size_intersect_position.x as i32 - 1
-                            } else {
-                                size_intersect_position.x as i32
-                            },
-                            if normal_axis == 1 {
-                                size_intersect_position.y as i32 - 1
-                            } else {
-                                size_intersect_position.y as i32
-                            },
-                            if normal_axis == 2 {
-                                size_intersect_position.z as i32 - 1
-                            } else {
-                                size_intersect_position.z as i32
-                            },
-                        ),
-                    },
-                ]
-            })
-            .filter(|intersection| {
-                ((intersection.intersect_position[0] >= 0.
-                    && intersection.intersect_position[0] < self.size as RayScalar)
-                    || intersection.normal_axis == 0)
-                    && ((intersection.intersect_position[1] >= 0.
-                        && intersection.intersect_position[1] < self.size as RayScalar)
-                        || intersection.normal_axis == 1)
-                    && ((intersection.intersect_position[2] >= 0.
-                        && intersection.intersect_position[2] < self.size as RayScalar)
-                        || intersection.normal_axis == 2)
-            })
-            .collect::<Vec<_>>();
-        solutions.sort_by(|a, b| a.intersect_time.partial_cmp(&b.intersect_time).unwrap());
+
         if ray.origin.x >= 0.0
             && ray.origin.x <= self.size as RayScalar
             && ray.origin.y >= 0.0
@@ -478,6 +415,71 @@ impl<T: Leafable> OctTreeNode<T> {
                 },
             )
         } else {
+            let mut solutions = (0..3)
+                .flat_map(|normal_axis| {
+                    let zero_intersect_time = ray.intersect_axis(normal_axis, 0.);
+                    let zero_intersect_position = ray.at(zero_intersect_time);
+                    let size_intersect_time =
+                        ray.intersect_axis(normal_axis, self.size as RayScalar);
+                    let size_intersect_position = ray.at(size_intersect_time);
+                    [
+                        PlaneIntersection {
+                            normal_axis,
+                            intersect_time: zero_intersect_time,
+                            normal_vector: Vector3::new(
+                                if normal_axis == 0 { -1.0 } else { 0.0 },
+                                if normal_axis == 1 { -1.0 } else { 0.0 },
+                                if normal_axis == 2 { -1.0 } else { 0.0 },
+                            ),
+                            intersect_position: zero_intersect_position,
+                            block_coordinate: Point3::new(
+                                zero_intersect_position.x as i32,
+                                zero_intersect_position.y as i32,
+                                zero_intersect_position.z as i32,
+                            ),
+                        },
+                        PlaneIntersection {
+                            normal_axis,
+                            intersect_time: size_intersect_time,
+                            normal_vector: Vector3::new(
+                                if normal_axis == 0 { 1.0 } else { 0.0 },
+                                if normal_axis == 1 { 1.0 } else { 0.0 },
+                                if normal_axis == 2 { 1.0 } else { 0.0 },
+                            ),
+                            intersect_position: size_intersect_position,
+                            block_coordinate: Point3::new(
+                                if normal_axis == 0 {
+                                    size_intersect_position.x as i32 - 1
+                                } else {
+                                    size_intersect_position.x as i32
+                                },
+                                if normal_axis == 1 {
+                                    size_intersect_position.y as i32 - 1
+                                } else {
+                                    size_intersect_position.y as i32
+                                },
+                                if normal_axis == 2 {
+                                    size_intersect_position.z as i32 - 1
+                                } else {
+                                    size_intersect_position.z as i32
+                                },
+                            ),
+                        },
+                    ]
+                })
+                .filter(|intersection| {
+                    ((intersection.intersect_position[0] >= 0.
+                        && intersection.intersect_position[0] < self.size as RayScalar)
+                        || intersection.normal_axis == 0)
+                        && ((intersection.intersect_position[1] >= 0.
+                            && intersection.intersect_position[1] < self.size as RayScalar)
+                            || intersection.normal_axis == 1)
+                        && ((intersection.intersect_position[2] >= 0.
+                            && intersection.intersect_position[2] < self.size as RayScalar)
+                            || intersection.normal_axis == 2)
+                })
+                .collect::<Vec<_>>();
+            solutions.sort_by(|a, b| a.intersect_time.partial_cmp(&b.intersect_time).unwrap());
             if let Some(intersection) = solutions.first() {
                 if let Some(solid) = self
                     .get(intersection.block_coordinate.map(|v| v as u32).map(|v| v))
