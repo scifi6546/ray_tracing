@@ -47,34 +47,40 @@ impl<T: Leafable> OctTreeNode<T> {
             block_coordinates,
             get_step_size(self, block_coordinates) as i64,
         );
+        let x_sign = if ray.direction.x.is_sign_positive() {
+            1
+        } else {
+            0
+        };
+        let y_sign = if ray.direction.y.is_sign_positive() {
+            1
+        } else {
+            0
+        };
+        let z_sign = if ray.direction.z.is_sign_positive() {
+            1
+        } else {
+            0
+        };
         for _ in 0..MAX_NUMBER_RAY_ITERATIONS {
             let step_size = get_step_size(self, block_coordinates);
 
             if self.in_range(block_coordinates.map(|v| v as i32)) == false {
                 return None;
             }
-            let mut t = 0.;
-            if ray.direction.x.is_sign_positive() {
-                t = 1.;
-            }
-            let t_x = (block_coordinates.x as RayScalar + step_size as RayScalar * t as RayScalar
+
+            let t_x = (block_coordinates.x as RayScalar
+                + step_size as RayScalar * x_sign as RayScalar
                 - ray.origin.x)
                 / ray.direction.x;
-            let mut t = 0.;
 
-            if ray.direction.y.is_sign_positive() {
-                t = 1.;
-            }
-            let t_y = (block_coordinates.y as RayScalar + step_size as RayScalar * t as RayScalar
+            let t_y = (block_coordinates.y as RayScalar
+                + step_size as RayScalar * y_sign as RayScalar
                 - ray.origin.y)
                 / ray.direction.y;
 
-            let mut t = 0.;
-
-            if ray.direction.z.is_sign_positive() {
-                t = 1.;
-            }
-            let t_z = (block_coordinates.z as RayScalar + step_size as RayScalar * t as RayScalar
+            let t_z = (block_coordinates.z as RayScalar
+                + step_size as RayScalar * z_sign as RayScalar
                 - ray.origin.z)
                 / ray.direction.z;
             if t_x < 0. {
