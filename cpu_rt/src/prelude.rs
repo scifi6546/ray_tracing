@@ -116,7 +116,7 @@ mod test {
     use super::*;
     #[test]
     pub fn test_rand() {
-        for i in 0..10_000 {
+        for _ in 0..10_000 {
             let r = rand_scalar(0.0, 1.0);
             assert!(r >= 0.0);
             assert!(r <= 1.0);
@@ -126,7 +126,7 @@ mod test {
     pub fn test_rand_u32() {
         for i in 100..10_000 {
             let r = rand_u32(0, i / 100);
-            assert!(r <= i / 100 && r >= 0)
+            assert!(r <= i / 100)
         }
     }
 }
