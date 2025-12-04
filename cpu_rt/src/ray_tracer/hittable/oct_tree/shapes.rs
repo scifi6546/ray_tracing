@@ -9,7 +9,7 @@ impl<T: Leafable> OctTree<T> {
     pub fn empty() -> Self {
         Self {
             root_node: OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Empty),
+                children: OctTreeChildren::Leaf(T::empty()),
                 size: 1,
             },
             size: 1,
@@ -20,7 +20,7 @@ impl<T: Leafable> OctTree<T> {
         let size = 2u32.pow(power_value);
         Self {
             root_node: OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(hit_val)),
+                children: OctTreeChildren::Leaf(hit_val),
                 size,
             },
             size,
@@ -66,13 +66,13 @@ impl<T: Leafable> OctTree<T> {
                         }
                     } else {
                         OctTreeNode {
-                            children: OctTreeChildren::Leaf(LeafType::Solid(hit_val)),
+                            children: OctTreeChildren::Leaf(hit_val),
                             size,
                         }
                     }
                 } else {
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(LeafType::Empty),
+                        children: OctTreeChildren::Leaf(T::empty()),
                         size,
                     }
                 }
@@ -81,11 +81,7 @@ impl<T: Leafable> OctTree<T> {
                     && offset[1] < rectangle_size[1]
                     && offset[2] < rectangle_size[2];
                 OctTreeNode {
-                    children: OctTreeChildren::Leaf(if is_solid {
-                        LeafType::Solid(hit_val)
-                    } else {
-                        LeafType::Empty
-                    }),
+                    children: OctTreeChildren::Leaf(if is_solid { hit_val } else { T::empty() }),
                     size: 1,
                 }
             }
@@ -166,11 +162,7 @@ impl<T: Leafable> OctTree<T> {
                 if d0 == d1 && d1 == d2 && d2 == d3 && d3 == d4 && d4 == d5 && d5 == d6 && d6 == d7
                 {
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(if d0 {
-                            LeafType::Solid(hit_val)
-                        } else {
-                            LeafType::Empty
-                        }),
+                        children: OctTreeChildren::Leaf(if d0 { hit_val } else { T::empty() }),
                         size,
                     }
                 } else {
@@ -244,9 +236,9 @@ impl<T: Leafable> OctTree<T> {
                 OctTreeNode {
                     children: OctTreeChildren::Leaf(
                         if distance(corner[0], corner[1], corner[2], center) <= (radius as f32) {
-                            LeafType::Solid(hit_val)
+                            hit_val
                         } else {
-                            LeafType::Empty
+                            T::empty()
                         },
                     ),
                     size: 1,
@@ -282,7 +274,7 @@ impl<T: Leafable> OctTree<T> {
         } else {
             Self {
                 root_node: OctTreeNode {
-                    children: OctTreeChildren::Leaf(LeafType::Solid(hit_val)),
+                    children: OctTreeChildren::Leaf(hit_val),
                     size,
                 },
                 size,

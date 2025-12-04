@@ -28,7 +28,7 @@ impl From<VoxelWorld> for OctTree<VoxelMaterial> {
                         CubeMaterialIndex::Solid { index } => {
                             let old_material = old_world.get_solid_material(index).unwrap();
 
-                            VoxelMaterial {
+                            VoxelMaterial::Solid {
                                 color: old_material.color(),
                             }
                         }

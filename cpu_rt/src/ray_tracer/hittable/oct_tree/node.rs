@@ -1,4 +1,4 @@
-use super::{prelude::*, LeafType, Leafable, OctTreeChildren};
+use super::{prelude::*, Leafable, OctTreeChildren};
 use cgmath::Point3;
 
 #[derive(Clone, Debug)]
@@ -53,7 +53,7 @@ impl<T: Leafable> OctTreeNode<T> {
     }
     /// gets the size given self size is 2
 
-    pub fn get(&self, pos: Point3<u32>) -> &LeafType<T> {
+    pub fn get(&self, pos: Point3<u32>) -> &T {
         match &self.children {
             OctTreeChildren::Leaf(val) => val,
             OctTreeChildren::ParentNode(children) => {
@@ -80,7 +80,7 @@ impl<T: Leafable> OctTreeNode<T> {
             OctTreeChildren::ParentNode(v) => Some(v),
         }
     }
-    pub(crate) fn leaf_value(&self) -> Option<&LeafType<T>> {
+    pub(crate) fn leaf_value(&self) -> Option<&T> {
         match &self.children {
             OctTreeChildren::Leaf(v) => Some(v),
             OctTreeChildren::ParentNode(_) => None,
@@ -141,7 +141,7 @@ mod test {
     #[test]
     fn one_optimal() {
         let node = OctTreeNode {
-            children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+            children: OctTreeChildren::Leaf(true),
             size: 1,
         };
         assert!(node.is_optimal(true))
@@ -150,35 +150,35 @@ mod test {
     fn four_optimal() {
         let children = [
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Empty),
+                children: OctTreeChildren::Leaf(false),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
         ];
@@ -194,35 +194,35 @@ mod test {
     fn four_suboptimal() {
         let children = [
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
             OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+                children: OctTreeChildren::Leaf(true),
                 size: 1,
             },
         ];

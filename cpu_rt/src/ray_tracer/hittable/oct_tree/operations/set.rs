@@ -13,12 +13,9 @@ impl<T: Leafable + PartialEq> OctTree<T> {
                         if position.x != 0 && position.y != 0 && position.z != 0 {
                             panic!("invalid position: {:?}", position)
                         }
-                        *leaf_value = LeafType::Solid(value);
+                        *leaf_value = value;
                     } else {
-                        let is_same = match leaf_value {
-                            LeafType::Solid(old_value) => *old_value == value,
-                            LeafType::Empty => false,
-                        };
+                        let is_same = *leaf_value == value;
                         if is_same {
                             info!("leaf same, skipping");
                             return;
@@ -94,7 +91,7 @@ impl<T: Leafable + PartialEq> OctTree<T> {
                                 == children[7].leaf_value().unwrap()
                         {
                             node.children =
-                                OctTreeChildren::Leaf(children[0].leaf_value().unwrap().clone())
+                                OctTreeChildren::Leaf(*children[0].leaf_value().unwrap())
                         }
                     }
                 }
@@ -105,7 +102,7 @@ impl<T: Leafable + PartialEq> OctTree<T> {
         } else {
             let new_size = self.size * 2;
             let empty_node = OctTreeNode {
-                children: OctTreeChildren::Leaf(LeafType::Empty),
+                children: OctTreeChildren::Leaf(T::empty()),
                 size: self.root_node.size,
             };
             let new_root_node = OctTreeNode {
@@ -139,7 +136,7 @@ mod test {
         oct_tree.set(Point3::new(0, 0, 0), true);
         assert_eq!(oct_tree.root_node.size, 1);
         let leaf = oct_tree.root_node.leaf_value().expect("should be leaf");
-        assert_eq!(*leaf.try_solid().expect("must be solid"), true)
+        assert_eq!(*leaf, true)
     }
     #[test]
     fn update_eight() {
@@ -156,7 +153,7 @@ mod test {
         assert_eq!(oct_tree.root_node.size, 2);
         let leaf = oct_tree.root_node.leaf_value().expect("should be leaf");
 
-        assert_eq!(*leaf.try_solid().expect("must be solid"), true)
+        assert_eq!(*leaf, true)
     }
     #[test]
     fn update_16() {
@@ -172,6 +169,6 @@ mod test {
         assert_eq!(oct_tree.root_node.size, 4);
         let leaf = oct_tree.root_node.leaf_value().expect("should be leaf");
 
-        assert_eq!(*leaf.try_solid().expect("must be solid"), true)
+        assert_eq!(*leaf, true)
     }
 }

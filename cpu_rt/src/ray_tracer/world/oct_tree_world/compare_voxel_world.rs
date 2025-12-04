@@ -2,7 +2,7 @@ use super::{Camera, CameraInfo};
 use crate::prelude::RayScalar;
 use crate::ray_tracer::background::Sky;
 
-use crate::ray_tracer::hittable::hittable_objects::{CubeMaterial, VoxelMap};
+use crate::ray_tracer::hittable::hittable_objects::CubeMaterial;
 use crate::ray_tracer::hittable::{
     voxel_world::CubeMaterialIndex, Object, OctTree, Transform, VoxelMaterial, VoxelWorld,
 };
@@ -10,15 +10,15 @@ use crate::ray_tracer::world::WorldInfo;
 use base_lib::RgbColor;
 use cgmath::{prelude::*, Point3, Vector3};
 use log::info;
-pub(crate) fn sinnoh() -> WorldInfo {
-    let file = VoxelMap::load("./voxel_assets/sinnoh/twinleaf.yml");
+
+pub(crate) fn sinnoh_direct() -> WorldInfo {
+    let world = OctTree::load_map("./voxel_assets/sinnoh/twinleaf.yml").expect("failed to load");
     let tile_size_x = 16;
     let tile_size_z = 16;
-    let num_tiles_x = file.num_tiles_x() as i32;
-    let num_tiles_z = file.num_times_z() as i32;
-    let block_x = tile_size_x * num_tiles_x;
-    let block_y = 70;
-    let block_z = tile_size_z * num_tiles_z;
+
+    let block_x = tile_size_x * 32;
+
+    let block_z = tile_size_z * 32;
     info!("block_x: {},block_Z: {}", block_x, block_z);
     let fov = 40.0;
 
@@ -30,15 +30,7 @@ pub(crate) fn sinnoh() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-    let mut world = VoxelWorld::new(
-        vec![CubeMaterial::new(RgbColor::WHITE)],
-        vec![],
-        block_x,
-        block_y,
-        block_z,
-    );
-    file.apply_to_world(&mut world);
-    let world: OctTree<VoxelMaterial> = world.into();
+
     WorldInfo {
         objects: vec![Object::new(Box::new(world), Transform::identity())],
         lights: vec![],
@@ -57,17 +49,7 @@ pub(crate) fn sinnoh() -> WorldInfo {
         sun: None,
     }
 }
-/*
- 1.0,
-           fov,
-           origin,
-           look_at,
-           Vector3::new(0.0, 1.0, 0.0),
-           0.00001,
-           focus_distance,
-           0.0,
-           0.0,
-*/
+
 pub(crate) fn simple_cube() -> WorldInfo {
     let fov = 40.0;
 
@@ -125,13 +107,10 @@ pub(crate) fn cube_recreation() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-
-    let world: OctTree<VoxelMaterial> = OctTree::rectangle(
-        Vector3::new(3, 3, 3),
-        VoxelMaterial {
-            color: RgbColor::new(0.65, 0.05, 0.05),
-        },
-    );
+    let mat = VoxelMaterial::Solid {
+        color: RgbColor::new(0.65, 0.05, 0.05),
+    };
+    let world: OctTree<VoxelMaterial> = OctTree::rectangle(Vector3::new(3, 3, 3), mat);
 
     WorldInfo {
         objects: vec![Object::new(Box::new(world), Transform::identity())],

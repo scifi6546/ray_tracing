@@ -32,7 +32,7 @@ pub fn basic_sphere() -> WorldInfo {
             Object::new(
                 Box::new(OctTree::sphere(
                     10,
-                    VoxelMaterial {
+                    VoxelMaterial::Solid {
                         color: RgbColor::new(0.5, 0.5, 0.5),
                     },
                 )),
@@ -89,7 +89,7 @@ pub fn temple() -> WorldInfo {
     );
     let mut temple = OctTree::rectangle(
         Vector3::new(1000, 10, 1000),
-        VoxelMaterial {
+        VoxelMaterial::Solid {
             color: RgbColor::new(0.0, 0.1, 0.0),
         },
     );
@@ -102,7 +102,7 @@ pub fn temple() -> WorldInfo {
         for y in 0..10 {
             let brick = make_brick(
                 Vector3::new(box_x_size, box_y_size, box_z_size),
-                VoxelMaterial {
+                VoxelMaterial::Solid {
                     color: RgbColor::new(0.3, 0.3, 0.3),
                 },
             );
@@ -158,14 +158,14 @@ pub fn temple_below() -> WorldInfo {
     );
     let temple = OctTree::rectangle(
         Vector3::new(5, 100, 100),
-        VoxelMaterial {
+        VoxelMaterial::Solid {
             color: RgbColor::new(0.5, 0.5, 0.5),
         },
     )
     .combine(
         &OctTree::rectangle(
             Vector3::new(100, 5, 100),
-            VoxelMaterial {
+            VoxelMaterial::Solid {
                 color: RgbColor::new(0.5, 0.5, 0.5),
             },
         ),
@@ -214,7 +214,7 @@ pub fn cube() -> WorldInfo {
     );
     let temple = OctTree::cube_pow(
         4,
-        VoxelMaterial {
+        VoxelMaterial::Solid {
             color: RgbColor::new(0.5, 0.5, 0.5),
         },
     );
@@ -263,7 +263,7 @@ pub fn cube_back() -> WorldInfo {
     );
     let cube = OctTree::cube_pow(
         4,
-        VoxelMaterial {
+        VoxelMaterial::Solid {
             color: RgbColor::new(0.5, 0.5, 0.5),
         },
     );

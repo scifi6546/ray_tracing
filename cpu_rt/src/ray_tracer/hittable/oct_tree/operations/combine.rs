@@ -98,7 +98,7 @@ impl<T: Leafable> OctTree<T> {
                                 } else if other_child.is_solid() {
                                     other_child
                                 } else {
-                                    LeafType::Empty
+                                    T::empty()
                                 };
                                 return OctTreeNode {
                                     children: OctTreeChildren::Leaf(child_leaf),
@@ -134,7 +134,7 @@ impl<T: Leafable> OctTree<T> {
                                                     other_offset,
                                                 )
                                             });
-                                            let mut val: Option<LeafType<T>> = None;
+                                            let mut val: Option<T> = None;
                                             for (i, child) in children.iter().enumerate() {
                                                 if i == 0 {
                                                     match &child.children {
@@ -184,7 +184,7 @@ impl<T: Leafable> OctTree<T> {
                                             } else if get_val.is_solid() {
                                                 get_val
                                             } else {
-                                                LeafType::Empty
+                                                T::empty()
                                             };
                                         }
                                     }
@@ -198,35 +198,35 @@ impl<T: Leafable> OctTree<T> {
                             let offsets = get_children_offsets();
                             let mut nodes = [
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(LeafType::Empty),
+                                    children: OctTreeChildren::Leaf(T::empty()),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(LeafType::Empty),
+                                    children: OctTreeChildren::Leaf(T::empty()),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(LeafType::Empty),
+                                    children: OctTreeChildren::Leaf(T::empty()),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(LeafType::Empty),
+                                    children: OctTreeChildren::Leaf(T::empty()),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(LeafType::Empty),
+                                    children: OctTreeChildren::Leaf(T::empty()),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(LeafType::Empty),
+                                    children: OctTreeChildren::Leaf(T::empty()),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(LeafType::Empty),
+                                    children: OctTreeChildren::Leaf(T::empty()),
                                     size: 0,
                                 },
                                 OctTreeNode {
-                                    children: OctTreeChildren::Leaf(LeafType::Empty),
+                                    children: OctTreeChildren::Leaf(T::empty()),
                                     size: 0,
                                 },
                             ];
@@ -355,7 +355,7 @@ impl<T: Leafable> OctTree<T> {
                     ];
 
                     let mut same = true;
-                    let mut cube_val: Option<LeafType<T>> = None;
+                    let mut cube_val: Option<T> = None;
                     for cube in cubes.iter() {
                         match cube.children {
                             OctTreeChildren::Leaf(val) => {
@@ -393,7 +393,7 @@ impl<T: Leafable> OctTree<T> {
                     {
                         a.get_contents(cube_position[0], cube_position[1], cube_position[2])
                     } else {
-                        LeafType::Empty
+                        T::empty()
                     };
                     let b_pos = [
                         cube_position[0] as i32 - b_offset[0],
@@ -409,7 +409,7 @@ impl<T: Leafable> OctTree<T> {
                     {
                         b.get_contents(b_pos[0] as u32, b_pos[1] as u32, b_pos[2] as u32)
                     } else {
-                        LeafType::Empty
+                        T::empty()
                     };
 
                     OctTreeNode {
@@ -418,14 +418,14 @@ impl<T: Leafable> OctTree<T> {
                         } else if b_val.is_solid() {
                             b_val
                         } else {
-                            LeafType::Empty
+                            T::empty()
                         }),
                         size,
                     }
                 }
             } else {
                 OctTreeNode {
-                    children: OctTreeChildren::Leaf(LeafType::Empty),
+                    children: OctTreeChildren::Leaf(T::empty()),
                     size,
                 }
             }
@@ -441,6 +441,36 @@ impl<T: Leafable> OctTree<T> {
         Self {
             root_node: build_nodes(size, &self, other, offset, [0, 0, 0]),
             size,
+        }
+    }
+}
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn combine_to_empty() {
+        let e = OctTree::<bool>::empty();
+        assert_eq!(e.get_contents(0, 0, 0), false);
+        assert_eq!(e.get_contents(0, 0, 0).is_solid(), false);
+        let c = OctTree::cube_pow(0, true);
+        assert!(c.get_contents(0, 0, 0));
+        assert!(c.get_contents(0, 0, 0).is_solid());
+        let solid_pos = Point3 { x: 2, y: 2, z: 2 };
+        let combined = e.combine(&c, solid_pos);
+        for x in 0..2 {
+            for y in 0..2 {
+                for z in 0..2 {
+                    let get_pos = Point3 { x, y, z };
+                    let v = combined.get_contents(get_pos.x, get_pos.y, get_pos.z);
+                    if get_pos == solid_pos.map(|v| v as u32) {
+                        assert!(v);
+                        assert!(v.is_solid())
+                    } else {
+                        assert_eq!(v, false);
+                        assert_eq!(v.is_solid(), false)
+                    }
+                }
+            }
         }
     }
 }

@@ -26,14 +26,14 @@ pub struct OctTree<T: Leafable> {
     pub(crate) size: u32,
 }
 impl<T: Leafable> OctTree<T> {
-    fn get_contents(&self, x: u32, y: u32, z: u32) -> LeafType<T> {
+    fn get_contents(&self, x: u32, y: u32, z: u32) -> T {
         *self.root_node.get(Point3::new(x, y, z))
     }
 }
 
 #[derive(Clone, Debug)]
 pub(crate) enum OctTreeChildren<T: Leafable> {
-    Leaf(LeafType<T>),
+    Leaf(T),
     ParentNode(Box<[OctTreeNode<T>; 8]>),
 }
 /// Leaf of tree
@@ -52,9 +52,26 @@ impl<T: Leafable> LeafType<T> {
         }
     }
 }
-pub trait Leafable: Clone + Copy + PartialEq {}
-impl Leafable for bool {}
-impl Leafable for () {}
+pub trait Leafable: Clone + Copy + PartialEq + Eq {
+    fn is_solid(&self) -> bool;
+    fn empty() -> Self;
+}
+impl Leafable for bool {
+    fn is_solid(&self) -> bool {
+        *self
+    }
+    fn empty() -> Self {
+        false
+    }
+}
+impl Leafable for () {
+    fn is_solid(&self) -> bool {
+        false
+    }
+    fn empty() -> Self {
+        ()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -62,9 +79,13 @@ mod tests {
     #[test]
     fn get_index() {
         let t = OctTreeNode {
-            children: OctTreeChildren::Leaf(LeafType::Solid(true)),
+            children: OctTreeChildren::Leaf(true),
             size: 16,
         };
         assert_eq!(t.get_child_index(0, 0, 0), 0);
+    }
+    #[test]
+    fn empty() {
+        assert_eq!(bool::empty(), false);
     }
 }

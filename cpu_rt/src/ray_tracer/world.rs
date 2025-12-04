@@ -445,8 +445,8 @@ pub fn get_scenarios() -> Scenarios {
             f: oct_tree_world::cube_back,
         }),
         Box::new(ScenarioFn {
-            name: "Oct Tree Sinnoh Test".to_string(),
-            f: oct_tree_world::compare_voxel_world::sinnoh,
+            name: "Oct Tree Sinnoh".to_string(),
+            f: oct_tree_world::compare_voxel_world::sinnoh_direct,
         }),
         Box::new(ScenarioFn {
             name: "Oct Tree Cube Test".to_string(),

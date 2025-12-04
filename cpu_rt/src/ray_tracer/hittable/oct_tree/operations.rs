@@ -2,6 +2,7 @@ use super::{LeafType, Leafable, OctTree, OctTreeChildren, OctTreeNode};
 
 use std::cmp::PartialEq;
 mod combine;
+mod load;
 mod set;
 impl<T: Leafable> OctTree<T> {
     pub fn is_optimal(&self, debug_print: bool) -> bool {
@@ -18,11 +19,11 @@ impl<T: Leafable + PartialEq> OctTree<T> {
                 .fold(String::new(), |acc, x| acc + x);
             match &node.children {
                 OctTreeChildren::Leaf(v) => {
-                    recurse_spaces
-                        + &match v {
-                            LeafType::Solid(_) => format!("solid leaf, size: {}", node.size),
-                            LeafType::Empty => format!("air leaf, size: {}", node.size),
-                        }
+                    if v.is_solid() {
+                        recurse_spaces + &format!("solid leaf, size: {}", node.size)
+                    } else {
+                        recurse_spaces + &format!("air leaf, size: {}", node.size)
+                    }
                 }
 
                 OctTreeChildren::ParentNode(children) => {
