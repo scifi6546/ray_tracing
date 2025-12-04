@@ -10,7 +10,7 @@ pub fn metallic_rough() -> WorldInfo {
     metalic_demo_fuzz(0.8)
 }
 pub fn metalic_demo_fuzz(fuzz: RayScalar) -> WorldInfo {
-    return new_demo(vec![Object::new(
+    new_demo(vec![Object::new(
         Box::new(Sphere {
             radius: 1.0,
             origin: Point3::new(0.0, 1.0, 0.0),
@@ -22,5 +22,5 @@ pub fn metalic_demo_fuzz(fuzz: RayScalar) -> WorldInfo {
             }),
         }),
         Transform::identity(),
-    )]);
+    )])
 }

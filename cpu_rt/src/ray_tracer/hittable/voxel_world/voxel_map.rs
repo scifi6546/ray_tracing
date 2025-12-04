@@ -33,14 +33,11 @@ impl VoxelMap {
     pub(crate) fn load<P: AsRef<std::path::Path>>(p: P) -> Self {
         let p_as_ref = p.as_ref();
         let file_name = p_as_ref.as_os_str();
-        let file = File::open(p_as_ref).expect(&format!("failed to open file: {:?}", file_name));
+        let file =
+            File::open(p_as_ref).unwrap_or_else(|_| panic!("failed to open file: {:?}", file_name));
         let s: VoxelMap = serde_yaml::from_reader(file).expect("failed to parse");
 
-        assert!(s
-            .tile_types
-            .iter()
-            .map(|t| t.is_valid())
-            .fold(true, |acc, x| acc && x));
+        assert!(s.tile_types.iter().all(|t| t.is_valid()));
         s
     }
     pub(crate) fn num_tiles_x(&self) -> usize {

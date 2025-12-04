@@ -92,7 +92,7 @@ impl Clone for World {
             lights: self.lights.clone(),
             background: clone_box(&*self.background),
             camera: self.camera.clone(),
-            sun: self.sun.clone(),
+            sun: self.sun,
         }
     }
 }

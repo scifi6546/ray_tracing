@@ -124,7 +124,7 @@ impl Transform {
 impl std::ops::Mul<Transform> for Transform {
     type Output = Self;
     fn mul(self, rhs: Transform) -> Self::Output {
-        (&self).mul_self(rhs)
+        self.mul_self(rhs)
     }
 }
 impl std::ops::Mul<&Point3<RayScalar>> for &Transform {
@@ -138,14 +138,14 @@ impl std::ops::Mul<&Point3<RayScalar>> for Transform {
     type Output = Point3<RayScalar>;
 
     fn mul(self, rhs: &Point3<RayScalar>) -> Self::Output {
-        (&self).mul_point3(*rhs)
+        self.mul_point3(*rhs)
     }
 }
 impl std::ops::Mul<Point3<RayScalar>> for Transform {
     type Output = Point3<RayScalar>;
 
     fn mul(self, rhs: Point3<RayScalar>) -> Self::Output {
-        (&self).mul_point3(rhs)
+        self.mul_point3(rhs)
     }
 }
 impl std::ops::Mul<&Ray> for &Transform {
@@ -166,19 +166,19 @@ impl std::ops::Mul<Ray> for Transform {
     type Output = Ray;
 
     fn mul(self, rhs: Ray) -> Self::Output {
-        (&self).mul_ray(rhs)
+        self.mul_ray(rhs)
     }
 }
 impl std::ops::Mul<Vector3<RayScalar>> for Transform {
     type Output = Vector3<RayScalar>;
     fn mul(self, rhs: Vector3<RayScalar>) -> Self::Output {
-        (&self).mul_vec3(rhs)
+        self.mul_vec3(rhs)
     }
 }
 impl std::ops::Mul<Vector4<RayScalar>> for Transform {
     type Output = Vector4<RayScalar>;
     fn mul(self, rhs: Vector4<RayScalar>) -> Self::Output {
-        (&self).mul_vec4(rhs)
+        self.mul_vec4(rhs)
     }
 }
 
@@ -210,7 +210,7 @@ impl Hittable for Object {
             let v3 = m[2];
             let t = [v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z];
             let m: &Matrix3<RayScalar> = (&t).into();
-            return m.clone();
+            *m
         }
         if let Some(hit) = self.shape.hit(&shape_ray, t_min, t_max) {
             let three = get_three(&self.transform.world_transform);
@@ -224,16 +224,14 @@ impl Hittable for Object {
             //let normal_world = inv * Vector4::new(hit.normal.x, hit.normal.y, hit.normal.z, 0.0);
             //let normal_world = Vector3::new(normal_world.x, normal_world.y, normal_world.z);
             //let normal_world = hit.normal;
-            let h = Some(HitRecord {
+            Some(HitRecord {
                 position: world_position,
                 normal: normal_world,
                 t: hit.t,
                 front_face,
                 uv: hit.uv,
                 material_effect: hit.material_effect,
-            });
-
-            h
+            })
         } else {
             None
         }
@@ -387,13 +385,14 @@ impl HitRecord {
             uv,
         };
         let emit_option = material.emmit(&hit_ray);
-        let material_effect = if emit_option.is_some() {
-            MaterialEffect::Emmit(emit_option.unwrap())
-        } else if let Some(scatter) = material.scatter(ray.clone(), &hit_ray) {
+        let material_effect = if let Some(emit) = emit_option {
+            MaterialEffect::Emmit(emit)
+        } else if let Some(scatter) = material.scatter(*ray, &hit_ray) {
             MaterialEffect::Scatter(scatter)
         } else {
-            NoEmmit
+            MaterialEffect::NoEmmit
         };
+
         Self {
             position,
             normal: hit_ray.normal,
@@ -421,13 +420,14 @@ impl HitRecord {
             uv,
         };
         let emit_option = material.emmit(&hit_ray);
-        let material_effect = if emit_option.is_some() {
-            MaterialEffect::Emmit(emit_option.unwrap())
-        } else if let Some(scatter) = material.scatter(ray.clone(), &hit_ray) {
+        let material_effect = if let Some(emit) = emit_option {
+            MaterialEffect::Emmit(emit)
+        } else if let Some(scatter) = material.scatter(*ray, &hit_ray) {
             MaterialEffect::Scatter(scatter)
         } else {
             NoEmmit
         };
+
         Self {
             position,
             normal: hit_ray.normal,

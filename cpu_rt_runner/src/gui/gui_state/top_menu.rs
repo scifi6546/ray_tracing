@@ -2,6 +2,7 @@ use super::GuiState;
 use crate::messages::GuiPushMessage;
 use lib_minya::ray_tracer::{CurrentShader, RayTracer};
 use log::{error, info};
+use std::str::FromStr;
 impl GuiState {
     pub fn top_menu(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
@@ -81,7 +82,9 @@ impl GuiState {
                 for s in shaders {
                     if ui.button(&s).clicked() {
                         self.message_chanel
-                            .send(GuiPushMessage::SetShader(CurrentShader::from_str(&s)))
+                            .send(GuiPushMessage::SetShader(
+                                CurrentShader::from_str(&s).unwrap(),
+                            ))
                             .expect("failed to send");
                     }
                 }

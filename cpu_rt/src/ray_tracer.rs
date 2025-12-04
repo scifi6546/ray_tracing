@@ -322,12 +322,15 @@ impl CurrentShader {
             "LightMap".to_string(),
         ]
     }
-    pub fn from_str(s: &str) -> Self {
+}
+impl std::str::FromStr for CurrentShader {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "Ray Tracing" => Self::Raytracing,
-            "Diffuse" => Self::Diffuse,
-            "LightMap" => Self::LightMap,
-            _ => panic!("invalid name"),
+            "Ray Tracing" => Ok(Self::Raytracing),
+            "Diffuse" => Ok(Self::Diffuse),
+            "LightMap" => Ok(Self::LightMap),
+            _ => Err(format!("invalid name: {}", s)),
         }
     }
 }
@@ -348,7 +351,7 @@ impl Clone for RayTracer {
                 .map(|(k, v)| (k.clone(), dyn_clone::clone_box(v.as_ref())))
                 .collect(),
             world: self.world.clone(),
-            current_shader: self.current_shader.clone(),
+            current_shader: self.current_shader,
             ray_tracing_shader: self.ray_tracing_shader.clone(),
             diffuse_shader: self.diffuse_shader.clone(),
             light_map_shader: self.light_map_shader.clone(),
@@ -360,9 +363,7 @@ impl RayTracer {
     pub const SCENE_FILE_EXTENSION: &'static str = SceneFile::FILE_EXTENSION;
     fn new(builder: RayTracerBuilder) -> Self {
         Logger::init();
-        let current_shader = builder
-            .default_shader
-            .unwrap_or_else(|| CurrentShader::Raytracing);
+        let current_shader = builder.default_shader.unwrap_or(CurrentShader::Raytracing);
         let mut scenarios = world::get_scenarios();
         if let Some(mut add_scenarios) = builder.additional_scenarios {
             for (k, scenario) in add_scenarios.drain() {
@@ -396,14 +397,14 @@ impl RayTracer {
         }
     }
     pub fn builder() -> RayTracerBuilder {
-        RayTracerBuilder::new()
+        RayTracerBuilder::default()
     }
     pub fn get_info(&self) -> RayTracerInfo {
         RayTracerInfo {
             scenarios: self
                 .scenarios
-                .iter()
-                .map(|(name, _scenario)| ScenarioInfo { name: name.clone() })
+                .keys()
+                .map(|name| ScenarioInfo { name: name.clone() })
                 .collect(),
             loaded_entities: self.world.get_entity_info(),
         }
@@ -545,14 +546,16 @@ pub struct RayTracerBuilder {
     default_scenario: LoadScenario,
     default_shader: Option<CurrentShader>,
 }
-impl RayTracerBuilder {
-    pub fn new() -> Self {
+impl std::default::Default for RayTracerBuilder {
+    fn default() -> Self {
         Self {
             additional_scenarios: None,
             default_scenario: LoadScenario::None,
             default_shader: None,
         }
     }
+}
+impl RayTracerBuilder {
     pub fn add_scenarios(
         mut self,
         additional_scenarios: HashMap<String, Box<dyn ScenarioCtor>>,
@@ -575,7 +578,7 @@ impl RayTracerBuilder {
         self
     }
     pub fn custom_scenario(mut self, scenario: WorldInfo) -> Self {
-        self.default_scenario = LoadScenario::Custom(scenario);
+        self.default_scenario = LoadScenario::Custom(Box::new(scenario));
         self
     }
     pub fn build(self) -> RayTracer {

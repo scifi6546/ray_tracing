@@ -125,7 +125,7 @@ impl Hittable for RenderBox {
         Self::check_hit(&mut closest_hit, self.yzp.hit(ray, t_min, t_max));
         Self::check_hit(&mut closest_hit, self.yzm.hit(ray, t_min, t_max));
 
-        return closest_hit;
+        closest_hit
     }
 
     fn bounding_box(&self, _time_0: RayScalar, _time_1: RayScalar) -> Option<Aabb> {

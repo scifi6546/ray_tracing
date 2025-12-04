@@ -35,7 +35,7 @@ fn min_idx_vec(v: Vector3<RayScalar>) -> usize {
     if min_val > v.z {
         return 2;
     }
-    return min_idx;
+    min_idx
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum CubeType {
@@ -185,9 +185,9 @@ impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
             } else {
                 panic!("invalid min_idx")
             };
-            let x_pos = voxel_pos.x as isize;
-            let y_pos = voxel_pos.y as isize;
-            let z_pos = voxel_pos.z as isize;
+            let x_pos = voxel_pos.x;
+            let y_pos = voxel_pos.y;
+            let z_pos = voxel_pos.z;
             if self.in_range(x_pos, y_pos, z_pos) {
                 let voxel = self.get(x_pos as usize, y_pos as usize, z_pos as usize);
                 match voxel.solid() {
@@ -587,6 +587,7 @@ impl Hittable for VoxelWorld {
         let mut min_dist = RayScalar::MAX;
 
         let mut min_index = usize::MAX;
+        #[allow(clippy::needless_range_loop)]
         for i in 0..solutions.len() {
             if let Some(check) = solutions[i].as_ref() {
                 let distance = Point3::new(check.origin.x, check.origin.y, check.origin.z)

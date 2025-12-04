@@ -32,13 +32,14 @@ impl LogMessage {
 static LOG_MESSAGES: Mutex<Option<Vec<LogMessage>>> = Mutex::new(None);
 static LOG_SETUP: Mutex<bool> = Mutex::new(false);
 static mut LOGGER: Logger = Logger {};
+#[derive(Default)]
 pub struct Logger {}
 
 impl Logger {
     pub fn init() {
         unsafe {
             let mut log_setup = LOG_SETUP.lock().expect("failed to get lock");
-            if *log_setup == false {
+            if !(*log_setup) {
                 let logger_address = addr_of!(LOGGER);
 
                 log::set_logger(logger_address.as_ref().unwrap())
@@ -48,9 +49,7 @@ impl Logger {
             }
         }
     }
-    pub fn new() -> Self {
-        Self {}
-    }
+
     pub fn get_log_messages() -> Vec<LogMessage> {
         let log_opt = LOG_MESSAGES.lock().expect("failed to get lock");
         if log_opt.is_some() {

@@ -250,11 +250,9 @@ impl Pdf for LambertianPDF {
                 ],
                 _ => panic!(),
             };
-            for value in values {
-                if let Some(value) = value {
-                    sum += value;
-                    total += 1;
-                }
+            for value in values.iter().flatten() {
+                sum += value;
+                total += 1;
             }
             if total != 0 {
                 Some((out_direction, (sum + pdf) / (total + 1) as RayScalar))
