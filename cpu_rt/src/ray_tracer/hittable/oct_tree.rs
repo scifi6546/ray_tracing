@@ -36,22 +36,7 @@ pub(crate) enum OctTreeChildren<T: Leafable> {
     Leaf(T),
     ParentNode(Box<[OctTreeNode<T>; 8]>),
 }
-/// Leaf of tree
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum LeafType<T: Leafable> {
-    /// Leaf has something in it
-    Solid(T),
-    /// leaf is empty
-    Empty,
-}
-impl<T: Leafable> LeafType<T> {
-    fn is_solid(&self) -> bool {
-        match self {
-            Self::Solid(_) => true,
-            Self::Empty => false,
-        }
-    }
-}
+
 pub trait Leafable: Clone + Copy + PartialEq + Eq {
     fn is_solid(&self) -> bool;
     fn empty() -> Self;

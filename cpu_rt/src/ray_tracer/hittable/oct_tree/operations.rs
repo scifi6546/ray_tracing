@@ -1,4 +1,4 @@
-use super::{LeafType, Leafable, OctTree, OctTreeChildren, OctTreeNode};
+use super::{Leafable, OctTree, OctTreeChildren, OctTreeNode};
 
 use std::cmp::PartialEq;
 mod combine;

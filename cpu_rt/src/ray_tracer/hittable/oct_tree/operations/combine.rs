@@ -1,4 +1,4 @@
-use super::{super::prelude::*, LeafType, Leafable, OctTree, OctTreeChildren, OctTreeNode};
+use super::{super::prelude::*, Leafable, OctTree, OctTreeChildren, OctTreeNode};
 
 use cgmath::Point3;
 use std::cmp::max;

@@ -1,6 +1,5 @@
 use super::{
-    super::prelude::get_child_index_size2, LeafType, Leafable, OctTree, OctTreeChildren,
-    OctTreeNode,
+    super::prelude::get_child_index_size2, Leafable, OctTree, OctTreeChildren, OctTreeNode,
 };
 use cgmath::Point3;
 use log::info;

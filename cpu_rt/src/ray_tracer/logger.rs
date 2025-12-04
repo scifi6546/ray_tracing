@@ -29,8 +29,8 @@ impl LogMessage {
         }
     }
 }
-static mut LOG_MESSAGES: Mutex<Option<Vec<LogMessage>>> = Mutex::new(None);
-static mut LOG_SETUP: Mutex<bool> = Mutex::new(false);
+static LOG_MESSAGES: Mutex<Option<Vec<LogMessage>>> = Mutex::new(None);
+static LOG_SETUP: Mutex<bool> = Mutex::new(false);
 static mut LOGGER: Logger = Logger {};
 pub struct Logger {}
 
@@ -52,7 +52,7 @@ impl Logger {
         Self {}
     }
     pub fn get_log_messages() -> Vec<LogMessage> {
-        let log_opt = unsafe { LOG_MESSAGES.lock().expect("failed to get lock") };
+        let log_opt = LOG_MESSAGES.lock().expect("failed to get lock");
         if log_opt.is_some() {
             log_opt.as_ref().unwrap().clone()
         } else {
@@ -67,7 +67,7 @@ impl log::Log for Logger {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
-            let mut log_result = unsafe { LOG_MESSAGES.lock().expect("failed to get lock") };
+            let mut log_result = LOG_MESSAGES.lock().expect("failed to get lock");
             if log_result.is_none() {
                 log::set_max_level(log::LevelFilter::Debug);
                 *log_result = Some(vec![]);

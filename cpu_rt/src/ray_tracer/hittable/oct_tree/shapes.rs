@@ -1,6 +1,6 @@
 use super::{
     prelude::{get_children_offsets, get_next_power},
-    LeafType, Leafable, OctTree, OctTreeChildren, OctTreeNode,
+    Leafable, OctTree, OctTreeChildren, OctTreeNode,
 };
 use cgmath::{Point3, Vector3};
 use std::cmp::max;

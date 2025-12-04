@@ -382,6 +382,7 @@ impl ImageReceiver {
         }
     }
 }
+#[allow(dead_code)]
 pub(crate) enum RayTracerMessage {
     SetShader(super::ray_tracer::CurrentShader),
     StopRendering,

@@ -1,4 +1,4 @@
-use super::{LeafType, Leafable, RayScalar};
+use super::RayScalar;
 use crate::prelude::Ray;
 use cgmath::{Point3, Vector3};
 
@@ -63,14 +63,4 @@ pub(crate) fn get_child_index_size2(x: u32, y: u32, z: u32) -> usize {
     assert!(y < 2);
     assert!(z < 2);
     x as usize * 4 + y as usize * 2 + z as usize
-}
-
-impl<T: Leafable> LeafType<T> {
-    ///Returns Some(T) if this node is solid, returns `None` if Self is not solid
-    pub(crate) fn try_solid(&self) -> Option<&T> {
-        match self {
-            Self::Solid(leaf) => Some(leaf),
-            Self::Empty => None,
-        }
-    }
 }
