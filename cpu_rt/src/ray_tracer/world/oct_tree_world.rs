@@ -1,5 +1,5 @@
 pub mod compare_voxel_world;
-
+pub mod volume;
 use super::{
     Camera, CameraInfo, ConstantColor, DiffuseLight, OctTree, SolidColor, Sphere, Sun, SunSky,
     Transform, VoxelMaterial, WorldInfo,

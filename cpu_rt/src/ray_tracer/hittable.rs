@@ -1,5 +1,4 @@
 mod constant_medium;
-mod hittable_traits;
 mod oct_tree;
 mod rect;
 mod render_box;

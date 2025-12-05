@@ -1,15 +1,15 @@
-use super::{Leafable, OctTree, OctTreeChildren, OctTreeHitInfo, OctTreeNode};
+use super::{Leafable, OctTree, OctTreeChildren, OctTreeHitInfo, OctTreeNode, VoxelMaterial};
 use crate::prelude::{Ray, RayScalar};
 use log::{error, warn};
 
 use cgmath::{prelude::*, Point3, Vector3};
 
-impl<T: Leafable> OctTree<T> {
-    pub fn trace_ray(&self, ray: Ray) -> Option<OctTreeHitInfo<T>> {
+impl OctTree<VoxelMaterial> {
+    pub fn trace_ray(&self, ray: Ray) -> Option<OctTreeHitInfo<VoxelMaterial>> {
         self.root_node.trace_ray(ray)
     }
 }
-impl<T: Leafable> OctTreeNode<T> {
+impl OctTreeNode<VoxelMaterial> {
     fn in_range(&self, position: Point3<i32>) -> bool {
         let is_good = position.map(|v| v >= 0 && v < self.size as i32);
         is_good[0] && is_good[1] && is_good[2]
@@ -18,7 +18,7 @@ impl<T: Leafable> OctTreeNode<T> {
         &self,
         mut block_coordinates: Point3<i32>,
         mut ray: Ray,
-    ) -> Option<OctTreeHitInfo<T>> {
+    ) -> Option<OctTreeHitInfo<VoxelMaterial>> {
         let original_ray = ray;
 
         fn floor_value_integer(a: i32, b: i32) -> i32 {
@@ -386,7 +386,7 @@ impl<T: Leafable> OctTreeNode<T> {
         None
     }
 
-    fn trace_ray(&self, ray: Ray) -> Option<OctTreeHitInfo<T>> {
+    fn trace_ray(&self, ray: Ray) -> Option<OctTreeHitInfo<VoxelMaterial>> {
         struct PlaneIntersection {
             normal_axis: usize,
             intersect_time: RayScalar,
