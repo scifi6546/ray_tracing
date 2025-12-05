@@ -1,5 +1,8 @@
 use super::{Leafable, OctTree, OctTreeChildren, OctTreeHitInfo, OctTreeNode, VoxelMaterial};
-use crate::prelude::{Ray, RayScalar};
+use crate::{
+    prelude::{Ray, RayScalar},
+    ray_tracer::hittable::oct_tree::HitType,
+};
 use log::{error, warn};
 
 use cgmath::{prelude::*, Point3, Vector3};
@@ -145,15 +148,18 @@ impl OctTreeNode<VoxelMaterial> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        if node_leaf.is_solid() {
-                            let normal = Vector3::new(-1., 0., 0.);
+                        match node_leaf.hit_type() {
+                            HitType::Solid => {
+                                let normal = Vector3::new(-1., 0., 0.);
 
-                            return Some(OctTreeHitInfo {
-                                hit_value: node_leaf,
-                                depth: ray.origin.distance(original_origin),
-                                hit_position: ray.origin,
-                                normal,
-                            });
+                                return Some(OctTreeHitInfo {
+                                    hit_value: node_leaf,
+                                    depth: ray.origin.distance(original_origin),
+                                    hit_position: ray.origin,
+                                    normal,
+                                });
+                            }
+                            HitType::Empty => {}
                         }
                     } else {
                         return None;
@@ -187,15 +193,18 @@ impl OctTreeNode<VoxelMaterial> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        if node_leaf.is_solid() {
-                            let normal = Vector3::new(0., 0., 1.);
+                        match node_leaf.hit_type() {
+                            HitType::Solid => {
+                                let normal = Vector3::new(0., 0., 1.);
 
-                            return Some(OctTreeHitInfo {
-                                hit_value: node_leaf,
-                                depth: ray.origin.distance(original_origin),
-                                hit_position: ray.origin,
-                                normal,
-                            });
+                                return Some(OctTreeHitInfo {
+                                    hit_value: node_leaf,
+                                    depth: ray.origin.distance(original_origin),
+                                    hit_position: ray.origin,
+                                    normal,
+                                });
+                            }
+                            HitType::Empty => {}
                         }
                     } else {
                         return None;
@@ -234,16 +243,19 @@ impl OctTreeNode<VoxelMaterial> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        if node_leaf.is_solid() {
-                            let normal = Vector3::new(0., -1., 0.);
+                        match node_leaf.hit_type() {
+                            HitType::Solid => {
+                                let normal = Vector3::new(0., -1., 0.);
 
-                            return Some(OctTreeHitInfo {
-                                hit_value: node_leaf,
-                                depth: ray.origin.distance(original_origin),
-                                hit_position: ray.origin,
-                                normal,
-                            });
-                        }
+                                return Some(OctTreeHitInfo {
+                                    hit_value: node_leaf,
+                                    depth: ray.origin.distance(original_origin),
+                                    hit_position: ray.origin,
+                                    normal,
+                                });
+                            }
+                            HitType::Empty => {}
+                        };
                     } else {
                         return None;
                     }
@@ -274,15 +286,18 @@ impl OctTreeNode<VoxelMaterial> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        if node_leaf.is_solid() {
-                            let normal = Vector3::new(0., 1., 0.);
+                        match node_leaf.hit_type() {
+                            HitType::Solid => {
+                                let normal = Vector3::new(0., 1., 0.);
 
-                            return Some(OctTreeHitInfo {
-                                hit_value: node_leaf,
-                                depth: ray.origin.distance(original_origin),
-                                hit_position: ray.origin,
-                                normal,
-                            });
+                                return Some(OctTreeHitInfo {
+                                    hit_value: node_leaf,
+                                    depth: ray.origin.distance(original_origin),
+                                    hit_position: ray.origin,
+                                    normal,
+                                });
+                            }
+                            HitType::Empty => {}
                         }
                     } else {
                         return None;
@@ -321,15 +336,18 @@ impl OctTreeNode<VoxelMaterial> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        if node_leaf.is_solid() {
-                            let normal = Vector3::new(0., 0., -1.);
+                        match node_leaf.hit_type() {
+                            HitType::Solid => {
+                                let normal = Vector3::new(0., 0., -1.);
 
-                            return Some(OctTreeHitInfo {
-                                hit_value: node_leaf,
-                                depth: ray.origin.distance(original_origin),
-                                hit_position: ray.origin,
-                                normal,
-                            });
+                                return Some(OctTreeHitInfo {
+                                    hit_value: node_leaf,
+                                    depth: ray.origin.distance(original_origin),
+                                    hit_position: ray.origin,
+                                    normal,
+                                });
+                            }
+                            HitType::Empty => {}
                         }
                     } else {
                         return None;
@@ -363,15 +381,18 @@ impl OctTreeNode<VoxelMaterial> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        if node_leaf.is_solid() {
-                            let normal = Vector3::new(0., 0., 1.);
+                        match node_leaf.hit_type() {
+                            HitType::Solid => {
+                                let normal = Vector3::new(0., 0., 1.);
 
-                            return Some(OctTreeHitInfo {
-                                hit_value: node_leaf,
-                                depth: ray.origin.distance(original_origin),
-                                hit_position: ray.origin,
-                                normal,
-                            });
+                                return Some(OctTreeHitInfo {
+                                    hit_value: node_leaf,
+                                    depth: ray.origin.distance(original_origin),
+                                    hit_position: ray.origin,
+                                    normal,
+                                });
+                            }
+                            HitType::Empty => {}
                         }
                     } else {
                         return None;
@@ -482,8 +503,8 @@ impl OctTreeNode<VoxelMaterial> {
             solutions.sort_by(|a, b| a.intersect_time.partial_cmp(&b.intersect_time).unwrap());
             if let Some(intersection) = solutions.first() {
                 let block = self.get(intersection.block_coordinate.map(|v| v as u32).map(|v| v));
-                if block.is_solid() {
-                    Some(OctTreeHitInfo {
+                match block.hit_type() {
+                    HitType::Solid => Some(OctTreeHitInfo {
                         depth: ray.distance(Vector3::new(
                             intersection.intersect_position.x,
                             intersection.intersect_position.y,
@@ -492,16 +513,15 @@ impl OctTreeNode<VoxelMaterial> {
                         hit_position: intersection.intersect_position,
                         hit_value: block,
                         normal: intersection.normal_vector,
-                    })
-                } else {
-                    self.ray_iteration(
+                    }),
+                    HitType::Empty => self.ray_iteration(
                         intersection.block_coordinate,
                         Ray {
                             origin: intersection.intersect_position,
                             direction: ray.direction,
                             time: 0.,
                         },
-                    )
+                    ),
                 }
             } else {
                 None

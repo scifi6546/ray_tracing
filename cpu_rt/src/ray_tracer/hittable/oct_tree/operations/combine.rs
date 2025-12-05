@@ -1,4 +1,4 @@
-use super::{super::prelude::*, Leafable, OctTree, OctTreeChildren, OctTreeNode};
+use super::{super::prelude::*, HitType, Leafable, OctTree, OctTreeChildren, OctTreeNode};
 
 use cgmath::Point3;
 use std::cmp::max;
@@ -93,13 +93,14 @@ impl<T: Leafable> OctTree<T> {
                                     start[1] as u32,
                                     start[2] as u32,
                                 );
-                                let child_leaf = if leaf_value.is_solid() {
-                                    leaf_value
-                                } else if other_child.is_solid() {
-                                    other_child
-                                } else {
-                                    T::empty()
+                                let child_leaf = match leaf_value.hit_type() {
+                                    HitType::Solid => leaf_value,
+                                    HitType::Empty => match other_child.hit_type() {
+                                        HitType::Solid => other_child,
+                                        HitType::Empty => T::empty(),
+                                    },
                                 };
+
                                 return OctTreeNode {
                                     children: OctTreeChildren::Leaf(child_leaf),
                                     size: 1,
@@ -179,12 +180,12 @@ impl<T: Leafable> OctTree<T> {
                                                 size: node.size,
                                             };
                                         } else {
-                                            val = if val.is_solid() {
-                                                val
-                                            } else if get_val.is_solid() {
-                                                get_val
-                                            } else {
-                                                T::empty()
+                                            val = match val.hit_type() {
+                                                HitType::Solid => val,
+                                                HitType::Empty => match get_val.hit_type() {
+                                                    HitType::Solid => get_val,
+                                                    HitType::Empty => T::empty(),
+                                                },
                                             };
                                         }
                                     }
@@ -411,14 +412,13 @@ impl<T: Leafable> OctTree<T> {
                     } else {
                         T::empty()
                     };
-
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(if a_val.is_solid() {
-                            a_val
-                        } else if b_val.is_solid() {
-                            b_val
-                        } else {
-                            T::empty()
+                        children: OctTreeChildren::Leaf(match a_val.hit_type() {
+                            HitType::Solid => a_val,
+                            HitType::Empty => match b_val.hit_type() {
+                                HitType::Solid => b_val,
+                                HitType::Empty => b_val,
+                            },
                         }),
                         size,
                     }
@@ -451,10 +451,10 @@ mod test {
     fn combine_to_empty() {
         let e = OctTree::<bool>::empty();
         assert_eq!(e.get_contents(0, 0, 0), false);
-        assert_eq!(e.get_contents(0, 0, 0).is_solid(), false);
+        assert_eq!(e.get_contents(0, 0, 0).hit_type(), HitType::Empty);
         let c = OctTree::cube_pow(0, true);
         assert!(c.get_contents(0, 0, 0));
-        assert!(c.get_contents(0, 0, 0).is_solid());
+        assert_eq!(c.get_contents(0, 0, 0).hit_type(), HitType::Solid);
         let solid_pos = Point3 { x: 2, y: 2, z: 2 };
         let combined = e.combine(&c, solid_pos);
         for x in 0..2 {
@@ -464,10 +464,10 @@ mod test {
                     let v = combined.get_contents(get_pos.x, get_pos.y, get_pos.z);
                     if get_pos == solid_pos.map(|v| v as u32) {
                         assert!(v);
-                        assert!(v.is_solid())
+                        assert_eq!(v.hit_type(), HitType::Solid)
                     } else {
                         assert_eq!(v, false);
-                        assert_eq!(v.is_solid(), false)
+                        assert_eq!(v.hit_type(), HitType::Empty)
                     }
                 }
             }

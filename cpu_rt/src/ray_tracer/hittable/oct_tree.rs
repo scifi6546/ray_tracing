@@ -20,6 +20,11 @@ pub struct OctTreeHitInfo<'a, T: Leafable> {
     pub hit_position: Point3<RayScalar>,
     pub normal: Vector3<RayScalar>,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum HitType {
+    Solid,
+    Empty,
+}
 #[derive(Clone)]
 pub struct OctTree<T: Leafable> {
     pub(crate) root_node: OctTreeNode<T>,
@@ -38,20 +43,24 @@ pub(crate) enum OctTreeChildren<T: Leafable> {
 }
 
 pub trait Leafable: Clone + Copy + PartialEq + Eq {
-    fn is_solid(&self) -> bool;
+    fn hit_type(&self) -> HitType;
     fn empty() -> Self;
 }
 impl Leafable for bool {
-    fn is_solid(&self) -> bool {
-        *self
+    fn hit_type(&self) -> HitType {
+        if *self {
+            HitType::Solid
+        } else {
+            HitType::Empty
+        }
     }
     fn empty() -> Self {
         false
     }
 }
 impl Leafable for () {
-    fn is_solid(&self) -> bool {
-        false
+    fn hit_type(&self) -> HitType {
+        HitType::Empty
     }
     fn empty() -> Self {
         ()

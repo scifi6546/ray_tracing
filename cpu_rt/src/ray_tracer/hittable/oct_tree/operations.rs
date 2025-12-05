@@ -1,4 +1,4 @@
-use super::{Leafable, OctTree, OctTreeChildren, OctTreeNode};
+use super::{HitType, Leafable, OctTree, OctTreeChildren, OctTreeNode};
 
 use std::cmp::PartialEq;
 mod combine;
@@ -18,13 +18,10 @@ impl<T: Leafable + PartialEq> OctTree<T> {
                 .map(|_| " ")
                 .fold(String::new(), |acc, x| acc + x);
             match &node.children {
-                OctTreeChildren::Leaf(v) => {
-                    if v.is_solid() {
-                        recurse_spaces + &format!("solid leaf, size: {}", node.size)
-                    } else {
-                        recurse_spaces + &format!("air leaf, size: {}", node.size)
-                    }
-                }
+                OctTreeChildren::Leaf(v) => match v.hit_type() {
+                    HitType::Solid => recurse_spaces + &format!("solid leaf, size: {}", node.size),
+                    HitType::Empty => recurse_spaces + &format!("air leaf, size: {}", node.size),
+                },
 
                 OctTreeChildren::ParentNode(children) => {
                     recurse_spaces

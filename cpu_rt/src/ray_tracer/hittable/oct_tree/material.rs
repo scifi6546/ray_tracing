@@ -1,4 +1,4 @@
-use super::Leafable;
+use super::{HitType, Leafable};
 
 use base_lib::RgbColor;
 use std::rc::Rc;
@@ -52,11 +52,11 @@ impl PartialEq for VoxelMaterial {
 }
 impl Eq for VoxelMaterial {}
 impl Leafable for VoxelMaterial {
-    fn is_solid(&self) -> bool {
+    fn hit_type(&self) -> HitType {
         match self {
-            Self::Solid { .. } => true,
-            Self::Volume { density } => todo!(),
-            Self::Empty => false,
+            Self::Solid { .. } => HitType::Solid,
+            Self::Volume { density } => todo!("volume"),
+            Self::Empty => HitType::Empty,
         }
     }
     fn empty() -> Self {
@@ -175,5 +175,10 @@ mod test {
 
         assert_ne!(v, e);
         assert_ne!(e, v);
+    }
+    #[test]
+    fn volume_material() {
+        let v = VoxelMaterial::Volume { density: 0.2 };
+        todo!("get volume hit type")
     }
 }
