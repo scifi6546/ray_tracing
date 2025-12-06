@@ -27,6 +27,7 @@ impl OctTreeNode<VoxelMaterial> {
         struct RayTraceState {
             volume_distance_left: Option<RayScalar>,
             block_coordinates: Point3<i32>,
+            current_position: Point3<RayScalar>,
         }
 
         fn floor_value_integer(a: i32, b: i32) -> i32 {
@@ -76,6 +77,7 @@ impl OctTreeNode<VoxelMaterial> {
                 block_coordinates,
                 get_step_size(self, block_coordinates) as i32,
             ),
+            current_position: ray.origin,
         };
         let x_sign = if ray.direction.x.is_sign_positive() {
             1
@@ -102,23 +104,25 @@ impl OctTreeNode<VoxelMaterial> {
 
             let t_x = (rt_state.block_coordinates.x as RayScalar
                 + step_size as RayScalar * x_sign as RayScalar
-                - ray.origin.x)
+                - rt_state.current_position.x)
                 / ray.direction.x;
 
             let t_y = (rt_state.block_coordinates.y as RayScalar
                 + step_size as RayScalar * y_sign as RayScalar
-                - ray.origin.y)
+                - rt_state.current_position.y)
                 / ray.direction.y;
 
             let t_z = (rt_state.block_coordinates.z as RayScalar
                 + step_size as RayScalar * z_sign as RayScalar
-                - ray.origin.z)
+                - rt_state.current_position.z)
                 / ray.direction.z;
             if t_x < 0. {
                 error!("t_x < 0., t_x = {}", t_x);
                 error!(
                     "ray origin: <{},{},{}>",
-                    ray.origin.x, ray.origin.y, ray.origin.z
+                    rt_state.current_position.x,
+                    rt_state.current_position.y,
+                    rt_state.current_position.z
                 );
                 error!(
                     "ray direction: <{}, {}, {}>",
@@ -133,7 +137,9 @@ impl OctTreeNode<VoxelMaterial> {
                 );
                 error!(
                     "position: <{}, {}, {}>",
-                    ray.origin.x, ray.origin.y, ray.origin.z
+                    rt_state.current_position.x,
+                    rt_state.current_position.y,
+                    rt_state.current_position.z
                 );
                 return None;
             }
@@ -148,29 +154,29 @@ impl OctTreeNode<VoxelMaterial> {
 
             if t_x < t_y && t_x < t_z {
                 // t_x is the min
-                ray.origin.y = ray.origin.y + t_x * ray.direction.y;
-                ray.origin.z = ray.origin.z + t_x * ray.direction.z;
+                rt_state.current_position.y = rt_state.current_position.y + t_x * ray.direction.y;
+                rt_state.current_position.z = rt_state.current_position.z + t_x * ray.direction.z;
                 if ray.direction.x >= 0. {
-                    rt_state.block_coordinates.x =
-                        rt_state.block_coordinates.x + step_size as i32 * int_sign(ray.direction.x);
-                    ray.origin.x = ray.origin.x + t_x * ray.direction.x;
+                    rt_state.block_coordinates.x += step_size as i32 * int_sign(ray.direction.x);
+                    rt_state.current_position.x =
+                        rt_state.current_position.x + t_x * ray.direction.x;
                     if self.in_range(Point3::new(
                         rt_state.block_coordinates.x as i32,
-                        ray.origin.y as i32,
-                        ray.origin.z as i32,
+                        rt_state.current_position.y as i32,
+                        rt_state.current_position.z as i32,
                     )) {
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
                                 rt_state.block_coordinates.x,
-                                ray.origin.y as i32,
-                                ray.origin.z as i32,
+                                rt_state.current_position.y as i32,
+                                rt_state.current_position.z as i32,
                             ),
                         ) as i32;
                         rt_state.block_coordinates.y =
-                            floor_value_integer(ray.origin.y as i32, next_step_size);
+                            floor_value_integer(rt_state.current_position.y as i32, next_step_size);
                         rt_state.block_coordinates.z =
-                            floor_value_integer(ray.origin.z as i32, next_step_size);
+                            floor_value_integer(rt_state.current_position.z as i32, next_step_size);
 
                         let node = self
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
@@ -185,8 +191,8 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo {
                                     hit_value: node_leaf,
-                                    depth: ray.origin.distance(original_origin),
-                                    hit_position: ray.origin,
+                                    depth: rt_state.current_position.distance(original_origin),
+                                    hit_position: rt_state.current_position,
                                     normal,
                                 });
                             }
@@ -202,22 +208,26 @@ impl OctTreeNode<VoxelMaterial> {
                         rt_state.block_coordinates.y as i32,
                         rt_state.block_coordinates.z as i32,
                     )) {
-                        ray.origin.x = ray.origin.x + t_x * ray.direction.x;
+                        rt_state.current_position.x =
+                            rt_state.current_position.x + t_x * ray.direction.x;
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
                                 rt_state.block_coordinates.x - 1,
-                                ray.origin.y as i32,
-                                ray.origin.z as i32,
+                                rt_state.current_position.y as i32,
+                                rt_state.current_position.z as i32,
                             ),
                         );
 
-                        rt_state.block_coordinates.y =
-                            floor_value_integer(ray.origin.y as i32, next_step_size as i32);
-                        rt_state.block_coordinates.z =
-                            floor_value_integer(ray.origin.z as i32, next_step_size as i32);
-                        rt_state.block_coordinates.x =
-                            rt_state.block_coordinates.x - next_step_size as i32;
+                        rt_state.block_coordinates.y = floor_value_integer(
+                            rt_state.current_position.y as i32,
+                            next_step_size as i32,
+                        );
+                        rt_state.block_coordinates.z = floor_value_integer(
+                            rt_state.current_position.z as i32,
+                            next_step_size as i32,
+                        );
+                        rt_state.block_coordinates.x -= next_step_size as i32;
 
                         let node = self
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
@@ -232,8 +242,8 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo {
                                     hit_value: node_leaf,
-                                    depth: ray.origin.distance(original_origin),
-                                    hit_position: ray.origin,
+                                    depth: rt_state.current_position.distance(original_origin),
+                                    hit_position: rt_state.current_position,
                                     normal,
                                 });
                             }
@@ -246,29 +256,29 @@ impl OctTreeNode<VoxelMaterial> {
                 }
             } else if t_y < t_x && t_y < t_z {
                 // y is the min
-                ray.origin.x = ray.origin.x + t_y * ray.direction.x;
-                ray.origin.z = ray.origin.z + t_y * ray.direction.z;
+                rt_state.current_position.x = rt_state.current_position.x + t_y * ray.direction.x;
+                rt_state.current_position.z = rt_state.current_position.z + t_y * ray.direction.z;
                 if ray.direction.y >= 0. {
-                    rt_state.block_coordinates.y =
-                        rt_state.block_coordinates.y + step_size as i32 * int_sign(ray.direction.y);
-                    ray.origin.y = ray.origin.y + t_y * ray.direction.y;
+                    rt_state.block_coordinates.y += step_size as i32 * int_sign(ray.direction.y);
+                    rt_state.current_position.y =
+                        rt_state.current_position.y + t_y * ray.direction.y;
                     if self.in_range(Point3::new(
-                        ray.origin.x as i32,
+                        rt_state.current_position.x as i32,
                         rt_state.block_coordinates.y as i32,
-                        ray.origin.z as i32,
+                        rt_state.current_position.z as i32,
                     )) {
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
-                                ray.origin.x as i32,
+                                rt_state.current_position.x as i32,
                                 rt_state.block_coordinates.y,
-                                ray.origin.z as i32,
+                                rt_state.current_position.z as i32,
                             ),
                         ) as i32;
                         rt_state.block_coordinates.x =
-                            floor_value_integer(ray.origin.x as i32, next_step_size);
+                            floor_value_integer(rt_state.current_position.x as i32, next_step_size);
                         rt_state.block_coordinates.z =
-                            floor_value_integer(ray.origin.z as i32, next_step_size);
+                            floor_value_integer(rt_state.current_position.z as i32, next_step_size);
 
                         let node = self
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
@@ -283,8 +293,8 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo {
                                     hit_value: node_leaf,
-                                    depth: ray.origin.distance(original_origin),
-                                    hit_position: ray.origin,
+                                    depth: rt_state.current_position.distance(original_origin),
+                                    hit_position: rt_state.current_position,
                                     normal,
                                 });
                             }
@@ -300,21 +310,25 @@ impl OctTreeNode<VoxelMaterial> {
                         rt_state.block_coordinates.y as i32 - 1,
                         rt_state.block_coordinates.z as i32,
                     )) {
-                        ray.origin.y = ray.origin.y + t_y * ray.direction.y;
+                        rt_state.current_position.y =
+                            rt_state.current_position.y + t_y * ray.direction.y;
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
-                                ray.origin.x as i32,
+                                rt_state.current_position.x as i32,
                                 rt_state.block_coordinates.y - 1,
-                                ray.origin.z as i32,
+                                rt_state.current_position.z as i32,
                             ),
                         );
-                        rt_state.block_coordinates.x =
-                            floor_value_integer(ray.origin.x as i32, next_step_size as i32);
-                        rt_state.block_coordinates.z =
-                            floor_value_integer(ray.origin.z as i32, next_step_size as i32);
-                        rt_state.block_coordinates.y =
-                            rt_state.block_coordinates.y - next_step_size as i32;
+                        rt_state.block_coordinates.x = floor_value_integer(
+                            rt_state.current_position.x as i32,
+                            next_step_size as i32,
+                        );
+                        rt_state.block_coordinates.z = floor_value_integer(
+                            rt_state.current_position.z as i32,
+                            next_step_size as i32,
+                        );
+                        rt_state.block_coordinates.y -= next_step_size as i32;
                         let node = self
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
                             .expect("should be in range");
@@ -328,8 +342,8 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo {
                                     hit_value: node_leaf,
-                                    depth: ray.origin.distance(original_origin),
-                                    hit_position: ray.origin,
+                                    depth: rt_state.current_position.distance(original_origin),
+                                    hit_position: rt_state.current_position,
                                     normal,
                                 });
                             }
@@ -342,29 +356,29 @@ impl OctTreeNode<VoxelMaterial> {
                 }
             } else {
                 // z is the min
-                ray.origin.y = ray.origin.y + t_z * ray.direction.y;
-                ray.origin.x = ray.origin.x + t_z * ray.direction.x;
+                rt_state.current_position.y = rt_state.current_position.y + t_z * ray.direction.y;
+                rt_state.current_position.x = rt_state.current_position.x + t_z * ray.direction.x;
                 if ray.direction.z >= 0. {
-                    rt_state.block_coordinates.z =
-                        rt_state.block_coordinates.z + step_size as i32 * int_sign(ray.direction.z);
-                    ray.origin.z = ray.origin.z + t_z * ray.direction.z;
+                    rt_state.block_coordinates.z += step_size as i32 * int_sign(ray.direction.z);
+                    rt_state.current_position.z =
+                        rt_state.current_position.z + t_z * ray.direction.z;
                     if self.in_range(Point3::new(
-                        ray.origin.x as i32,
-                        ray.origin.y as i32,
+                        rt_state.current_position.x as i32,
+                        rt_state.current_position.y as i32,
                         rt_state.block_coordinates.z as i32,
                     )) {
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
-                                ray.origin.x as i32,
-                                ray.origin.y as i32,
+                                rt_state.current_position.x as i32,
+                                rt_state.current_position.y as i32,
                                 rt_state.block_coordinates.z as i32,
                             ),
                         ) as i32;
                         rt_state.block_coordinates.y =
-                            floor_value_integer(ray.origin.y as i32, next_step_size);
+                            floor_value_integer(rt_state.current_position.y as i32, next_step_size);
                         rt_state.block_coordinates.x =
-                            floor_value_integer(ray.origin.x as i32, next_step_size);
+                            floor_value_integer(rt_state.current_position.x as i32, next_step_size);
 
                         let node = self
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
@@ -379,8 +393,8 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo {
                                     hit_value: node_leaf,
-                                    depth: ray.origin.distance(original_origin),
-                                    hit_position: ray.origin,
+                                    depth: rt_state.current_position.distance(original_origin),
+                                    hit_position: rt_state.current_position,
                                     normal,
                                 });
                             }
@@ -396,22 +410,26 @@ impl OctTreeNode<VoxelMaterial> {
                         rt_state.block_coordinates.y as i32,
                         rt_state.block_coordinates.z as i32 - 1,
                     )) {
-                        ray.origin.z = ray.origin.z + t_z * ray.direction.z;
+                        rt_state.current_position.z =
+                            rt_state.current_position.z + t_z * ray.direction.z;
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
-                                ray.origin.x as i32,
-                                ray.origin.y as i32,
+                                rt_state.current_position.x as i32,
+                                rt_state.current_position.y as i32,
                                 rt_state.block_coordinates.z - 1,
                             ),
                         );
-                        rt_state.block_coordinates.x =
-                            floor_value_integer(ray.origin.x as i32, next_step_size as i32);
-                        rt_state.block_coordinates.y =
-                            floor_value_integer(ray.origin.y as i32, next_step_size as i32);
+                        rt_state.block_coordinates.x = floor_value_integer(
+                            rt_state.current_position.x as i32,
+                            next_step_size as i32,
+                        );
+                        rt_state.block_coordinates.y = floor_value_integer(
+                            rt_state.current_position.y as i32,
+                            next_step_size as i32,
+                        );
 
-                        rt_state.block_coordinates.z =
-                            rt_state.block_coordinates.z - next_step_size as i32;
+                        rt_state.block_coordinates.z -= next_step_size as i32;
 
                         let node = self
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
@@ -426,8 +444,8 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo {
                                     hit_value: node_leaf,
-                                    depth: ray.origin.distance(original_origin),
-                                    hit_position: ray.origin,
+                                    depth: rt_state.current_position.distance(original_origin),
+                                    hit_position: rt_state.current_position,
                                     normal,
                                 });
                             }
