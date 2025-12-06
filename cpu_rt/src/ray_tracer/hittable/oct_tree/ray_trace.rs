@@ -21,15 +21,20 @@ impl OctTreeNode<VoxelMaterial> {
     fn ray_iteration(
         &self,
         block_coordinates: Point3<i32>,
-        mut ray: Ray,
+        ray: Ray,
     ) -> Option<OctTreeHitInfo<VoxelMaterial>> {
         #[derive(Clone, Copy, Debug)]
         struct RayTraceState {
             volume_distance_left: Option<RayScalar>,
             block_coordinates: Point3<i32>,
             current_position: Point3<RayScalar>,
+            ///Position of previous step
+            old_position: Point3<RayScalar>,
         }
-
+        enum VolumeOutput {
+            ContinueIteration(RayTraceState),
+            StopIteration,
+        }
         fn floor_value_integer(a: i32, b: i32) -> i32 {
             a - (a % b)
         }
@@ -53,7 +58,14 @@ impl OctTreeNode<VoxelMaterial> {
             match material {
                 VoxelMaterial::Volume { density } => {
                     if let Some(distance) = rt_state.volume_distance_left {
-                        todo!("handle volume left")
+                        let to_use_distance =
+                            rt_state.current_position.distance(rt_state.old_position);
+                        if to_use_distance > distance {
+                            todo!("return volume hit")
+                        } else {
+                            rt_state.volume_distance_left = Some(to_use_distance - distance);
+                            rt_state
+                        }
                     } else {
                         rt_state.volume_distance_left =
                             Some(rand_scalar(0., 1.).log10() / (density.neg()));
@@ -78,6 +90,7 @@ impl OctTreeNode<VoxelMaterial> {
                 get_step_size(self, block_coordinates) as i32,
             ),
             current_position: ray.origin,
+            old_position: ray.origin,
         };
         let x_sign = if ray.direction.x.is_sign_positive() {
             1
@@ -96,6 +109,7 @@ impl OctTreeNode<VoxelMaterial> {
         };
 
         for _ in 0..MAX_NUMBER_RAY_ITERATIONS {
+            rt_state.old_position = rt_state.current_position;
             let step_size = get_step_size(self, rt_state.block_coordinates);
 
             if self.in_range(rt_state.block_coordinates.map(|v| v as i32)) == false {
