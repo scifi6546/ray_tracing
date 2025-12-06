@@ -17,13 +17,13 @@ use cgmath::{num_traits::FloatConst, prelude::*};
 #[derive(Copy, Clone, Debug)]
 pub enum VoxelMaterial {
     Solid { color: RgbColor },
-    Volume { density: f32 },
+    Volume { density: RayScalar },
     Empty,
 }
 impl PartialEq for VoxelMaterial {
     fn eq(&self, other: &Self) -> bool {
         const SOLID_ERROR_MARGIN: f32 = 0.0001;
-        const VOLUME_ERROR_MARGIN: f32 = SOLID_ERROR_MARGIN;
+        const VOLUME_ERROR_MARGIN: RayScalar = 0.0001;
         match self {
             Self::Solid { color } => match other {
                 Self::Solid { color: other_color } => {
