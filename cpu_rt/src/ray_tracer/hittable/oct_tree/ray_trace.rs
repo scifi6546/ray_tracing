@@ -158,8 +158,7 @@ impl OctTreeNode<VoxelMaterial> {
                 rt_state.current_position.z += t_x * ray.direction.z;
                 if ray.direction.x >= 0. {
                     rt_state.block_coordinates.x += step_size as i32 * int_sign(ray.direction.x);
-                    rt_state.current_position.x =
-                        rt_state.current_position.x + t_x * ray.direction.x;
+                    rt_state.current_position.x += t_x * ray.direction.x;
                     if self.in_range(Point3::new(
                         rt_state.block_coordinates.x as i32,
                         rt_state.current_position.y as i32,
