@@ -159,6 +159,7 @@ impl OctTreeNode<VoxelMaterial> {
                                     normal,
                                 });
                             }
+                            HitType::Volume => todo!("volume"),
                             HitType::Empty => {}
                         }
                     } else {
@@ -204,6 +205,7 @@ impl OctTreeNode<VoxelMaterial> {
                                     normal,
                                 });
                             }
+                            HitType::Volume => todo!("volume"),
                             HitType::Empty => {}
                         }
                     } else {
@@ -254,6 +256,7 @@ impl OctTreeNode<VoxelMaterial> {
                                     normal,
                                 });
                             }
+                            HitType::Volume => todo!("volume"),
                             HitType::Empty => {}
                         };
                     } else {
@@ -297,6 +300,7 @@ impl OctTreeNode<VoxelMaterial> {
                                     normal,
                                 });
                             }
+                            HitType::Volume => todo!("volume"),
                             HitType::Empty => {}
                         }
                     } else {
@@ -347,6 +351,7 @@ impl OctTreeNode<VoxelMaterial> {
                                     normal,
                                 });
                             }
+                            HitType::Volume => todo!("volume"),
                             HitType::Empty => {}
                         }
                     } else {
@@ -392,6 +397,7 @@ impl OctTreeNode<VoxelMaterial> {
                                     normal,
                                 });
                             }
+                            HitType::Volume => todo!("volume"),
                             HitType::Empty => {}
                         }
                     } else {
@@ -514,6 +520,7 @@ impl OctTreeNode<VoxelMaterial> {
                         hit_value: block,
                         normal: intersection.normal_vector,
                     }),
+                    HitType::Volume => todo!("volume"),
                     HitType::Empty => self.ray_iteration(
                         intersection.block_coordinate,
                         Ray {

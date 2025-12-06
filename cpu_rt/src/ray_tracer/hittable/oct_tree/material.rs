@@ -55,7 +55,7 @@ impl Leafable for VoxelMaterial {
     fn hit_type(&self) -> HitType {
         match self {
             Self::Solid { .. } => HitType::Solid,
-            Self::Volume { density } => todo!("volume"),
+            Self::Volume { .. } => HitType::Volume,
             Self::Empty => HitType::Empty,
         }
     }
@@ -178,7 +178,17 @@ mod test {
     }
     #[test]
     fn volume_material() {
-        let v = VoxelMaterial::Volume { density: 0.2 };
-        todo!("get volume hit type")
+        assert_eq!(
+            VoxelMaterial::Volume { density: 0.2 }.hit_type(),
+            HitType::Volume
+        );
+        assert_eq!(
+            VoxelMaterial::Solid {
+                color: RgbColor::WHITE
+            }
+            .hit_type(),
+            HitType::Solid
+        );
+        assert_eq!(VoxelMaterial::Empty.hit_type(), HitType::Empty);
     }
 }

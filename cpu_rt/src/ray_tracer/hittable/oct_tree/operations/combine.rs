@@ -93,13 +93,7 @@ impl<T: Leafable> OctTree<T> {
                                     start[1] as u32,
                                     start[2] as u32,
                                 );
-                                let child_leaf = match leaf_value.hit_type() {
-                                    HitType::Solid => leaf_value,
-                                    HitType::Empty => match other_child.hit_type() {
-                                        HitType::Solid => other_child,
-                                        HitType::Empty => T::empty(),
-                                    },
-                                };
+                                let child_leaf = leaf_value.merge(&other_child);
 
                                 return OctTreeNode {
                                     children: OctTreeChildren::Leaf(child_leaf),
@@ -180,13 +174,7 @@ impl<T: Leafable> OctTree<T> {
                                                 size: node.size,
                                             };
                                         } else {
-                                            val = match val.hit_type() {
-                                                HitType::Solid => val,
-                                                HitType::Empty => match get_val.hit_type() {
-                                                    HitType::Solid => get_val,
-                                                    HitType::Empty => T::empty(),
-                                                },
-                                            };
+                                            val = val.merge(&get_val);
                                         }
                                     }
                                 }
@@ -413,13 +401,7 @@ impl<T: Leafable> OctTree<T> {
                         T::empty()
                     };
                     OctTreeNode {
-                        children: OctTreeChildren::Leaf(match a_val.hit_type() {
-                            HitType::Solid => a_val,
-                            HitType::Empty => match b_val.hit_type() {
-                                HitType::Solid => b_val,
-                                HitType::Empty => b_val,
-                            },
-                        }),
+                        children: OctTreeChildren::Leaf(a_val.merge(&b_val)),
                         size,
                     }
                 }

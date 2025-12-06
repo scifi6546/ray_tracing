@@ -23,6 +23,7 @@ pub struct OctTreeHitInfo<'a, T: Leafable> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum HitType {
     Solid,
+    Volume,
     Empty,
 }
 #[derive(Clone)]
@@ -44,6 +45,23 @@ pub(crate) enum OctTreeChildren<T: Leafable> {
 
 pub trait Leafable: Clone + Copy + PartialEq + Eq {
     fn hit_type(&self) -> HitType;
+
+    fn merge(&self, rhs: &Self) -> Self {
+        match self.hit_type() {
+            HitType::Solid => *self,
+            HitType::Volume => match rhs.hit_type() {
+                HitType::Solid => *rhs,
+                HitType::Volume => *self,
+                HitType::Empty => *self,
+            },
+
+            HitType::Empty => match rhs.hit_type() {
+                HitType::Solid => *rhs,
+                HitType::Volume => *rhs,
+                HitType::Empty => Self::empty(),
+            },
+        }
+    }
     fn empty() -> Self;
 }
 impl Leafable for bool {
@@ -81,5 +99,35 @@ mod tests {
     #[test]
     fn empty() {
         assert_eq!(bool::empty(), false);
+    }
+    impl Leafable for i32 {
+        fn hit_type(&self) -> HitType {
+            match self {
+                0 => HitType::Empty,
+                1 => HitType::Volume,
+                2 => HitType::Solid,
+                _ => panic!("invalid leaf: {}", self),
+            }
+        }
+        fn empty() -> Self {
+            0
+        }
+    }
+    #[test]
+    fn merge() {
+        let e = 0;
+        let v = 1;
+        let s = 2;
+        assert_eq!(e.merge(&e), e);
+        assert_eq!(e.merge(&v), v);
+        assert_eq!(e.merge(&s), s);
+
+        assert_eq!(v.merge(&e), v);
+        assert_eq!(v.merge(&v), v);
+        assert_eq!(v.merge(&s), s);
+
+        assert_eq!(s.merge(&e), s);
+        assert_eq!(s.merge(&v), s);
+        assert_eq!(s.merge(&s), s);
     }
 }

@@ -20,6 +20,9 @@ impl<T: Leafable + PartialEq> OctTree<T> {
             match &node.children {
                 OctTreeChildren::Leaf(v) => match v.hit_type() {
                     HitType::Solid => recurse_spaces + &format!("solid leaf, size: {}", node.size),
+                    HitType::Volume => {
+                        recurse_spaces + &format!("volume leaf, size: {}", node.size)
+                    }
                     HitType::Empty => recurse_spaces + &format!("air leaf, size: {}", node.size),
                 },
 
