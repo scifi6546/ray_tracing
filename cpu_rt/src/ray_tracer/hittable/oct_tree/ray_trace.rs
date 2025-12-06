@@ -25,13 +25,10 @@ impl OctTreeNode<VoxelMaterial> {
     ) -> Option<OctTreeHitInfo<VoxelMaterial>> {
         #[derive(Clone, Copy, Debug)]
         struct RayTraceState {
-            volume_distance_left: Option<RayScalar>,
             start_position_distance: Option<(Point3<RayScalar>, RayScalar)>,
             block_coordinates: Point3<i32>,
             current_position: Point3<RayScalar>,
             previous_material: VoxelMaterial,
-            ///Position of previous step
-            old_position: Point3<RayScalar>,
         }
         enum VolumeOutput {
             ContinueIteration(RayTraceState),
@@ -59,7 +56,7 @@ impl OctTreeNode<VoxelMaterial> {
                 .expect("Index is out of range")
                 .size
         }
-        fn handle_hit() {}
+
         fn handle_volume(
             material: VoxelMaterial,
             mut rt_state: RayTraceState,
@@ -115,13 +112,11 @@ impl OctTreeNode<VoxelMaterial> {
         let original_origin = ray.origin;
 
         let mut rt_state = RayTraceState {
-            volume_distance_left: None,
             block_coordinates: floor_point3_integer(
                 block_coordinates,
                 get_step_size(self, block_coordinates) as i32,
             ),
             current_position: ray.origin,
-            old_position: ray.origin,
             start_position_distance: None,
             previous_material: VoxelMaterial::Empty,
         };
@@ -142,7 +137,6 @@ impl OctTreeNode<VoxelMaterial> {
         };
 
         for _ in 0..MAX_NUMBER_RAY_ITERATIONS {
-            rt_state.old_position = rt_state.current_position;
             let step_size = get_step_size(self, rt_state.block_coordinates);
 
             if self.in_range(rt_state.block_coordinates.map(|v| v as i32)) == false {
