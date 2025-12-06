@@ -17,12 +17,12 @@ use cgmath::{num_traits::FloatConst, prelude::*};
 #[derive(Copy, Clone, Debug)]
 pub enum VoxelMaterial {
     Solid { color: RgbColor },
-    Volume { density: RayScalar },
+    Volume { density: RayScalar, color: RgbColor },
     Empty,
 }
 impl PartialEq for VoxelMaterial {
     fn eq(&self, other: &Self) -> bool {
-        const SOLID_ERROR_MARGIN: f32 = 0.0001;
+        const COLOR_ERROR_MARGIN: f32 = 0.0001;
         const VOLUME_ERROR_MARGIN: RayScalar = 0.0001;
         match self {
             Self::Solid { color } => match other {
@@ -30,7 +30,7 @@ impl PartialEq for VoxelMaterial {
                     (color.red - other_color.red).abs()
                         + (color.green - other_color.green).abs()
                         + (color.blue - other_color.blue).abs()
-                        < SOLID_ERROR_MARGIN
+                        < COLOR_ERROR_MARGIN
                 }
                 Self::Empty => false,
                 Self::Volume { .. } => false,
@@ -40,11 +40,15 @@ impl PartialEq for VoxelMaterial {
                 Self::Solid { .. } => false,
                 Self::Volume { .. } => false,
             },
-            Self::Volume { density } => match other {
+            Self::Volume { density, color } => match other {
                 Self::Solid { .. } => false,
                 Self::Volume {
                     density: other_density,
-                } => (density - other_density).abs() < VOLUME_ERROR_MARGIN,
+                    color: other_color,
+                } => {
+                    (density - other_density).abs() < VOLUME_ERROR_MARGIN
+                        && (color.distance(other_color)) < COLOR_ERROR_MARGIN
+                }
                 Self::Empty => false,
             },
         }
@@ -90,7 +94,12 @@ impl Material for VoxelMaterial {
                 pdf: Some(Rc::new(LambertianPDF::new(record_in.normal()))),
                 scattering_pdf: Self::scattering_pdf_fn,
             }),
-            Self::Volume { density } => todo!("volume"),
+            Self::Volume { density, color } => Some(ScatterRecord {
+                specular_ray: None,
+                attenuation: *color,
+                pdf: Some(Rc::new(LambertianPDF::new(record_in.normal()))),
+                scattering_pdf: Self::scattering_pdf_fn,
+            }),
             Self::Empty => panic!("should never scatter here"),
         }
     }
@@ -147,9 +156,34 @@ mod test {
         assert_ne!(c2, c1);
     }
     #[test]
-    fn volume() {
-        let v1 = VoxelMaterial::Volume { density: 0.5 };
-        let v2 = VoxelMaterial::Volume { density: 0.8 };
+    fn volume_density() {
+        let v1 = VoxelMaterial::Volume {
+            density: 0.5,
+            color: RgbColor::WHITE,
+        };
+        let v2 = VoxelMaterial::Volume {
+            density: 0.8,
+            color: RgbColor::WHITE,
+        };
+        assert_eq!(v1, v1);
+        assert_eq!(v2, v2);
+        assert_ne!(v1, v2);
+        assert_ne!(v2, v1);
+    }
+    #[test]
+    fn volume_color() {
+        let v1 = VoxelMaterial::Volume {
+            density: 0.5,
+            color: RgbColor::WHITE,
+        };
+        let v2 = VoxelMaterial::Volume {
+            density: 0.5,
+            color: RgbColor {
+                red: 1.0,
+                green: 0.,
+                blue: 0.,
+            },
+        };
         assert_eq!(v1, v1);
         assert_eq!(v2, v2);
         assert_ne!(v1, v2);
@@ -157,7 +191,10 @@ mod test {
     }
     #[test]
     fn volume_others() {
-        let v = VoxelMaterial::Volume { density: 0.5 };
+        let v = VoxelMaterial::Volume {
+            density: 0.5,
+            color: RgbColor::WHITE,
+        };
         let s = VoxelMaterial::Solid {
             color: RgbColor {
                 red: 0.2,
@@ -179,7 +216,11 @@ mod test {
     #[test]
     fn volume_material() {
         assert_eq!(
-            VoxelMaterial::Volume { density: 0.2 }.hit_type(),
+            VoxelMaterial::Volume {
+                density: 0.2,
+                color: RgbColor::WHITE
+            }
+            .hit_type(),
             HitType::Volume
         );
         assert_eq!(

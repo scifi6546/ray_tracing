@@ -1,9 +1,10 @@
+use super::OctTreeHitInfo;
 use crate::prelude::{Ray, RayScalar};
 use crate::ray_tracer::{
     bvh::Aabb,
     hittable::{HitRecord, Hittable, OctTree, RayAreaInfo, VoxelMaterial},
 };
-use cgmath::{prelude::*, Point2, Point3};
+use cgmath::{prelude::*, Point2, Point3, Vector3};
 
 impl Hittable for OctTree<VoxelMaterial> {
     fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
@@ -14,14 +15,33 @@ impl Hittable for OctTree<VoxelMaterial> {
                 time: ray.time,
                 direction: ray.direction.normalize(),
             }) {
-                Some(HitRecord::new(
-                    ray,
-                    hit_info.hit_position,
-                    hit_info.normal,
-                    hit_info.depth,
-                    Point2::new(0.5, 0.5),
-                    hit_info.hit_value,
-                ))
+                match hit_info {
+                    OctTreeHitInfo::Solid {
+                        hit_value,
+                        depth,
+                        hit_position,
+                        normal,
+                    } => Some(HitRecord::new(
+                        ray,
+                        hit_position,
+                        normal,
+                        depth,
+                        Point2::new(0.5, 0.5),
+                        hit_value,
+                    )),
+                    OctTreeHitInfo::Volume {
+                        hit_value,
+                        depth,
+                        hit_position,
+                    } => Some(HitRecord::new(
+                        ray,
+                        hit_position,
+                        Vector3::unit_x(),
+                        depth,
+                        Point2::origin(),
+                        &hit_value,
+                    )),
+                }
             } else {
                 None
             }

@@ -12,14 +12,21 @@ pub use material::VoxelMaterial;
 use node::OctTreeNode;
 
 use cgmath::{Point3, Vector3};
-
 #[derive(Debug)]
-pub struct OctTreeHitInfo<'a, T: Leafable> {
-    pub hit_value: &'a T,
-    pub depth: RayScalar,
-    pub hit_position: Point3<RayScalar>,
-    pub normal: Vector3<RayScalar>,
+pub(crate) enum OctTreeHitInfo<'a, T: Leafable> {
+    Solid {
+        hit_value: &'a T,
+        depth: RayScalar,
+        hit_position: Point3<RayScalar>,
+        normal: Vector3<RayScalar>,
+    },
+    Volume {
+        hit_value: T,
+        depth: RayScalar,
+        hit_position: Point3<RayScalar>,
+    },
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum HitType {
     Solid,
@@ -38,7 +45,7 @@ impl<T: Leafable> OctTree<T> {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum OctTreeChildren<T: Leafable> {
+enum OctTreeChildren<T: Leafable> {
     Leaf(T),
     ParentNode(Box<[OctTreeNode<T>; 8]>),
 }

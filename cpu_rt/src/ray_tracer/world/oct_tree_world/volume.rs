@@ -5,39 +5,96 @@ use super::{
 use cgmath::{prelude::*, Point3, Vector3};
 
 pub fn oct_tree_volume() -> WorldInfo {
-    let origin = Point3::<RayScalar>::new(1.0, 1.0, 1.0);
-    let look_at = Point3::<RayScalar>::new(10., 10., 10.);
+    let look_at = Point3::<RayScalar>::new(5.0, 5.0, 5.0);
+
+    let origin = Point3::<RayScalar>::new(-20.0, 5.0, -20.0);
+
+    let fov = 40.0;
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-    let top_light = Object::new(
+
+    let light = Box::new(DiffuseLight {
+        emit: Box::new(SolidColor {
+            color: 200.0 * RgbColor::WHITE,
+        }),
+    });
+
+    let light = Object::new(
         Box::new(Sphere {
-            radius: 10.0,
-            origin: Point3::new(-320.0, 100.0, -100.0),
-            material: Box::new(DiffuseLight {
-                emit: Box::new(SolidColor {
-                    color: 400.0 * RgbColor::WHITE,
-                }),
-            }),
+            radius: 1.0,
+            origin: Point3::new(20.0, 5.0, 20.0),
+            material: light,
         }),
         Transform::identity(),
     );
+    let mut tree = OctTree::<VoxelMaterial>::empty();
+    for x in 0..40 {
+        for y in 1..40 {
+            for z in 0..40 {
+                tree.set(
+                    Point3 {
+                        x: x + 3,
+                        y: y + 3,
+                        z: z + 3,
+                    },
+                    VoxelMaterial::Volume {
+                        density: 0.08,
+                        color: RgbColor::new(0.5, 0.05, 0.5),
+                    },
+                );
+            }
+        }
+    }
+    for x in 3..6 {
+        for y in 3..6 {
+            for z in 3..6 {
+                /*
+                  tree.set(
+                    Point3 { x, y, z },
+                    VoxelMaterial::Solid {
+                        color: RgbColor::new(0.65, 0.05, 0.05),
+                    },
+                )
+                 */
+            }
+        }
+    }
+    /*
+    tree.set(
+        Point3::new(0, 0, 0),
+        VoxelMaterial::Solid {
+            color: RgbColor::new(0.65, 0.05, 0.05),
+        },
+    );
+    tree.set(
+        Point3::new(0, 0, 0),
+        VoxelMaterial::Solid {
+            color: RgbColor::new(0.65, 0.05, 0.05),
+        },
+    );
+    tree.set(
+        Point3::new(0, 0, 0),
+        VoxelMaterial::Solid {
+            color: RgbColor::new(0.65, 0.05, 0.05),
+        },
+    );
+
+     */
+
     WorldInfo {
         objects: vec![
-            Object::new(
-                Box::new(OctTree::sphere(10, VoxelMaterial::Volume { density: 0.5 })),
-                Transform::identity(),
-            ),
-            top_light.clone(),
+            Object::new(Box::new(tree), Transform::identity()),
+            light.clone(),
         ],
-        lights: vec![top_light],
+        lights: vec![light],
         background: Box::new(ConstantColor {
-            color: 0.1 * RgbColor::WHITE,
+            color: 0.1 * RgbColor::new(1.0, 1.0, 1.0),
         }),
         camera: Camera::new(CameraInfo {
             aspect_ratio: 1.0,
-            fov: 20.,
+            fov,
             origin,
             look_at,
             up_vector: Vector3::unit_y(),
