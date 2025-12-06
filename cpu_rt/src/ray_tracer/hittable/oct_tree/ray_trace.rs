@@ -26,7 +26,7 @@ impl OctTreeNode<VoxelMaterial> {
         #[derive(Clone, Copy, Debug)]
         struct RayTraceState {
             volume_distance_left: Option<RayScalar>,
-            start_position: Option<Point3<RayScalar>>,
+            start_position_distance: Option<(Point3<RayScalar>, RayScalar)>,
             block_coordinates: Point3<i32>,
             current_position: Point3<RayScalar>,
             previous_material: VoxelMaterial,
@@ -65,18 +65,15 @@ impl OctTreeNode<VoxelMaterial> {
             mut rt_state: RayTraceState,
             direction: Vector3<RayScalar>,
         ) -> VolumeOutput {
-            if let Some(distance) = rt_state.volume_distance_left {
-                let to_use_distance = rt_state.current_position.distance(rt_state.old_position);
-                if to_use_distance > distance {
-                    let stop_position =
-                        rt_state.old_position + to_use_distance * direction.normalize();
-
+            if let Some((start_position, distance_needed)) = rt_state.start_position_distance {
+                let traveled_distance = rt_state.current_position.distance(start_position);
+                if traveled_distance > distance_needed {
+                    let stop_position = start_position + distance_needed * direction;
                     VolumeOutput::StopIteration {
                         stop_position,
                         hit_material: rt_state.previous_material,
                     }
                 } else {
-                    rt_state.volume_distance_left = Some(distance - to_use_distance);
                     rt_state.previous_material = material;
                     VolumeOutput::ContinueIteration(rt_state)
                 }
@@ -87,7 +84,7 @@ impl OctTreeNode<VoxelMaterial> {
                     _ => panic!("invalid material"),
                 };
                 let distance_left = rand_scalar(0., 1.).ln() / (density.neg());
-                rt_state.volume_distance_left = Some(distance_left);
+                rt_state.start_position_distance = Some((rt_state.current_position, distance_left));
                 VolumeOutput::ContinueIteration(rt_state)
             }
         }
@@ -95,24 +92,21 @@ impl OctTreeNode<VoxelMaterial> {
             mut rt_state: RayTraceState,
             direction: Vector3<RayScalar>,
         ) -> VolumeOutput {
-            if let Some(distance) = rt_state.volume_distance_left {
-                let to_use_distance = rt_state.current_position.distance(rt_state.old_position);
-                if to_use_distance > distance {
-                    let stop_position =
-                        rt_state.old_position + direction.normalize() * to_use_distance;
-
+            if let Some((start_position, distance_needed)) = rt_state.start_position_distance {
+                let distance_traveled = rt_state.current_position.distance(start_position);
+                if distance_traveled > distance_needed {
+                    let stop_position = start_position + distance_needed * direction;
                     VolumeOutput::StopIteration {
                         stop_position,
                         hit_material: rt_state.previous_material,
                     }
                 } else {
-                    rt_state.volume_distance_left = None;
                     rt_state.previous_material = VoxelMaterial::Empty;
+                    rt_state.start_position_distance = None;
                     VolumeOutput::ContinueIteration(rt_state)
                 }
             } else {
-                rt_state.volume_distance_left = None;
-
+                rt_state.previous_material = VoxelMaterial::Empty;
                 VolumeOutput::ContinueIteration(rt_state)
             }
         }
@@ -128,7 +122,7 @@ impl OctTreeNode<VoxelMaterial> {
             ),
             current_position: ray.origin,
             old_position: ray.origin,
-            start_position: None,
+            start_position_distance: None,
             previous_material: VoxelMaterial::Empty,
         };
         let x_sign = if ray.direction.x.is_sign_positive() {
