@@ -154,8 +154,8 @@ impl OctTreeNode<VoxelMaterial> {
 
             if t_x < t_y && t_x < t_z {
                 // t_x is the min
-                rt_state.current_position.y = rt_state.current_position.y + t_x * ray.direction.y;
-                rt_state.current_position.z = rt_state.current_position.z + t_x * ray.direction.z;
+                rt_state.current_position.y += t_x * ray.direction.y;
+                rt_state.current_position.z += t_x * ray.direction.z;
                 if ray.direction.x >= 0. {
                     rt_state.block_coordinates.x += step_size as i32 * int_sign(ray.direction.x);
                     rt_state.current_position.x =
@@ -208,8 +208,7 @@ impl OctTreeNode<VoxelMaterial> {
                         rt_state.block_coordinates.y as i32,
                         rt_state.block_coordinates.z as i32,
                     )) {
-                        rt_state.current_position.x =
-                            rt_state.current_position.x + t_x * ray.direction.x;
+                        rt_state.current_position.x += t_x * ray.direction.x;
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
@@ -256,12 +255,11 @@ impl OctTreeNode<VoxelMaterial> {
                 }
             } else if t_y < t_x && t_y < t_z {
                 // y is the min
-                rt_state.current_position.x = rt_state.current_position.x + t_y * ray.direction.x;
-                rt_state.current_position.z = rt_state.current_position.z + t_y * ray.direction.z;
+                rt_state.current_position.x += t_y * ray.direction.x;
+                rt_state.current_position.z += t_y * ray.direction.z;
                 if ray.direction.y >= 0. {
                     rt_state.block_coordinates.y += step_size as i32 * int_sign(ray.direction.y);
-                    rt_state.current_position.y =
-                        rt_state.current_position.y + t_y * ray.direction.y;
+                    rt_state.current_position.y += t_y * ray.direction.y;
                     if self.in_range(Point3::new(
                         rt_state.current_position.x as i32,
                         rt_state.block_coordinates.y as i32,
@@ -310,8 +308,7 @@ impl OctTreeNode<VoxelMaterial> {
                         rt_state.block_coordinates.y as i32 - 1,
                         rt_state.block_coordinates.z as i32,
                     )) {
-                        rt_state.current_position.y =
-                            rt_state.current_position.y + t_y * ray.direction.y;
+                        rt_state.current_position.y += t_y * ray.direction.y;
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
@@ -356,12 +353,11 @@ impl OctTreeNode<VoxelMaterial> {
                 }
             } else {
                 // z is the min
-                rt_state.current_position.y = rt_state.current_position.y + t_z * ray.direction.y;
-                rt_state.current_position.x = rt_state.current_position.x + t_z * ray.direction.x;
+                rt_state.current_position.y += t_z * ray.direction.y;
+                rt_state.current_position.x += t_z * ray.direction.x;
                 if ray.direction.z >= 0. {
                     rt_state.block_coordinates.z += step_size as i32 * int_sign(ray.direction.z);
-                    rt_state.current_position.z =
-                        rt_state.current_position.z + t_z * ray.direction.z;
+                    rt_state.current_position.z += t_z * ray.direction.z;
                     if self.in_range(Point3::new(
                         rt_state.current_position.x as i32,
                         rt_state.current_position.y as i32,
@@ -410,8 +406,7 @@ impl OctTreeNode<VoxelMaterial> {
                         rt_state.block_coordinates.y as i32,
                         rt_state.block_coordinates.z as i32 - 1,
                     )) {
-                        rt_state.current_position.z =
-                            rt_state.current_position.z + t_z * ray.direction.z;
+                        rt_state.current_position.z += t_z * ray.direction.z;
                         let next_step_size = get_step_size(
                             self,
                             Point3::new(
