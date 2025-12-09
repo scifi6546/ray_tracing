@@ -26,6 +26,7 @@ impl OctTreeNode<VoxelMaterial> {
         #[derive(Clone, Copy, Debug)]
         struct VolumeDistanceLeftInfo {
             distance_left: RayScalar,
+            first_density: RayScalar,
             last_position: Point3<RayScalar>,
         }
         #[derive(Clone, Copy, Debug)]
@@ -68,7 +69,14 @@ impl OctTreeNode<VoxelMaterial> {
             direction: Vector3<RayScalar>,
         ) -> VolumeOutput {
             if let Some(dist_info) = rt_state.volume_distance_left {
-                let distance_traveled = rt_state.current_position.distance(dist_info.last_position);
+                // calculating ratio of previous materials density to starting density
+                let previous_density = match rt_state.previous_material {
+                    VoxelMaterial::Volume { density, .. } => density,
+                    _ => panic!("must be volume"),
+                };
+                let density_ratio = dist_info.first_density / previous_density;
+                let distance_traveled =
+                    rt_state.current_position.distance(dist_info.last_position) * density_ratio;
                 if distance_traveled > dist_info.distance_left {
                     let stop_position =
                         dist_info.last_position + dist_info.distance_left * direction.normalize();
@@ -82,6 +90,7 @@ impl OctTreeNode<VoxelMaterial> {
                     rt_state.volume_distance_left = Some(VolumeDistanceLeftInfo {
                         distance_left: new_distance_left,
                         last_position: rt_state.current_position,
+                        first_density: dist_info.first_density,
                     });
                     rt_state.previous_material = hit_material;
                     VolumeOutput::ContinueIteration(rt_state)
@@ -93,9 +102,11 @@ impl OctTreeNode<VoxelMaterial> {
                     _ => panic!("invalid material"),
                 };
                 let distance_left = rand_scalar(0., 1.).ln() / (density.neg());
+
                 rt_state.volume_distance_left = Some(VolumeDistanceLeftInfo {
                     distance_left,
                     last_position: rt_state.current_position,
+                    first_density: density,
                 });
 
                 VolumeOutput::ContinueIteration(rt_state)
