@@ -133,11 +133,7 @@ impl BvhTreeNode {
         } else {
             match self {
                 Self::None => None,
-                Self::Child {
-                    left,
-                    right,
-                    bounding_box,
-                } => {
+                Self::Child { left, right, .. } => {
                     let left_hit = left.hit(objects, ray, t_min, t_max);
                     if left_hit.is_none() {
                         right.hit(objects, ray, t_min, t_max)

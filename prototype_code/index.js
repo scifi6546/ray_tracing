@@ -462,7 +462,6 @@ class Node {
                 debug_text += `block coords: <${block_x}, ${block_y}><br>step_size: ${step_size}`
                 let output = [new Vec2(output_position.x, output_position.y)];
                 output = []
-                const block_history = []
 
                 // starting infinite loop
                 return this._rayIteration(block_x, block_y, position.clone(), direction, step_size)

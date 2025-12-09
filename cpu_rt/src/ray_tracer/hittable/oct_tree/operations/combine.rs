@@ -1,4 +1,4 @@
-use super::{super::prelude::*, HitType, Leafable, OctTree, OctTreeChildren, OctTreeNode};
+use super::{super::prelude::*, Leafable, OctTree, OctTreeChildren, OctTreeNode};
 
 use cgmath::Point3;
 use std::cmp::max;
@@ -428,6 +428,7 @@ impl<T: Leafable> OctTree<T> {
 }
 #[cfg(test)]
 mod test {
+    use super::super::HitType;
     use super::*;
     #[test]
     fn combine_to_empty() {

@@ -43,7 +43,7 @@ impl<T: Leafable> OctTree<T> {
 }
 
 #[derive(Clone, Debug)]
-enum OctTreeChildren<T: Leafable> {
+pub(crate) enum OctTreeChildren<T: Leafable> {
     Leaf(T),
     ParentNode(Box<[OctTreeNode<T>; 8]>),
 }

@@ -3,8 +3,8 @@ use cgmath::Point3;
 
 #[derive(Clone, Debug)]
 pub(crate) struct OctTreeNode<T: Leafable> {
-    pub children: OctTreeChildren<T>,
-    pub size: u32,
+    pub(crate) children: OctTreeChildren<T>,
+    pub(crate) size: u32,
 }
 impl<T: Leafable> OctTreeNode<T> {
     pub fn is_optimal(&self, debug_print: bool) -> bool {

@@ -94,7 +94,7 @@ impl Material for VoxelMaterial {
                 pdf: Some(Rc::new(LambertianPDF::new(record_in.normal()))),
                 scattering_pdf: Self::scattering_pdf_fn,
             }),
-            Self::Volume { density, color } => Some(ScatterRecord {
+            Self::Volume { color, .. } => Some(ScatterRecord {
                 specular_ray: None,
                 attenuation: *color,
                 pdf: Some(Rc::new(LambertianPDF::new(record_in.normal()))),
