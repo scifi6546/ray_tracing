@@ -16,13 +16,11 @@ use cgmath::{Point3, Vector3};
 pub(crate) enum OctTreeHitInfo<'a, T: Leafable> {
     Solid {
         hit_value: &'a T,
-        depth: RayScalar,
         hit_position: Point3<RayScalar>,
         normal: Vector3<RayScalar>,
     },
     Volume {
         hit_value: T,
-        depth: RayScalar,
         hit_position: Point3<RayScalar>,
     },
 }

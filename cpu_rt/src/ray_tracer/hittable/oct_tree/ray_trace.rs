@@ -109,7 +109,6 @@ impl OctTreeNode<VoxelMaterial> {
         }
         const MAX_NUMBER_RAY_ITERATIONS: usize = 3000;
         let original_ray = ray;
-        let original_origin = ray.origin;
 
         let mut rt_state = RayTraceState {
             block_coordinates: floor_point3_integer(
@@ -251,7 +250,6 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo::Solid {
                                     hit_value: node_leaf,
-                                    depth: rt_state.current_position.distance(original_origin),
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -265,7 +263,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -280,8 +277,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -330,7 +325,6 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo::Solid {
                                     hit_value: node_leaf,
-                                    depth: rt_state.current_position.distance(original_origin),
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -344,7 +338,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -359,7 +352,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -408,7 +400,6 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo::Solid {
                                     hit_value: node_leaf,
-                                    depth: rt_state.current_position.distance(original_origin),
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -422,7 +413,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -437,7 +427,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -484,7 +473,6 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo::Solid {
                                     hit_value: node_leaf,
-                                    depth: rt_state.current_position.distance(original_origin),
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -498,7 +486,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -513,7 +500,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -562,7 +548,6 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo::Solid {
                                     hit_value: node_leaf,
-                                    depth: rt_state.current_position.distance(original_origin),
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -576,7 +561,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -591,7 +575,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -640,7 +623,6 @@ impl OctTreeNode<VoxelMaterial> {
 
                                 return Some(OctTreeHitInfo::Solid {
                                     hit_value: node_leaf,
-                                    depth: rt_state.current_position.distance(original_origin),
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -654,7 +636,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -669,7 +650,6 @@ impl OctTreeNode<VoxelMaterial> {
                                     } => {
                                         return Some(OctTreeHitInfo::Volume {
                                             hit_value: hit_material,
-                                            depth: stop_position.distance(original_origin),
                                             hit_position: stop_position,
                                         })
                                     }
@@ -787,11 +767,6 @@ impl OctTreeNode<VoxelMaterial> {
                 let block = self.get(intersection.block_coordinate.map(|v| v as u32).map(|v| v));
                 match block.hit_type() {
                     HitType::Solid => Some(OctTreeHitInfo::Solid {
-                        depth: ray.distance(Vector3::new(
-                            intersection.intersect_position.x,
-                            intersection.intersect_position.y,
-                            intersection.intersect_position.z,
-                        )),
                         hit_position: intersection.intersect_position,
                         hit_value: block,
                         normal: intersection.normal_vector,

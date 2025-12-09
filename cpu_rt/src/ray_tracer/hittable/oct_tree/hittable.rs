@@ -18,11 +18,12 @@ impl Hittable for OctTree<VoxelMaterial> {
                 match hit_info {
                     OctTreeHitInfo::Solid {
                         hit_value,
-                        depth,
                         hit_position,
                         normal,
                     } => {
-                        let t = (hit_position - ray.origin).magnitude() / ray.direction.magnitude();
+                        let t = ((hit_position - ray.origin).magnitude2()
+                            / ray.direction.magnitude2())
+                        .sqrt();
 
                         if t > t_min && t < t_max {
                             Some(HitRecord::new(
@@ -39,10 +40,11 @@ impl Hittable for OctTree<VoxelMaterial> {
                     }
                     OctTreeHitInfo::Volume {
                         hit_value,
-                        depth,
                         hit_position,
                     } => {
-                        let t = (hit_position - ray.origin).magnitude() / ray.direction.magnitude();
+                        let t = ((hit_position - ray.origin).magnitude2()
+                            / ray.direction.magnitude2())
+                        .sqrt();
                         if t > t_min && t < t_max {
                             Some(HitRecord::new(
                                 ray,
