@@ -434,7 +434,7 @@ impl ParallelImageCollector {
                 }
             }
         }
-        if self.images.len() >= 1 {
+        if !self.images.is_empty() {
             Some(ParallelImage::join_container(
                 self.images.iter().map(|(_k, v)| v).collect(),
             ))

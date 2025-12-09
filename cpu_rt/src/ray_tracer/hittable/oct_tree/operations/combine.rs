@@ -7,7 +7,7 @@ impl<T: Leafable> OctTree<T> {
         let offset = [offset.x, offset.y, offset.z];
         let other_size = offset
             .iter()
-            .map(|s| s.abs() as u32 + other.size)
+            .map(|s| s.unsigned_abs() as u32 + other.size)
             .max()
             .unwrap();
 
@@ -32,7 +32,7 @@ impl<T: Leafable> OctTree<T> {
         /// takes in children of a node and if possible simplifies the node
         fn try_simplify<T: Leafable>(nodes: [OctTreeNode<T>; 8]) -> OctTreeChildren<T> {
             let first_value = match &nodes[0].children {
-                OctTreeChildren::Leaf(leaf_value) => leaf_value.clone(),
+                OctTreeChildren::Leaf(leaf_value) => *leaf_value,
                 OctTreeChildren::ParentNode(_) => {
                     return OctTreeChildren::ParentNode(Box::new(nodes))
                 }
@@ -309,11 +309,7 @@ impl<T: Leafable> OctTree<T> {
                 cube_position_i32,
                 current_max,
                 [0, 0, 0],
-                [
-                    0 + a.size as i32 - 1,
-                    0 + a.size as i32 - 1,
-                    0 + a.size as i32 - 1,
-                ],
+                [a.size as i32 - 1, a.size as i32 - 1, a.size as i32 - 1],
             );
             let b_intersects = aabb_intersect(
                 cube_position_i32,
@@ -412,11 +408,7 @@ impl<T: Leafable> OctTree<T> {
                 }
             }
         }
-        let other_size = offset
-            .iter()
-            .map(|s| s.abs() as u32 + other.size)
-            .max()
-            .unwrap();
+        let other_size = offset.iter().map(|s| s.unsigned_abs()).max().unwrap();
 
         let size = get_next_power(max(self.size, other_size));
 

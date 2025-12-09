@@ -158,7 +158,7 @@ impl OctTreeNode<VoxelMaterial> {
         for _ in 0..MAX_NUMBER_RAY_ITERATIONS {
             let step_size = get_step_size(self, rt_state.block_coordinates);
 
-            if self.in_range(rt_state.block_coordinates.map(|v| v as i32)) == false {
+            if !self.in_range(rt_state.block_coordinates) {
                 return None;
             }
 

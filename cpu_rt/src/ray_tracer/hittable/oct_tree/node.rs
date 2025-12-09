@@ -24,8 +24,7 @@ impl<T: Leafable> OctTreeNode<T> {
                             all_children_optimal = all_children_optimal
                                 && children_array
                                     .iter()
-                                    .map(|child| child.is_optimal(debug_print))
-                                    .fold(true, |acc, x| acc && x);
+                                    .all(|child| child.is_optimal(debug_print));
                         }
                         OctTreeChildren::Leaf(leaf_value) => {
                             if let Some(first_leaf) = first_leaf {

@@ -30,7 +30,7 @@ impl<T: Leafable + PartialEq> OctTree<T> {
                         );
 
                         let new_node = OctTreeNode {
-                            children: OctTreeChildren::Leaf(leaf_value.clone()),
+                            children: OctTreeChildren::Leaf(*leaf_value),
                             size: node.size / 2,
                         };
 

@@ -76,7 +76,7 @@ impl Hittable for ConstantMedium {
         let material_effect = if lighting.is_some() {
             MaterialEffect::Emmit(lighting.unwrap())
         } else {
-            let diffuse = self.phase_function.scatter(ray.clone(), &hit_ray);
+            let diffuse = self.phase_function.scatter(*ray, &hit_ray);
             if diffuse.is_some() {
                 MaterialEffect::Scatter(diffuse.unwrap())
             } else {

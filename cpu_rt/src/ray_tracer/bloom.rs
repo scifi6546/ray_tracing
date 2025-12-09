@@ -35,7 +35,7 @@ impl GaussianBlur {
                 y_mod.set_xy(x, y, result);
             }
         }
-        return y_mod;
+        y_mod
     }
 }
 impl PostProcessingStage for GaussianBlur {
@@ -51,7 +51,7 @@ impl PostProcessingStage for GaussianBlur {
             down_sampled[i] = down_sampled[i].clone() + &down_sampled[i + 1];
         }
 
-        return down_sampled[0].clone();
+        down_sampled[0].clone()
     }
 }
 struct SelectMinMag {

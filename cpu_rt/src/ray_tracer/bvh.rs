@@ -162,7 +162,7 @@ impl BvhTreeNode {
                 minimum: Point3::new(0.0, 0.0, 0.0),
                 maximum: Point3::new(0.0, 0.0, 0.0),
             }),
-            Self::Child { bounding_box, .. } => Some(bounding_box.clone()),
+            Self::Child { bounding_box, .. } => Some(*bounding_box),
             Self::Leaf { idx } => Some(objects[*idx].bounding_box(time_0, time_1).unwrap()),
         }
     }
