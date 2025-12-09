@@ -21,26 +21,41 @@ impl Hittable for OctTree<VoxelMaterial> {
                         depth,
                         hit_position,
                         normal,
-                    } => Some(HitRecord::new(
-                        ray,
-                        hit_position,
-                        normal,
-                        depth,
-                        Point2::new(0.5, 0.5),
-                        hit_value,
-                    )),
+                    } => {
+                        let t = (hit_position - ray.origin).magnitude() / ray.direction.magnitude();
+
+                        if t > t_min && t < t_max {
+                            Some(HitRecord::new(
+                                ray,
+                                hit_position,
+                                normal,
+                                t,
+                                Point2::new(0.5, 0.5),
+                                hit_value,
+                            ))
+                        } else {
+                            None
+                        }
+                    }
                     OctTreeHitInfo::Volume {
                         hit_value,
                         depth,
                         hit_position,
-                    } => Some(HitRecord::new(
-                        ray,
-                        hit_position,
-                        Vector3::unit_x(),
-                        depth,
-                        Point2::origin(),
-                        &hit_value,
-                    )),
+                    } => {
+                        let t = (hit_position - ray.origin).magnitude() / ray.direction.magnitude();
+                        if t > t_min && t < t_max {
+                            Some(HitRecord::new(
+                                ray,
+                                hit_position,
+                                Vector3::unit_x(),
+                                t,
+                                Point2::origin(),
+                                &hit_value,
+                            ))
+                        } else {
+                            None
+                        }
+                    }
                 }
             } else {
                 None

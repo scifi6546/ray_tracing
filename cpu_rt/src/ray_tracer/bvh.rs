@@ -104,7 +104,7 @@ impl BvhTree {
         Entity::set_field(update_value, field_name, field_value);
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum BvhTreeNode {
     None,
     Child {
@@ -133,7 +133,11 @@ impl BvhTreeNode {
         } else {
             match self {
                 Self::None => None,
-                Self::Child { left, right, .. } => {
+                Self::Child {
+                    left,
+                    right,
+                    bounding_box,
+                } => {
                     let left_hit = left.hit(objects, ray, t_min, t_max);
                     if left_hit.is_none() {
                         right.hit(objects, ray, t_min, t_max)

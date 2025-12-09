@@ -120,6 +120,26 @@ impl OctTreeNode<VoxelMaterial> {
             start_position_distance: None,
             previous_material: VoxelMaterial::Empty,
         };
+        {
+            let chunk = self
+                .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
+                .expect("out of range");
+            let leaf = match chunk.children {
+                OctTreeChildren::Leaf(v) => v,
+                OctTreeChildren::ParentNode(_) => panic!("should be leaf"),
+            };
+            match leaf {
+                VoxelMaterial::Volume { .. } => {
+                    match handle_volume(leaf, rt_state, ray.direction) {
+                        VolumeOutput::ContinueIteration(new_state) => rt_state = new_state,
+                        VolumeOutput::StopIteration { .. } => panic!("should never happen"),
+                    }
+                }
+                VoxelMaterial::Solid { .. } => {}
+                VoxelMaterial::Empty => {}
+            }
+        }
+
         let x_sign = if ray.direction.x.is_sign_positive() {
             1
         } else {
