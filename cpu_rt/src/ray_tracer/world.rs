@@ -460,6 +460,14 @@ pub fn get_scenarios() -> Scenarios {
             name: "Oct Tree Translucent".to_string(),
             f: oct_tree_world::volume::oct_tree_volume,
         }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Translucent Two Density".to_string(),
+            f: oct_tree_world::volume::oct_tree_volume_two_density,
+        }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Translucent Many Density".to_string(),
+            f: oct_tree_world::volume::oct_tree_volume_many_density,
+        }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
         .drain(..)
