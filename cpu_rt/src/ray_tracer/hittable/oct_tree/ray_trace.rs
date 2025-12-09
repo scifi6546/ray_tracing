@@ -24,8 +24,13 @@ impl OctTreeNode<VoxelMaterial> {
         ray: Ray,
     ) -> Option<OctTreeHitInfo<VoxelMaterial>> {
         #[derive(Clone, Copy, Debug)]
+        struct VolumeDistanceLeftInfo {
+            distance_left: RayScalar,
+            last_position: Point3<RayScalar>,
+        }
+        #[derive(Clone, Copy, Debug)]
         struct RayTraceState {
-            start_position_distance: Option<(Point3<RayScalar>, RayScalar)>,
+            volume_distance_left: Option<VolumeDistanceLeftInfo>,
             block_coordinates: Point3<i32>,
             current_position: Point3<RayScalar>,
             previous_material: VoxelMaterial,
@@ -58,30 +63,41 @@ impl OctTreeNode<VoxelMaterial> {
         }
 
         fn handle_volume(
-            material: VoxelMaterial,
+            hit_material: VoxelMaterial,
             mut rt_state: RayTraceState,
             direction: Vector3<RayScalar>,
         ) -> VolumeOutput {
-            if let Some((start_position, distance_needed)) = rt_state.start_position_distance {
-                let traveled_distance = rt_state.current_position.distance(start_position);
-                if traveled_distance > distance_needed {
-                    let stop_position = start_position + distance_needed * direction;
+            if let Some(dist_info) = rt_state.volume_distance_left {
+                let distance_traveled = rt_state.current_position.distance(dist_info.last_position);
+                if distance_traveled > dist_info.distance_left {
+                    let stop_position =
+                        dist_info.last_position + dist_info.distance_left * direction.normalize();
                     VolumeOutput::StopIteration {
                         stop_position,
-                        hit_material: rt_state.previous_material,
+                        hit_material,
                     }
                 } else {
-                    rt_state.previous_material = material;
+                    let new_distance_left = dist_info.distance_left - distance_traveled;
+
+                    rt_state.volume_distance_left = Some(VolumeDistanceLeftInfo {
+                        distance_left: new_distance_left,
+                        last_position: rt_state.current_position,
+                    });
+                    rt_state.previous_material = hit_material;
                     VolumeOutput::ContinueIteration(rt_state)
                 }
             } else {
-                rt_state.previous_material = material;
-                let density = match material {
+                rt_state.previous_material = hit_material;
+                let density = match hit_material {
                     VoxelMaterial::Volume { density, .. } => density,
                     _ => panic!("invalid material"),
                 };
                 let distance_left = rand_scalar(0., 1.).ln() / (density.neg());
-                rt_state.start_position_distance = Some((rt_state.current_position, distance_left));
+                rt_state.volume_distance_left = Some(VolumeDistanceLeftInfo {
+                    distance_left,
+                    last_position: rt_state.current_position,
+                });
+
                 VolumeOutput::ContinueIteration(rt_state)
             }
         }
@@ -89,17 +105,18 @@ impl OctTreeNode<VoxelMaterial> {
             mut rt_state: RayTraceState,
             direction: Vector3<RayScalar>,
         ) -> VolumeOutput {
-            if let Some((start_position, distance_needed)) = rt_state.start_position_distance {
-                let distance_traveled = rt_state.current_position.distance(start_position);
-                if distance_traveled > distance_needed {
-                    let stop_position = start_position + distance_needed * direction;
+            if let Some(dist_info) = rt_state.volume_distance_left {
+                let distance_traveled = rt_state.current_position.distance(dist_info.last_position);
+                if distance_traveled > dist_info.distance_left {
+                    let stop_position =
+                        dist_info.last_position + dist_info.distance_left * direction.normalize();
                     VolumeOutput::StopIteration {
                         stop_position,
                         hit_material: rt_state.previous_material,
                     }
                 } else {
+                    rt_state.volume_distance_left = None;
                     rt_state.previous_material = VoxelMaterial::Empty;
-                    rt_state.start_position_distance = None;
                     VolumeOutput::ContinueIteration(rt_state)
                 }
             } else {
@@ -116,7 +133,7 @@ impl OctTreeNode<VoxelMaterial> {
                 get_step_size(self, block_coordinates) as i32,
             ),
             current_position: ray.origin,
-            start_position_distance: None,
+            volume_distance_left: None,
             previous_material: VoxelMaterial::Empty,
         };
         {
