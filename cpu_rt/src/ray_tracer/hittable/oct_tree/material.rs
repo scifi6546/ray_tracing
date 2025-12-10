@@ -13,11 +13,21 @@ use crate::{
     },
 };
 use cgmath::{num_traits::FloatConst, prelude::*};
-
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum VolumeEdgeEffect {
+    None,
+    Lambertian { hit_probability: f32 },
+}
 #[derive(Copy, Clone, Debug)]
 pub enum VoxelMaterial {
-    Solid { color: RgbColor },
-    Volume { density: RayScalar, color: RgbColor },
+    Solid {
+        color: RgbColor,
+    },
+    Volume {
+        density: RayScalar,
+        color: RgbColor,
+        edge_effect: VolumeEdgeEffect,
+    },
     Empty,
 }
 impl PartialEq for VoxelMaterial {
@@ -40,14 +50,20 @@ impl PartialEq for VoxelMaterial {
                 Self::Solid { .. } => false,
                 Self::Volume { .. } => false,
             },
-            Self::Volume { density, color } => match other {
+            Self::Volume {
+                density,
+                color,
+                edge_effect,
+            } => match other {
                 Self::Solid { .. } => false,
                 Self::Volume {
                     density: other_density,
                     color: other_color,
+                    edge_effect: other_edge,
                 } => {
                     (density - other_density).abs() < VOLUME_ERROR_MARGIN
                         && (color.distance(other_color)) < COLOR_ERROR_MARGIN
+                        && edge_effect == other_edge
                 }
                 Self::Empty => false,
             },
@@ -160,10 +176,12 @@ mod test {
         let v1 = VoxelMaterial::Volume {
             density: 0.5,
             color: RgbColor::WHITE,
+            edge_effect: VolumeEdgeEffect::None,
         };
         let v2 = VoxelMaterial::Volume {
             density: 0.8,
             color: RgbColor::WHITE,
+            edge_effect: VolumeEdgeEffect::None,
         };
         assert_eq!(v1, v1);
         assert_eq!(v2, v2);
@@ -175,6 +193,7 @@ mod test {
         let v1 = VoxelMaterial::Volume {
             density: 0.5,
             color: RgbColor::WHITE,
+            edge_effect: VolumeEdgeEffect::None,
         };
         let v2 = VoxelMaterial::Volume {
             density: 0.5,
@@ -183,6 +202,7 @@ mod test {
                 green: 0.,
                 blue: 0.,
             },
+            edge_effect: VolumeEdgeEffect::None,
         };
         assert_eq!(v1, v1);
         assert_eq!(v2, v2);
@@ -194,6 +214,7 @@ mod test {
         let v = VoxelMaterial::Volume {
             density: 0.5,
             color: RgbColor::WHITE,
+            edge_effect: VolumeEdgeEffect::None,
         };
         let s = VoxelMaterial::Solid {
             color: RgbColor {
@@ -214,11 +235,45 @@ mod test {
         assert_ne!(e, v);
     }
     #[test]
+    fn volume_edge() {
+        let vl = VoxelMaterial::Volume {
+            density: 0.5,
+            color: RgbColor::WHITE,
+            edge_effect: VolumeEdgeEffect::Lambertian {
+                hit_probability: 0.2,
+            },
+        };
+        let vl2 = VoxelMaterial::Volume {
+            density: 0.5,
+            color: RgbColor::WHITE,
+            edge_effect: VolumeEdgeEffect::Lambertian {
+                hit_probability: 0.5,
+            },
+        };
+        let vn = VoxelMaterial::Volume {
+            density: 0.5,
+            color: RgbColor::WHITE,
+            edge_effect: VolumeEdgeEffect::None,
+        };
+        assert_eq!(vl, vl);
+        assert_ne!(vl, vn);
+        assert_ne!(vl, vl2);
+
+        assert_eq!(vn, vn);
+        assert_ne!(vn, vl);
+        assert_ne!(vn, vl2);
+
+        assert_eq!(vl2, vl2);
+        assert_ne!(vl2, vl);
+        assert_ne!(vl2, vn);
+    }
+    #[test]
     fn volume_material() {
         assert_eq!(
             VoxelMaterial::Volume {
                 density: 0.2,
-                color: RgbColor::WHITE
+                color: RgbColor::WHITE,
+                edge_effect: VolumeEdgeEffect::None,
             }
             .hit_type(),
             HitType::Volume

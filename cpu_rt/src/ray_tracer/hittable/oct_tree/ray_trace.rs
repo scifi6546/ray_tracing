@@ -1,4 +1,7 @@
-use super::{Leafable, OctTree, OctTreeChildren, OctTreeHitInfo, OctTreeNode, VoxelMaterial};
+use super::{
+    Leafable, OctTree, OctTreeChildren, OctTreeHitInfo, OctTreeNode, VolumeEdgeEffect,
+    VoxelMaterial,
+};
 use crate::{
     prelude::{rand_scalar, Ray, RayScalar},
     ray_tracer::hittable::oct_tree::HitType,
@@ -22,6 +25,7 @@ impl OctTreeNode<VoxelMaterial> {
         &self,
         block_coordinates: Point3<i32>,
         ray: Ray,
+        initial_normal: Vector3<RayScalar>,
     ) -> Option<OctTreeHitInfo<VoxelMaterial>> {
         #[derive(Clone, Copy, Debug)]
         struct VolumeDistanceLeftInfo {
@@ -97,10 +101,26 @@ impl OctTreeNode<VoxelMaterial> {
                 }
             } else {
                 rt_state.previous_material = hit_material;
-                let density = match hit_material {
-                    VoxelMaterial::Volume { density, .. } => density,
+                let (density, edge_effect) = match hit_material {
+                    VoxelMaterial::Volume {
+                        density,
+                        edge_effect,
+                        ..
+                    } => (density, edge_effect),
                     _ => panic!("invalid material"),
                 };
+                match edge_effect {
+                    VolumeEdgeEffect::None => (),
+                    VolumeEdgeEffect::Lambertian { hit_probability } => {
+                        let random_number = rand_scalar(0., 1.) as f32;
+                        if random_number < hit_probability {
+                            return VolumeOutput::StopIteration {
+                                stop_position: rt_state.current_position,
+                                hit_material,
+                            };
+                        }
+                    }
+                }
                 let distance_left = rand_scalar(0., 1.).ln() / (density.neg());
 
                 rt_state.volume_distance_left = Some(VolumeDistanceLeftInfo {
@@ -151,15 +171,24 @@ impl OctTreeNode<VoxelMaterial> {
             let chunk = self
                 .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
                 .expect("out of range");
-            let leaf = match chunk.children {
+            let leaf = match &chunk.children {
                 OctTreeChildren::Leaf(v) => v,
                 OctTreeChildren::ParentNode(_) => panic!("should be leaf"),
             };
             match leaf {
                 VoxelMaterial::Volume { .. } => {
-                    match handle_volume(leaf, rt_state, ray.direction) {
+                    match handle_volume(*leaf, rt_state, ray.direction) {
                         VolumeOutput::ContinueIteration(new_state) => rt_state = new_state,
-                        VolumeOutput::StopIteration { .. } => panic!("should never happen"),
+                        VolumeOutput::StopIteration {
+                            stop_position,
+                            hit_material,
+                        } => {
+                            return Some(OctTreeHitInfo::Solid {
+                                hit_value: &leaf,
+                                hit_position: stop_position,
+                                normal: initial_normal,
+                            })
+                        }
                     }
                 }
                 VoxelMaterial::Solid { .. } => {}
@@ -724,6 +753,7 @@ impl OctTreeNode<VoxelMaterial> {
                     direction: ray.direction,
                     time: ray.time,
                 },
+                Vector3::unit_x(),
             )
         } else {
             let mut solutions = (0..3)
@@ -806,6 +836,7 @@ impl OctTreeNode<VoxelMaterial> {
                             direction: ray.direction,
                             time: 0.,
                         },
+                        intersection.normal_vector,
                     ),
                     HitType::Empty => self.ray_iteration(
                         intersection.block_coordinate,
@@ -814,6 +845,7 @@ impl OctTreeNode<VoxelMaterial> {
                             direction: ray.direction,
                             time: 0.,
                         },
+                        intersection.normal_vector,
                     ),
                 }
             } else {

@@ -8,11 +8,11 @@ mod ray_trace;
 mod shapes;
 
 use crate::prelude::RayScalar;
-pub use material::VoxelMaterial;
+pub use material::{VolumeEdgeEffect, VoxelMaterial};
 use node::OctTreeNode;
 
 use cgmath::{Point3, Vector3};
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum OctTreeHitInfo<'a, T: Leafable> {
     Solid {
         hit_value: &'a T,
