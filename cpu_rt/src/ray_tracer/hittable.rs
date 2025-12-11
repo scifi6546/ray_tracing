@@ -364,6 +364,16 @@ pub enum MaterialEffect {
 }
 
 impl HitRecord {
+    pub fn new_template<M: Material>(
+        ray: &Ray,
+        position: Point3<RayScalar>,
+        normal: Vector3<RayScalar>,
+        t: RayScalar,
+        uv: Point2<RayScalar>,
+        material: M,
+    ) -> Self {
+        Self::new_ref(ray, position, normal, t, uv, &material)
+    }
     pub fn new_ref<M: Material>(
         ray: &Ray,
         position: Point3<RayScalar>,

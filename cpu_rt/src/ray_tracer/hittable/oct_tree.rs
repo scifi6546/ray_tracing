@@ -13,9 +13,9 @@ use node::OctTreeNode;
 
 use cgmath::{Point3, Vector3};
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum OctTreeHitInfo<'a, T: Leafable> {
+pub(crate) enum OctTreeHitInfo<T: Leafable> {
     Solid {
-        hit_value: &'a T,
+        hit_value: T,
         hit_position: Point3<RayScalar>,
         normal: Vector3<RayScalar>,
     },

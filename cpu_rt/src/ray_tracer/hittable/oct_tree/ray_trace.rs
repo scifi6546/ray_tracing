@@ -184,7 +184,7 @@ impl OctTreeNode<VoxelMaterial> {
                             hit_material,
                         } => {
                             return Some(OctTreeHitInfo::Solid {
-                                hit_value: &leaf,
+                                hit_value: hit_material,
                                 hit_position: stop_position,
                                 normal: initial_normal,
                             })
@@ -306,7 +306,7 @@ impl OctTreeNode<VoxelMaterial> {
                                 let normal = Vector3::new(-1., 0., 0.);
 
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: node_leaf,
+                                    hit_value: *node_leaf,
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -381,7 +381,7 @@ impl OctTreeNode<VoxelMaterial> {
                                 let normal = Vector3::new(0., 0., 1.);
 
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: node_leaf,
+                                    hit_value: *node_leaf,
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -456,7 +456,7 @@ impl OctTreeNode<VoxelMaterial> {
                                 let normal = Vector3::new(0., -1., 0.);
 
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: node_leaf,
+                                    hit_value: *node_leaf,
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -529,7 +529,7 @@ impl OctTreeNode<VoxelMaterial> {
                                 let normal = Vector3::new(0., 1., 0.);
 
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: node_leaf,
+                                    hit_value: *node_leaf,
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -604,7 +604,7 @@ impl OctTreeNode<VoxelMaterial> {
                                 let normal = Vector3::new(0., 0., -1.);
 
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: node_leaf,
+                                    hit_value: *node_leaf,
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -679,7 +679,7 @@ impl OctTreeNode<VoxelMaterial> {
                                 let normal = Vector3::new(0., 0., 1.);
 
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: node_leaf,
+                                    hit_value: *node_leaf,
                                     hit_position: rt_state.current_position,
                                     normal,
                                 });
@@ -826,7 +826,7 @@ impl OctTreeNode<VoxelMaterial> {
                 match block.hit_type() {
                     HitType::Solid => Some(OctTreeHitInfo::Solid {
                         hit_position: intersection.intersect_position,
-                        hit_value: block,
+                        hit_value: *block,
                         normal: intersection.normal_vector,
                     }),
                     HitType::Volume => self.ray_iteration(

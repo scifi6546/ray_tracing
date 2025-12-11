@@ -26,7 +26,7 @@ impl Hittable for OctTree<VoxelMaterial> {
                         .sqrt();
 
                         if t > t_min && t < t_max {
-                            Some(HitRecord::new(
+                            Some(HitRecord::new_template(
                                 ray,
                                 hit_position,
                                 normal,
@@ -46,13 +46,13 @@ impl Hittable for OctTree<VoxelMaterial> {
                             / ray.direction.magnitude2())
                         .sqrt();
                         if t > t_min && t < t_max {
-                            Some(HitRecord::new(
+                            Some(HitRecord::new_template(
                                 ray,
                                 hit_position,
                                 Vector3::unit_x(),
                                 t,
                                 Point2::origin(),
-                                &hit_value,
+                                hit_value,
                             ))
                         } else {
                             None
