@@ -1,4 +1,5 @@
 pub mod compare_voxel_world;
+pub mod metal;
 pub mod volume;
 use super::{
     Camera, CameraInfo, ConstantColor, DiffuseLight, OctTree, SolidColor, Sphere, Sun, SunSky,
@@ -32,8 +33,8 @@ pub fn basic_sphere() -> WorldInfo {
             Object::new(
                 Box::new(OctTree::sphere(
                     10,
-                    Voxel::Solid(SolidVoxel {
-                        color: RgbColor::new(0.5, 0.5, 0.5),
+                    Voxel::Solid(SolidVoxel::Lambertian {
+                        albedo: RgbColor::new(0.5, 0.5, 0.5),
                     }),
                 )),
                 Transform::identity(),
@@ -89,8 +90,8 @@ pub fn temple() -> WorldInfo {
     );
     let mut temple = OctTree::rectangle(
         Vector3::new(1000, 10, 1000),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.0, 0.1, 0.0),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.0, 0.1, 0.0),
         }),
     );
     let mut temple_wall = OctTree::empty();
@@ -102,8 +103,8 @@ pub fn temple() -> WorldInfo {
         for y in 0..10 {
             let brick = make_brick(
                 Vector3::new(box_x_size, box_y_size, box_z_size),
-                Voxel::Solid(SolidVoxel {
-                    color: RgbColor::new(0.3, 0.3, 0.3),
+                Voxel::Solid(SolidVoxel::Lambertian {
+                    albedo: RgbColor::new(0.3, 0.3, 0.3),
                 }),
             );
             temple_wall = temple_wall.combine(
@@ -158,15 +159,15 @@ pub fn temple_below() -> WorldInfo {
     );
     let temple = OctTree::rectangle(
         Vector3::new(5, 100, 100),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.5, 0.5, 0.5),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.5, 0.5, 0.5),
         }),
     )
     .combine(
         &OctTree::rectangle(
             Vector3::new(100, 5, 100),
-            Voxel::Solid(SolidVoxel {
-                color: RgbColor::new(0.5, 0.5, 0.5),
+            Voxel::Solid(SolidVoxel::Lambertian {
+                albedo: RgbColor::new(0.5, 0.5, 0.5),
             }),
         ),
         Point3::new(0, 0, 0),
@@ -214,8 +215,8 @@ pub fn cube() -> WorldInfo {
     );
     let temple = OctTree::cube_pow(
         4,
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.5, 0.5, 0.5),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.5, 0.5, 0.5),
         }),
     );
     WorldInfo {
@@ -263,8 +264,8 @@ pub fn cube_back() -> WorldInfo {
     );
     let cube = OctTree::cube_pow(
         4,
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.5, 0.5, 0.5),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.5, 0.5, 0.5),
         }),
     );
     WorldInfo {

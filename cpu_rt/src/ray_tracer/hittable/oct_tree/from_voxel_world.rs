@@ -28,8 +28,8 @@ impl From<VoxelWorld> for OctTree<Voxel> {
                         CubeMaterialIndex::Solid { index } => {
                             let old_material = old_world.get_solid_material(index).unwrap();
 
-                            Voxel::Solid(SolidVoxel {
-                                color: old_material.color(),
+                            Voxel::Solid(SolidVoxel::Lambertian {
+                                albedo: old_material.color(),
                             })
                         }
                         CubeMaterialIndex::Translucent { .. } => todo!("translucent"),

@@ -10,7 +10,9 @@ use crate::{
         hittable::{HitRay, HitRecord},
         material::Material,
         pdf::{LambertianPDF, ScatterRecord},
+        rand_unit_vec,
     },
+    reflect,
 };
 use cgmath::{num_traits::FloatConst, prelude::*};
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -18,22 +20,38 @@ pub enum VolumeEdgeEffect {
     None,
     Lambertian { hit_probability: f32 },
 }
+
 #[derive(Copy, Clone, Debug)]
-pub struct SolidVoxel {
-    pub color: RgbColor,
+pub enum SolidVoxel {
+    Lambertian { albedo: RgbColor },
+    Reflect { albedo: RgbColor, fuzz: f32 },
 }
 impl PartialEq for SolidVoxel {
     fn eq(&self, rhs: &SolidVoxel) -> bool {
         const ERROR_MARGIN: f32 = 0.0001;
-        (self.color.red - rhs.color.red).abs()
-            + (self.color.green - rhs.color.green).abs()
-            + (self.color.blue - rhs.color.blue).abs()
-            < ERROR_MARGIN
+        match self {
+            Self::Lambertian { albedo: color } => match rhs {
+                Self::Lambertian {
+                    albedo: other_color,
+                } => color.distance(other_color) < ERROR_MARGIN,
+                Self::Reflect { .. } => false,
+            },
+            Self::Reflect { albedo, fuzz } => match rhs {
+                Self::Lambertian { .. } => false,
+                Self::Reflect {
+                    albedo: rhs_albedo,
+                    fuzz: rhs_fuzz,
+                } => (albedo.distance(rhs_albedo) + (fuzz - rhs_fuzz).abs()) < ERROR_MARGIN,
+            },
+        }
     }
 }
 impl SolidVoxel {
     pub(crate) fn to_material(&self) -> VoxelMaterial {
-        VoxelMaterial::Solid { color: self.color }
+        match *self {
+            Self::Lambertian { albedo: color } => VoxelMaterial::Lambertian { color },
+            Self::Reflect { albedo, fuzz } => VoxelMaterial::Reflect { albedo, fuzz },
+        }
     }
 }
 #[derive(Copy, Clone, Debug)]
@@ -54,7 +72,7 @@ impl PartialEq for VolumeVoxel {
 impl VolumeVoxel {
     pub(crate) fn edge_material(&self) -> VoxelMaterial {
         match self.edge_effect {
-            VolumeEdgeEffect::Lambertian { .. } => VoxelMaterial::Solid { color: self.color },
+            VolumeEdgeEffect::Lambertian { .. } => VoxelMaterial::Lambertian { color: self.color },
             VolumeEdgeEffect::None => panic!("must have edge effect"),
         }
     }
@@ -107,7 +125,8 @@ impl Leafable for Voxel {
 }
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum VoxelMaterial {
-    Solid { color: RgbColor },
+    Lambertian { color: RgbColor },
+    Reflect { albedo: RgbColor, fuzz: f32 },
     Volume { color: RgbColor },
 }
 impl VoxelMaterial {
@@ -129,9 +148,9 @@ impl Material for VoxelMaterial {
         "Voxel Material"
     }
 
-    fn scatter(&self, _ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
+    fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
         match self {
-            Self::Solid { color } => Some(ScatterRecord {
+            Self::Lambertian { color } => Some(ScatterRecord {
                 specular_ray: None,
                 attenuation: *color,
                 pdf: Some(Rc::new(LambertianPDF::new(record_in.normal()))),
@@ -143,6 +162,25 @@ impl Material for VoxelMaterial {
                 pdf: Some(Rc::new(LambertianPDF::new(record_in.normal()))),
                 scattering_pdf: Self::scattering_pdf_fn,
             }),
+            Self::Reflect { albedo, fuzz } => {
+                let reflected = reflect(ray_in.direction.normalize(), record_in.normal());
+                if reflected.dot(record_in.normal()) > 0.0 {
+                    let out_ray = Ray {
+                        origin: record_in.position(),
+                        direction: reflected + *fuzz as f64 * rand_unit_vec(),
+                        time: ray_in.time,
+                    };
+
+                    Some(ScatterRecord {
+                        specular_ray: Some(out_ray),
+                        attenuation: *albedo,
+                        pdf: None,
+                        scattering_pdf: Self::scattering_pdf_fn,
+                    })
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -161,16 +199,16 @@ mod test {
     use super::*;
     #[test]
     fn is_same() {
-        let c1 = Voxel::Solid(SolidVoxel {
-            color: RgbColor {
+        let c1 = Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor {
                 red: 0.5,
                 green: 0.5,
                 blue: 0.5,
             },
         });
 
-        let c2 = Voxel::Solid(SolidVoxel {
-            color: RgbColor {
+        let c2 = Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor {
                 red: 0.5,
                 green: 0.5,
                 blue: 0.5,
@@ -190,8 +228,8 @@ mod test {
     fn solid_empty_different() {
         let c1 = Voxel::Empty;
 
-        let c2 = Voxel::Solid(SolidVoxel {
-            color: RgbColor {
+        let c2 = Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor {
                 red: 0.5,
                 green: 0.5,
                 blue: 0.5,
@@ -199,6 +237,50 @@ mod test {
         });
         assert_ne!(c1, c2);
         assert_ne!(c2, c1);
+    }
+    #[test]
+    fn solid_lamb_metal() {
+        let sl = Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor {
+                red: 0.5,
+                green: 0.5,
+                blue: 0.5,
+            },
+        });
+        let sm1 = Voxel::Solid(SolidVoxel::Reflect {
+            albedo: RgbColor {
+                red: 0.5,
+                green: 0.5,
+                blue: 0.5,
+            },
+            fuzz: 0.8,
+        });
+        let sm2 = Voxel::Solid(SolidVoxel::Reflect {
+            albedo: RgbColor {
+                red: 0.5,
+                green: 0.5,
+                blue: 0.5,
+            },
+            fuzz: 0.7,
+        });
+        let sm3 = Voxel::Solid(SolidVoxel::Reflect {
+            albedo: RgbColor {
+                red: 0.5,
+                green: 0.5,
+                blue: 0.2,
+            },
+            fuzz: 0.8,
+        });
+        let arr = [sl, sm1, sm2, sm3];
+        for i in 0..arr.len() {
+            for j in 0..arr.len() {
+                if i == j {
+                    assert_eq!(arr[i], arr[j])
+                } else {
+                    assert_ne!(arr[i], arr[j])
+                }
+            }
+        }
     }
     #[test]
     fn volume_density() {
@@ -245,8 +327,8 @@ mod test {
             color: RgbColor::WHITE,
             edge_effect: VolumeEdgeEffect::None,
         });
-        let s = Voxel::Solid(SolidVoxel {
-            color: RgbColor {
+        let s = Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor {
                 red: 0.2,
                 green: 0.6,
                 blue: 0.8,
@@ -308,8 +390,8 @@ mod test {
             HitType::Volume
         );
         assert_eq!(
-            Voxel::Solid(SolidVoxel {
-                color: RgbColor::WHITE
+            Voxel::Solid(SolidVoxel::Lambertian {
+                albedo: RgbColor::WHITE
             })
             .hit_type(),
             HitType::Solid

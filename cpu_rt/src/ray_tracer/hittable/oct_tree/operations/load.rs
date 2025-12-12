@@ -96,7 +96,7 @@ impl OctTree<Voxel> {
 
             let new_idx = materials.len();
 
-            materials.push(Voxel::Solid(SolidVoxel { color }));
+            materials.push(Voxel::Solid(SolidVoxel::Lambertian { albedo: color }));
             index_to_material.insert(*idx, new_idx);
         }
 

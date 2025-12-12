@@ -107,8 +107,8 @@ pub(crate) fn cube_recreation() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-    let mat = Voxel::Solid(SolidVoxel {
-        color: RgbColor::new(0.65, 0.05, 0.05),
+    let mat = Voxel::Solid(SolidVoxel::Lambertian {
+        albedo: RgbColor::new(0.65, 0.05, 0.05),
     });
     let world: OctTree<Voxel> = OctTree::rectangle(Vector3::new(3, 3, 3), mat);
 

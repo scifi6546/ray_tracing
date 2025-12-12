@@ -49,8 +49,8 @@ pub fn oct_tree_volume() -> WorldInfo {
             for z in 3..6 {
                 tree.set(
                     Point3 { x, y, z },
-                    Voxel::Solid(SolidVoxel {
-                        color: RgbColor::new(0.65, 0.05, 0.05),
+                    Voxel::Solid(SolidVoxel::Lambertian {
+                        albedo: RgbColor::new(0.65, 0.05, 0.05),
                     }),
                 )
             }
@@ -59,20 +59,20 @@ pub fn oct_tree_volume() -> WorldInfo {
 
     tree.set(
         Point3::new(0, 0, 0),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
     tree.set(
         Point3::new(0, 1, 0),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
     tree.set(
         Point3::new(5, 5, 5),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
 
@@ -144,8 +144,8 @@ pub fn oct_tree_volume_two_density() -> WorldInfo {
             for z in 3..6 {
                 tree.set(
                     Point3 { x, y, z },
-                    Voxel::Solid(SolidVoxel {
-                        color: RgbColor::new(0.65, 0.05, 0.05),
+                    Voxel::Solid(SolidVoxel::Lambertian {
+                        albedo: RgbColor::new(0.65, 0.05, 0.05),
                     }),
                 )
             }
@@ -154,20 +154,20 @@ pub fn oct_tree_volume_two_density() -> WorldInfo {
 
     tree.set(
         Point3::new(0, 0, 0),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
     tree.set(
         Point3::new(0, 1, 0),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
     tree.set(
         Point3::new(5, 5, 5),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
 
@@ -242,8 +242,8 @@ pub fn oct_tree_volume_many_density() -> WorldInfo {
             for z in 3..6 {
                 tree.set(
                     Point3 { x, y, z },
-                    Voxel::Solid(SolidVoxel {
-                        color: RgbColor::new(0.65, 0.05, 0.05),
+                    Voxel::Solid(SolidVoxel::Lambertian {
+                        albedo: RgbColor::new(0.65, 0.05, 0.05),
                     }),
                 )
             }
@@ -252,20 +252,20 @@ pub fn oct_tree_volume_many_density() -> WorldInfo {
 
     tree.set(
         Point3::new(0, 0, 0),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
     tree.set(
         Point3::new(0, 1, 0),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
     tree.set(
         Point3::new(5, 5, 5),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
 
@@ -340,8 +340,8 @@ pub fn oct_tree_volume_lambertian() -> WorldInfo {
             for z in 3..6 {
                 tree.set(
                     Point3 { x, y, z },
-                    Voxel::Solid(SolidVoxel {
-                        color: RgbColor::new(0.65, 0.05, 0.05),
+                    Voxel::Solid(SolidVoxel::Lambertian {
+                        albedo: RgbColor::new(0.65, 0.05, 0.05),
                     }),
                 )
             }
@@ -350,20 +350,20 @@ pub fn oct_tree_volume_lambertian() -> WorldInfo {
 
     tree.set(
         Point3::new(0, 0, 0),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
     tree.set(
         Point3::new(0, 1, 0),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
     tree.set(
         Point3::new(5, 5, 5),
-        Voxel::Solid(SolidVoxel {
-            color: RgbColor::new(0.65, 0.05, 0.05),
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
         }),
     );
 

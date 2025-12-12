@@ -36,9 +36,9 @@ mod world_test {
                 for z in 0..10 {
                     tree.set(
                         Point3 { x, y, z },
-                        Voxel::Solid(SolidVoxel {
+                        Voxel::Solid(SolidVoxel::Lambertian {
                             //  density: 0.3,
-                            color: RgbColor::new(0.5, 0.05, 0.5),
+                            albedo: RgbColor::new(0.5, 0.05, 0.5),
                         }),
                     );
                 }
@@ -49,7 +49,7 @@ mod world_test {
                 Object::new(Box::new(tree), Transform::identity()),
                 light.clone(),
             ],
-            // lights: vec![light],
+
             lights: Vec::new(),
             background: Box::new(ConstantColor {
                 color: 0.1 * RgbColor::new(1.0, 1.0, 1.0),

@@ -472,6 +472,10 @@ pub fn get_scenarios() -> Scenarios {
             name: "Oct Tree Translucent Lambertian".to_string(),
             f: oct_tree_world::volume::oct_tree_volume_lambertian,
         }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree GoldCube".to_string(),
+            f: oct_tree_world::metal::gold_cube,
+        }),
     ];
     let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
         .drain(..)
