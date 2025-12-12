@@ -8,19 +8,19 @@ mod ray_trace;
 mod shapes;
 
 use crate::prelude::RayScalar;
-pub use material::{VolumeEdgeEffect, VoxelMaterial};
-use node::OctTreeNode;
-
 use cgmath::{Point3, Vector3};
+use material::VoxelMaterial;
+pub use material::{SolidVoxel, VolumeEdgeEffect, VolumeVoxel, Voxel};
+use node::OctTreeNode;
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum OctTreeHitInfo<T: Leafable> {
     Solid {
-        hit_value: T,
+        hit_value: T::Material,
         hit_position: Point3<RayScalar>,
         normal: Vector3<RayScalar>,
     },
     Volume {
-        hit_value: T,
+        hit_value: T::Material,
         hit_position: Point3<RayScalar>,
     },
 }
@@ -49,6 +49,7 @@ pub(crate) enum OctTreeChildren<T: Leafable> {
 }
 
 pub trait Leafable: Clone + Copy + PartialEq + Eq {
+    type Material;
     fn hit_type(&self) -> HitType;
 
     fn merge(&self, rhs: &Self) -> Self {
@@ -70,6 +71,7 @@ pub trait Leafable: Clone + Copy + PartialEq + Eq {
     fn empty() -> Self;
 }
 impl Leafable for bool {
+    type Material = ();
     fn hit_type(&self) -> HitType {
         if *self {
             HitType::Solid
@@ -82,6 +84,7 @@ impl Leafable for bool {
     }
 }
 impl Leafable for () {
+    type Material = ();
     fn hit_type(&self) -> HitType {
         HitType::Empty
     }
@@ -106,6 +109,7 @@ mod tests {
         assert_eq!(bool::empty(), false);
     }
     impl Leafable for i32 {
+        type Material = ();
         fn hit_type(&self) -> HitType {
             match self {
                 0 => HitType::Empty,

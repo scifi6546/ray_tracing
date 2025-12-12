@@ -2,7 +2,7 @@
 mod world_test {
     use super::super::{
         camera::CameraInfo,
-        hittable::{Object, OctTree, Sphere, Transform, VoxelMaterial},
+        hittable::{Object, OctTree, SolidVoxel, Sphere, Transform, Voxel},
         Camera, ConstantColor, DiffuseLight, MaterialEffect, Ray, RayScalar, RgbColor, SolidColor,
         WorldInfo,
     };
@@ -30,16 +30,16 @@ mod world_test {
             }),
             Transform::identity(),
         );
-        let mut tree = OctTree::<VoxelMaterial>::empty();
+        let mut tree = OctTree::<Voxel>::empty();
         for x in 0..10 {
             for y in 1..9 {
                 for z in 0..10 {
                     tree.set(
                         Point3 { x, y, z },
-                        VoxelMaterial::Solid {
+                        Voxel::Solid(SolidVoxel {
                             //  density: 0.3,
                             color: RgbColor::new(0.5, 0.05, 0.5),
-                        },
+                        }),
                     );
                 }
             }

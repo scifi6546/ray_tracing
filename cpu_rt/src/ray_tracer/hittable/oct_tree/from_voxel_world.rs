@@ -1,12 +1,12 @@
-use super::{OctTree, VoxelMaterial};
+use super::{OctTree, SolidVoxel, Voxel};
 use crate::ray_tracer::hittable::{voxel_world::CubeMaterialIndex, VoxelWorld};
 
 use cgmath::Point3;
 use log::{error, info};
 
-impl From<VoxelWorld> for OctTree<VoxelMaterial> {
+impl From<VoxelWorld> for OctTree<Voxel> {
     fn from(old_world: VoxelWorld) -> Self {
-        let mut world = OctTree::<VoxelMaterial>::empty();
+        let mut world = OctTree::<Voxel>::empty();
         let size = old_world.size();
         info!("old world size: ({},{},{})", size.x, size.y, size.z);
 
@@ -28,9 +28,9 @@ impl From<VoxelWorld> for OctTree<VoxelMaterial> {
                         CubeMaterialIndex::Solid { index } => {
                             let old_material = old_world.get_solid_material(index).unwrap();
 
-                            VoxelMaterial::Solid {
+                            Voxel::Solid(SolidVoxel {
                                 color: old_material.color(),
-                            }
+                            })
                         }
                         CubeMaterialIndex::Translucent { .. } => todo!("translucent"),
                     };

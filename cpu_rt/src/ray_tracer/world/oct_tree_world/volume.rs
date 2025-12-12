@@ -1,8 +1,8 @@
 use super::{
     Camera, CameraInfo, ConstantColor, DiffuseLight, Object, OctTree, RayScalar, RgbColor,
-    SolidColor, Sphere, Transform, VoxelMaterial, WorldInfo,
+    SolidColor, Sphere, Transform, Voxel, WorldInfo,
 };
-use crate::ray_tracer::hittable::VolumeEdgeEffect;
+use crate::ray_tracer::hittable::{SolidVoxel, VolumeEdgeEffect, VolumeVoxel};
 use cgmath::{prelude::*, Point3, Vector3};
 
 pub fn oct_tree_volume() -> WorldInfo {
@@ -29,17 +29,17 @@ pub fn oct_tree_volume() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let mut tree = OctTree::<VoxelMaterial>::empty();
+    let mut tree = OctTree::<Voxel>::empty();
     for x in 0..10 {
         for y in 1..9 {
             for z in 0..10 {
                 tree.set(
                     Point3 { x, y, z },
-                    VoxelMaterial::Volume {
+                    Voxel::Volume(VolumeVoxel {
                         density: 0.3,
                         color: RgbColor::new(0.5, 0.05, 0.5),
                         edge_effect: VolumeEdgeEffect::None,
-                    },
+                    }),
                 );
             }
         }
@@ -49,9 +49,9 @@ pub fn oct_tree_volume() -> WorldInfo {
             for z in 3..6 {
                 tree.set(
                     Point3 { x, y, z },
-                    VoxelMaterial::Solid {
+                    Voxel::Solid(SolidVoxel {
                         color: RgbColor::new(0.65, 0.05, 0.05),
-                    },
+                    }),
                 )
             }
         }
@@ -59,21 +59,21 @@ pub fn oct_tree_volume() -> WorldInfo {
 
     tree.set(
         Point3::new(0, 0, 0),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
     tree.set(
         Point3::new(0, 1, 0),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
     tree.set(
         Point3::new(5, 5, 5),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
 
     WorldInfo {
@@ -124,17 +124,17 @@ pub fn oct_tree_volume_two_density() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let mut tree = OctTree::<VoxelMaterial>::empty();
+    let mut tree = OctTree::<Voxel>::empty();
     for x in 0..10 {
         for y in 1..9 {
             for z in 0..10 {
                 tree.set(
                     Point3 { x, y, z },
-                    VoxelMaterial::Volume {
+                    Voxel::Volume(VolumeVoxel {
                         density: if y < 5 { 0.3 } else { 0.6 },
                         color: RgbColor::new(0.5, 0.05, 0.5),
                         edge_effect: VolumeEdgeEffect::None,
-                    },
+                    }),
                 );
             }
         }
@@ -144,9 +144,9 @@ pub fn oct_tree_volume_two_density() -> WorldInfo {
             for z in 3..6 {
                 tree.set(
                     Point3 { x, y, z },
-                    VoxelMaterial::Solid {
+                    Voxel::Solid(SolidVoxel {
                         color: RgbColor::new(0.65, 0.05, 0.05),
-                    },
+                    }),
                 )
             }
         }
@@ -154,21 +154,21 @@ pub fn oct_tree_volume_two_density() -> WorldInfo {
 
     tree.set(
         Point3::new(0, 0, 0),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
     tree.set(
         Point3::new(0, 1, 0),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
     tree.set(
         Point3::new(5, 5, 5),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
 
     WorldInfo {
@@ -220,7 +220,7 @@ pub fn oct_tree_volume_many_density() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let mut tree = OctTree::<VoxelMaterial>::empty();
+    let mut tree = OctTree::<Voxel>::empty();
 
     let mut rng = StdRng::from_seed([4u8; 32]);
     for x in 0..10 {
@@ -228,11 +228,11 @@ pub fn oct_tree_volume_many_density() -> WorldInfo {
             for z in 0..10 {
                 tree.set(
                     Point3 { x, y, z },
-                    VoxelMaterial::Volume {
+                    Voxel::Volume(VolumeVoxel {
                         density: rng.gen_range(0.3..0.6),
                         color: RgbColor::new(0.5, 0.05, 0.5),
                         edge_effect: VolumeEdgeEffect::None,
-                    },
+                    }),
                 );
             }
         }
@@ -242,9 +242,9 @@ pub fn oct_tree_volume_many_density() -> WorldInfo {
             for z in 3..6 {
                 tree.set(
                     Point3 { x, y, z },
-                    VoxelMaterial::Solid {
+                    Voxel::Solid(SolidVoxel {
                         color: RgbColor::new(0.65, 0.05, 0.05),
-                    },
+                    }),
                 )
             }
         }
@@ -252,21 +252,21 @@ pub fn oct_tree_volume_many_density() -> WorldInfo {
 
     tree.set(
         Point3::new(0, 0, 0),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
     tree.set(
         Point3::new(0, 1, 0),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
     tree.set(
         Point3::new(5, 5, 5),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
 
     WorldInfo {
@@ -317,20 +317,20 @@ pub fn oct_tree_volume_lambertian() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let mut tree = OctTree::<VoxelMaterial>::empty();
+    let mut tree = OctTree::<Voxel>::empty();
 
     for x in 0..10 {
         for y in 1..9 {
             for z in 0..10 {
                 tree.set(
                     Point3 { x, y, z },
-                    VoxelMaterial::Volume {
+                    Voxel::Volume(VolumeVoxel {
                         density: 0.3,
                         color: RgbColor::new(0.5, 0.05, 0.5),
                         edge_effect: VolumeEdgeEffect::Lambertian {
                             hit_probability: 0.6,
                         },
-                    },
+                    }),
                 );
             }
         }
@@ -340,9 +340,9 @@ pub fn oct_tree_volume_lambertian() -> WorldInfo {
             for z in 3..6 {
                 tree.set(
                     Point3 { x, y, z },
-                    VoxelMaterial::Solid {
+                    Voxel::Solid(SolidVoxel {
                         color: RgbColor::new(0.65, 0.05, 0.05),
-                    },
+                    }),
                 )
             }
         }
@@ -350,21 +350,21 @@ pub fn oct_tree_volume_lambertian() -> WorldInfo {
 
     tree.set(
         Point3::new(0, 0, 0),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
     tree.set(
         Point3::new(0, 1, 0),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
     tree.set(
         Point3::new(5, 5, 5),
-        VoxelMaterial::Solid {
+        Voxel::Solid(SolidVoxel {
             color: RgbColor::new(0.65, 0.05, 0.05),
-        },
+        }),
     );
 
     WorldInfo {

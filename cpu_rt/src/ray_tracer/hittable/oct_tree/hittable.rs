@@ -2,11 +2,11 @@ use super::OctTreeHitInfo;
 use crate::prelude::{Ray, RayScalar};
 use crate::ray_tracer::{
     bvh::Aabb,
-    hittable::{HitRecord, Hittable, OctTree, RayAreaInfo, VoxelMaterial},
+    hittable::{HitRecord, Hittable, OctTree, RayAreaInfo, Voxel},
 };
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 
-impl Hittable for OctTree<VoxelMaterial> {
+impl Hittable for OctTree<Voxel> {
     fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
         let aabb = self.bounding_box(0., 1.).unwrap();
         if aabb.hit(*ray, t_min, t_max) {

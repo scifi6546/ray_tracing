@@ -4,7 +4,7 @@ use crate::ray_tracer::background::Sky;
 
 use crate::ray_tracer::hittable::hittable_objects::CubeMaterial;
 use crate::ray_tracer::hittable::{
-    voxel_world::CubeMaterialIndex, Object, OctTree, Transform, VoxelMaterial, VoxelWorld,
+    voxel_world::CubeMaterialIndex, Object, OctTree, SolidVoxel, Transform, Voxel, VoxelWorld,
 };
 use crate::ray_tracer::world::WorldInfo;
 use base_lib::RgbColor;
@@ -76,7 +76,7 @@ pub(crate) fn simple_cube() -> WorldInfo {
             }
         }
     }
-    let world: OctTree<VoxelMaterial> = world.into();
+    let world: OctTree<Voxel> = world.into();
 
     WorldInfo {
         objects: vec![Object::new(Box::new(world), Transform::identity())],
@@ -107,10 +107,10 @@ pub(crate) fn cube_recreation() -> WorldInfo {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-    let mat = VoxelMaterial::Solid {
+    let mat = Voxel::Solid(SolidVoxel {
         color: RgbColor::new(0.65, 0.05, 0.05),
-    };
-    let world: OctTree<VoxelMaterial> = OctTree::rectangle(Vector3::new(3, 3, 3), mat);
+    });
+    let world: OctTree<Voxel> = OctTree::rectangle(Vector3::new(3, 3, 3), mat);
 
     WorldInfo {
         objects: vec![Object::new(Box::new(world), Transform::identity())],

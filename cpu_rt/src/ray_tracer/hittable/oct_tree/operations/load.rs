@@ -1,4 +1,7 @@
-use super::{super::VoxelMaterial, OctTree};
+use super::{
+    super::{material::SolidVoxel, Voxel},
+    OctTree,
+};
 use crate::ray_tracer::hittable::hittable_objects::VoxelMap;
 use base_lib::RgbColor;
 use cgmath::Point3;
@@ -9,10 +12,10 @@ use std::{
     ops::Neg,
     path::Path,
 };
-impl OctTree<VoxelMaterial> {
+impl OctTree<Voxel> {
     pub fn load_map<P: AsRef<Path>>(p: P) -> Result<Self, IoError> {
         let file = File::open(p)?;
-        let mut tree = OctTree::<VoxelMaterial>::empty();
+        let mut tree = OctTree::<Voxel>::empty();
         let map: VoxelMap = serde_yaml::from_reader(file).expect("failed to parse");
         let models = map
             .tile_types
@@ -80,7 +83,7 @@ impl OctTree<VoxelMaterial> {
                 max_z = (v.z as usize).max(max_z);
             }
         }
-        let mut materials = Vec::<VoxelMaterial>::new();
+        let mut materials = Vec::<Voxel>::new();
         let mut index_to_material = HashMap::<u8, usize>::new();
         for idx in used_indices.iter() {
             let color = vox_data.palette[*idx as usize];
@@ -93,11 +96,11 @@ impl OctTree<VoxelMaterial> {
 
             let new_idx = materials.len();
 
-            materials.push(VoxelMaterial::Solid { color });
+            materials.push(Voxel::Solid(SolidVoxel { color }));
             index_to_material.insert(*idx, new_idx);
         }
 
-        let mut tree = OctTree::<VoxelMaterial>::empty();
+        let mut tree = OctTree::<Voxel>::empty();
         for model in vox_data.models {
             for voxel in model.voxels.iter() {
                 let material_index = index_to_material[&voxel.i];
