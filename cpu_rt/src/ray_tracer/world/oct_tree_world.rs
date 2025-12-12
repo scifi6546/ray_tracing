@@ -5,7 +5,7 @@ use super::{
     Transform, Voxel, WorldInfo,
 };
 use crate::prelude::*;
-use crate::ray_tracer::hittable::{Object, SolidVoxel, VolumeVoxel};
+use crate::ray_tracer::hittable::{Object, SolidVoxel};
 use cgmath::{num_traits::FloatConst, prelude::*, Point3, Vector3};
 
 pub fn basic_sphere() -> WorldInfo {

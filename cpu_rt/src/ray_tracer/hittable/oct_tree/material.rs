@@ -54,9 +54,7 @@ impl PartialEq for VolumeVoxel {
 impl VolumeVoxel {
     pub(crate) fn edge_material(&self) -> VoxelMaterial {
         match self.edge_effect {
-            VolumeEdgeEffect::Lambertian { hit_probability } => {
-                VoxelMaterial::Solid { color: self.color }
-            }
+            VolumeEdgeEffect::Lambertian { .. } => VoxelMaterial::Solid { color: self.color },
             VolumeEdgeEffect::None => panic!("must have edge effect"),
         }
     }
@@ -72,8 +70,6 @@ pub enum Voxel {
 }
 impl PartialEq for Voxel {
     fn eq(&self, other: &Self) -> bool {
-        const COLOR_ERROR_MARGIN: f32 = 0.0001;
-        const VOLUME_ERROR_MARGIN: RayScalar = 0.0001;
         match self {
             Self::Solid(self_solid_material) => match other {
                 Self::Solid(other_solid_material) => self_solid_material == other_solid_material,

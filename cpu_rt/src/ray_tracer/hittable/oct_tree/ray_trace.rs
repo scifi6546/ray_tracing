@@ -2,10 +2,7 @@ use super::{
     Leafable, OctTree, OctTreeChildren, OctTreeHitInfo, OctTreeNode, VolumeEdgeEffect, Voxel,
     VoxelMaterial,
 };
-use crate::{
-    prelude::{rand_scalar, Ray, RayScalar},
-    ray_tracer::hittable::oct_tree::HitType,
-};
+use crate::prelude::{rand_scalar, Ray, RayScalar};
 use log::{error, warn};
 use std::ops::Neg;
 
@@ -313,7 +310,7 @@ impl OctTreeNode<Voxel> {
                                     normal,
                                 });
                             }
-                            Voxel::Volume(volume_material) => {
+                            Voxel::Volume(_) => {
                                 match handle_volume(*node_leaf, rt_state, ray.direction) {
                                     VolumeOutput::ContinueIteration(state) => rt_state = state,
                                     VolumeOutput::StopIteration {
@@ -388,7 +385,7 @@ impl OctTreeNode<Voxel> {
                                     normal,
                                 });
                             }
-                            Voxel::Volume(volume_material) => {
+                            Voxel::Volume(_) => {
                                 match handle_volume(*node_leaf, rt_state, ray.direction) {
                                     VolumeOutput::ContinueIteration(state) => rt_state = state,
                                     VolumeOutput::StopIteration {
@@ -463,7 +460,7 @@ impl OctTreeNode<Voxel> {
                                     normal,
                                 });
                             }
-                            Voxel::Volume(volume_material) => {
+                            Voxel::Volume(_) => {
                                 match handle_volume(*node_leaf, rt_state, ray.direction) {
                                     VolumeOutput::ContinueIteration(state) => rt_state = state,
                                     VolumeOutput::StopIteration {
@@ -536,7 +533,7 @@ impl OctTreeNode<Voxel> {
                                     normal,
                                 });
                             }
-                            Voxel::Volume(volume_material) => {
+                            Voxel::Volume(_) => {
                                 match handle_volume(*node_leaf, rt_state, ray.direction) {
                                     VolumeOutput::ContinueIteration(state) => rt_state = state,
                                     VolumeOutput::StopIteration {
@@ -611,7 +608,7 @@ impl OctTreeNode<Voxel> {
                                     normal,
                                 });
                             }
-                            Voxel::Volume(volume_material) => {
+                            Voxel::Volume(_) => {
                                 match handle_volume(*node_leaf, rt_state, ray.direction) {
                                     VolumeOutput::ContinueIteration(state) => rt_state = state,
                                     VolumeOutput::StopIteration {
@@ -686,7 +683,7 @@ impl OctTreeNode<Voxel> {
                                     normal,
                                 });
                             }
-                            Voxel::Volume(volume_material) => {
+                            Voxel::Volume(_) => {
                                 match handle_volume(*node_leaf, rt_state, ray.direction) {
                                     VolumeOutput::ContinueIteration(state) => rt_state = state,
                                     VolumeOutput::StopIteration {
@@ -831,7 +828,7 @@ impl OctTreeNode<Voxel> {
                         hit_value: solid_material.to_material(),
                         normal: intersection.normal_vector,
                     }),
-                    Voxel::Volume(volume_material) => self.ray_iteration(
+                    Voxel::Volume(_) => self.ray_iteration(
                         intersection.block_coordinate,
                         Ray {
                             origin: intersection.intersect_position,
