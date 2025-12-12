@@ -7,7 +7,7 @@ impl<T: Leafable> OctTree<T> {
         let offset = [offset.x, offset.y, offset.z];
         let other_size = offset
             .iter()
-            .map(|s| s.unsigned_abs() as u32 + other.size)
+            .map(|s| s.unsigned_abs() + other.size)
             .max()
             .unwrap();
 

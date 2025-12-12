@@ -5,8 +5,8 @@ mod combine;
 mod load;
 mod set;
 impl<T: Leafable> OctTree<T> {
-    pub fn is_optimal(&self, debug_print: bool) -> bool {
-        self.root_node.is_optimal(debug_print)
+    pub fn is_optimal(&self) -> bool {
+        self.root_node.is_optimal()
     }
 
     // gets offsets of children

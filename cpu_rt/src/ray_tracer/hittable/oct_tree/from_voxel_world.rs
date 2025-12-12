@@ -38,7 +38,7 @@ impl From<VoxelWorld> for OctTree<Voxel> {
                 }
             }
         }
-        if !world.is_optimal(true) {
+        if !world.is_optimal() {
             error!("world is not optimally packed");
         }
         world

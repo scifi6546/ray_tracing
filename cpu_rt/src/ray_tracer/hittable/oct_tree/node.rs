@@ -7,7 +7,7 @@ pub(crate) struct OctTreeNode<T: Leafable> {
     pub(crate) size: u32,
 }
 impl<T: Leafable> OctTreeNode<T> {
-    pub fn is_optimal(&self, debug_print: bool) -> bool {
+    pub fn is_optimal(&self) -> bool {
         match &self.children {
             OctTreeChildren::Leaf(_) => true,
             OctTreeChildren::ParentNode(children) => {
@@ -22,9 +22,7 @@ impl<T: Leafable> OctTreeNode<T> {
                         OctTreeChildren::ParentNode(children_array) => {
                             first_leaf = None;
                             all_children_optimal = all_children_optimal
-                                && children_array
-                                    .iter()
-                                    .all(|child| child.is_optimal(debug_print));
+                                && children_array.iter().all(|child| child.is_optimal());
                         }
                         OctTreeChildren::Leaf(leaf_value) => {
                             if let Some(first_leaf) = first_leaf {
@@ -143,7 +141,7 @@ mod test {
             children: OctTreeChildren::Leaf(true),
             size: 1,
         };
-        assert!(node.is_optimal(true))
+        assert!(node.is_optimal())
     }
     #[test]
     fn four_optimal() {
@@ -187,7 +185,7 @@ mod test {
             size: 1,
         };
 
-        assert!(node.is_optimal(true))
+        assert!(node.is_optimal())
     }
     #[test]
     fn four_suboptimal() {
@@ -231,6 +229,6 @@ mod test {
             size: 1,
         };
 
-        assert_eq!(node.is_optimal(true), false)
+        assert_eq!(node.is_optimal(), false)
     }
 }

@@ -161,7 +161,7 @@ mod test {
             for y in 0..4 {
                 for z in 0..4 {
                     oct_tree.set(Point3::new(x, y, z), true);
-                    assert!(oct_tree.is_optimal(true));
+                    assert!(oct_tree.is_optimal());
                 }
             }
         }
