@@ -15,7 +15,6 @@ image = "0.24.2"
 
 log = "0.4.17"
 to_numpy = { path = "../to_numpy" }
-base_lib = { path = "../base_lib" }
 lib_minya = { path = "../cpu_rt" }
 
 rfd = "0.9.1"

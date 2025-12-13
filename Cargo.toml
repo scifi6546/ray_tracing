@@ -1,5 +1,5 @@
 [workspace]
-members = ["cpu_rt_runner", "base_lib", "cpu_rt"]
+members = ["cpu_rt_runner", "cpu_rt"]
 resolver = "2"
 [profile.dev]
 opt-level = 0

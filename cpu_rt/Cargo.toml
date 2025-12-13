@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 cgmath = { version = "0.18.0", features = ["swizzle"] }
-base_lib = { path = "../base_lib" }
 to_numpy = { path = "../to_numpy" }
 image = "0.24.2"
 log = "0.4.17"

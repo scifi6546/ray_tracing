@@ -34,12 +34,12 @@ use super::{
 mod world_prelude {
     pub(crate) use super::super::background::SunSky;
     pub(crate) use super::super::hittable::voxel_world::{
-        CubeMaterial, CubeMaterialIndex, PerlinBuilder, VoxelWorld,
+        CubeMaterial, CubeMaterialIndex, PerlinBuilder,
     };
     pub use super::super::sun::Sun;
 }
 use crate::prelude::*;
-use cgmath::Point3;
+
 use dyn_clone::{clone_box, DynClone};
 
 pub use cornell_smoke::cornell_smoke;
@@ -48,9 +48,7 @@ pub use easy_scene::easy_scene;
 
 pub use one_sphere::one_sphere;
 pub use random_scene::random_scene;
-use std::{collections::HashMap, ops::Deref};
-
-use crate::ray_tracer::hittable::voxel_world::CubeMaterialIndex;
+use std::collections::HashMap;
 
 use crate::ray_tracer::ray_tracer_info::Entity;
 pub use two_spheres::two_spheres;
@@ -295,7 +293,7 @@ pub fn get_scenarios() -> Scenarios {
             f: oct_tree_world::metal::gold_cube,
         }),
     ];
-    let mut map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
+    let map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
         .drain(..)
         .map(|scenario| (scenario.name(), scenario))
         .collect::<HashMap<String, _>>();
