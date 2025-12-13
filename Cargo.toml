@@ -1,5 +1,5 @@
 [workspace]
-members = ["cpu_rt_runner", "base_lib", "vulkan_rt", "choose_vulkan", "cpu_rt"]
+members = ["cpu_rt_runner", "base_lib", "cpu_rt"]
 resolver = "2"
 [profile.dev]
 opt-level = 0
