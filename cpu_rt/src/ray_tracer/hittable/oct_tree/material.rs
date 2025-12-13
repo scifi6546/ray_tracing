@@ -1,11 +1,10 @@
 use super::{HitType, Leafable};
 
-use base_lib::RgbColor;
 use std::rc::Rc;
 
 use crate::prelude::RayScalar;
 use crate::{
-    prelude::Ray,
+    prelude::{Ray, RgbColor},
     ray_tracer::{
         hittable::{HitRay, HitRecord},
         material::Material,

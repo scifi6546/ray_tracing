@@ -1,6 +1,5 @@
 use super::{new_demo, Lambertian, Object, SolidColor, Sphere, Transform, WorldInfo};
-
-use base_lib::RgbColor;
+use crate::prelude::RgbColor;
 use cgmath::Point3;
 
 pub fn demo() -> WorldInfo {

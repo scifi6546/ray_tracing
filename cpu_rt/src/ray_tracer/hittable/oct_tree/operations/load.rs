@@ -2,8 +2,8 @@ use super::{
     super::{material::SolidVoxel, Voxel},
     OctTree,
 };
-use crate::ray_tracer::hittable::hittable_objects::VoxelMap;
-use base_lib::RgbColor;
+use crate::{ray_tracer::hittable::hittable_objects::VoxelMap, RgbColor};
+
 use cgmath::Point3;
 use std::{
     collections::{HashMap, HashSet},

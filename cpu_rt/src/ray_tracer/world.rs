@@ -97,179 +97,6 @@ impl Clone for World {
     }
 }
 impl World {
-    pub fn from_baselib_scene(scene: &base_lib::Scene) -> Self {
-        let objects_temp = scene
-            .objects
-            .iter()
-            .map(|obj| {
-                let material: Box<dyn Material + Send> = match &obj.material {
-                    base_lib::Material::Light(tex) => Box::new(DiffuseLight {
-                        emit: match tex {
-                            base_lib::Texture::ConstantColor(color) => {
-                                Box::new(SolidColor { color: *color })
-                            }
-                        },
-                    }),
-                    base_lib::Material::Lambertian(tex) => Box::new(Lambertian {
-                        albedo: match tex {
-                            base_lib::Texture::ConstantColor(color) => {
-                                Box::new(SolidColor { color: *color })
-                            }
-                        },
-                    }),
-                };
-                let obj_out: Box<dyn Hittable + Send> = match &obj.shape {
-                    base_lib::Shape::Sphere { radius, origin } => Box::new(Sphere {
-                        radius: *radius as RayScalar,
-                        origin: origin.map(|v| v as RayScalar),
-                        material,
-                    }),
-
-                    base_lib::Shape::XYRect {
-                        center,
-                        size_x,
-                        size_y,
-                    } => Box::new(XYRect::new(
-                        (center.x - size_x) as RayScalar,
-                        (center.x + size_x) as RayScalar,
-                        (center.y - size_y) as RayScalar,
-                        (center.y + size_y) as RayScalar,
-                        center.z as RayScalar,
-                        material,
-                        false,
-                    )),
-
-                    base_lib::Shape::YZRect {
-                        center,
-                        size_y,
-                        size_z,
-                    } => Box::new(YZRect::new(
-                        (center.y - size_y) as RayScalar,
-                        (center.y + size_y) as RayScalar,
-                        (center.z - size_z) as RayScalar,
-                        (center.z + size_z) as RayScalar,
-                        (center.x) as RayScalar,
-                        material,
-                        false,
-                    )),
-                    base_lib::Shape::XZRect {
-                        center,
-                        size_x,
-                        size_z,
-                    } => Box::new(XZRect::new(
-                        (center.x - size_x) as RayScalar,
-                        (center.x + size_x) as RayScalar,
-                        (center.z - size_z) as RayScalar,
-                        (center.z + size_z) as RayScalar,
-                        center.y as RayScalar,
-                        material,
-                        false,
-                    )),
-                    base_lib::Shape::RenderBox {
-                        center,
-                        size_x,
-                        size_y,
-                        size_z,
-                    } => Box::new(RenderBox::new(
-                        Point3::new(
-                            (center.x - size_x) as RayScalar,
-                            (center.y - size_y) as RayScalar,
-                            (center.z - size_z) as RayScalar,
-                        ),
-                        Point3::new(
-                            (center.x + size_x) as RayScalar,
-                            (center.y + size_y) as RayScalar,
-                            (center.z + size_z) as RayScalar,
-                        ),
-                        material,
-                    )),
-                    base_lib::Shape::Voxels(voxel_grid) => {
-                        let solid_materials = match &obj.material {
-                            base_lib::Material::Lambertian(texture) => match texture {
-                                base_lib::Texture::ConstantColor(c) => {
-                                    vec![world_prelude::CubeMaterial::new(*c)]
-                                }
-                            },
-                            _ => panic!("invalid material: {:#?}", obj.material),
-                        };
-                        let mut voxel_world = world_prelude::VoxelWorld::new(
-                            solid_materials,
-                            Vec::new(),
-                            voxel_grid.size_x() as i32,
-                            voxel_grid.size_y() as i32,
-                            voxel_grid.size_z() as i32,
-                        );
-                        for x in 0..voxel_grid.size_x() {
-                            for y in 0..voxel_grid.size_y() {
-                                for z in 0..voxel_grid.size_z() {
-                                    if voxel_grid.get_tile(Point3::new(x, y, z)) {
-                                        voxel_world.update(
-                                            x as isize,
-                                            y as isize,
-                                            z as isize,
-                                            CubeMaterialIndex::Solid { index: 0 },
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        Box::new(voxel_world)
-                    }
-                };
-                let obj_out = obj_out;
-                for modifier in obj.modifiers.iter() {
-                    match modifier {
-                        base_lib::Modifiers::FlipNormals => {
-                            todo!();
-                        }
-                    }
-                }
-                (
-                    match obj.material {
-                        base_lib::Material::Light(..) => true,
-                        base_lib::Material::Lambertian(_) => false,
-                    },
-                    obj_out,
-                )
-            })
-            .collect::<Vec<(bool, Box<dyn Hittable + Send>)>>();
-        let lights = objects_temp
-            .iter()
-            .filter(|(is_light, _obj)| *is_light)
-            .map(|(_is_light, obj)| Object::new(clone_box(obj.deref()), Transform::identity()))
-            .collect::<Vec<_>>();
-        let spheres = objects_temp
-            .iter()
-            .map(|(_is_light, obj)| Object::new(clone_box(obj.deref()), Transform::identity()))
-            .collect::<_>();
-        let background: Box<dyn Background + Send> = match scene.background {
-            base_lib::Background::Sky => Box::new(Sky::default()),
-            base_lib::Background::ConstantColor(color) => Box::new(ConstantColor { color }),
-        };
-
-        Self {
-            bvh: BvhTree::new(
-                spheres,
-                scene.camera.start_time as RayScalar,
-                scene.camera.end_time as RayScalar,
-            ),
-            lights,
-            background,
-            camera: Camera::new(CameraInfo {
-                aspect_ratio: scene.camera.aspect_ratio as RayScalar,
-                fov: scene.camera.fov as RayScalar,
-                origin: scene.camera.origin.map(|v| v as RayScalar),
-                look_at: scene.camera.look_at.map(|v| v as RayScalar),
-                up_vector: scene.camera.up_vector.map(|v| v as RayScalar),
-                aperture: scene.camera.aperture as RayScalar,
-                focus_distance: scene.camera.focus_distance as RayScalar,
-                start_time: scene.camera.start_time as RayScalar,
-                end_time: scene.camera.end_time as RayScalar,
-            }),
-            sun: None,
-        }
-    }
-
     pub fn nearest_light_hit(
         &self,
         ray: &Ray,
@@ -320,20 +147,7 @@ impl ScenarioCtor for ScenarioFn {
         self.name.clone()
     }
 }
-#[derive(Clone)]
-struct BaselibScenario {
-    ctor: fn() -> base_lib::Scene,
-    name: String,
-}
-impl ScenarioCtor for BaselibScenario {
-    fn build(&self) -> World {
-        World::from_baselib_scene(&(self.ctor)())
-    }
 
-    fn name(&self) -> String {
-        self.name.clone()
-    }
-}
 pub struct Scenarios {
     pub items: HashMap<String, Box<dyn ScenarioCtor>>,
     pub default: String,
@@ -485,13 +299,7 @@ pub fn get_scenarios() -> Scenarios {
         .drain(..)
         .map(|scenario| (scenario.name(), scenario))
         .collect::<HashMap<String, _>>();
-    for (name, scene) in base_lib::get_scenarios() {
-        let ctor = Box::new(BaselibScenario {
-            ctor: scene,
-            name: name.clone(),
-        });
-        map.insert(name, ctor);
-    }
+
     Scenarios {
         items: map,
         default: "Twinleaf Town Map".to_string(),

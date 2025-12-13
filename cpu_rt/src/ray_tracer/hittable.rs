@@ -14,10 +14,10 @@ use std::collections::HashMap;
 use cgmath::{InnerSpace, Matrix3, Matrix4, Point2, Point3, SquareMatrix, Vector3, Vector4};
 
 use crate::{
-    prelude::RayScalar,
+    prelude::{RayScalar, RgbColor},
     ray_tracer::{hittable::MaterialEffect::NoEmmit, pdf::ScatterRecord},
 };
-use base_lib::RgbColor;
+
 pub use constant_medium::ConstantMedium;
 use dyn_clone::{clone_box, DynClone};
 use log::error;

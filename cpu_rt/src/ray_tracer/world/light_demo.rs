@@ -2,8 +2,8 @@ use super::{
     Camera, CameraInfo, DiffuseLight, ImageTexture, Lambertian, Metal, MultiplyTexture, Object,
     Sky, SolidColor, Sphere, Transform, WorldInfo, XZRect,
 };
-use crate::prelude::RayScalar;
-use base_lib::RgbColor;
+use crate::prelude::{RayScalar, RgbColor};
+
 use cgmath::{prelude::*, Point3, Vector3};
 
 pub fn light_demo() -> WorldInfo {

@@ -1,6 +1,6 @@
 use super::{new_demo, Metal, Object, SolidColor, Sphere, Transform, WorldInfo};
-use crate::prelude::RayScalar;
-use base_lib::RgbColor;
+use crate::prelude::{RayScalar, RgbColor};
+
 use cgmath::Point3;
 
 pub fn metallic_smooth() -> WorldInfo {

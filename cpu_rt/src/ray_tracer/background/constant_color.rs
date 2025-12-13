@@ -1,6 +1,6 @@
 use super::{Background, Savable, SceneSaveError};
-use crate::prelude::Ray;
-use base_lib::RgbColor;
+use crate::prelude::{Ray, RgbColor};
+
 use rusqlite::Connection;
 use uuid::Uuid;
 

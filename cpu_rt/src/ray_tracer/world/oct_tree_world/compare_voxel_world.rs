@@ -1,5 +1,5 @@
 use super::{Camera, CameraInfo};
-use crate::prelude::RayScalar;
+use crate::prelude::{RayScalar, RgbColor};
 use crate::ray_tracer::background::Sky;
 
 use crate::ray_tracer::hittable::hittable_objects::CubeMaterial;
@@ -7,7 +7,7 @@ use crate::ray_tracer::hittable::{
     voxel_world::CubeMaterialIndex, Object, OctTree, SolidVoxel, Transform, Voxel, VoxelWorld,
 };
 use crate::ray_tracer::world::WorldInfo;
-use base_lib::RgbColor;
+
 use cgmath::{prelude::*, Point3, Vector3};
 use log::info;
 
