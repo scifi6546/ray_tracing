@@ -473,6 +473,10 @@ pub fn get_scenarios() -> Scenarios {
             f: oct_tree_world::volume::oct_tree_volume_lambertian,
         }),
         Box::new(ScenarioFn {
+            name: "Oct Tree Volume Metal".to_string(),
+            f: oct_tree_world::volume::oct_tree_volume_metal,
+        }),
+        Box::new(ScenarioFn {
             name: "Oct Tree GoldCube".to_string(),
             f: oct_tree_world::metal::gold_cube,
         }),

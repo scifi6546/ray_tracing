@@ -18,7 +18,10 @@ use cgmath::{num_traits::FloatConst, prelude::*};
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum VolumeEdgeEffect {
     None,
-    Lambertian { hit_probability: f32 },
+    Solid {
+        hit_probability: f32,
+        solid_material: SolidVoxel,
+    },
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -70,12 +73,6 @@ impl PartialEq for VolumeVoxel {
     }
 }
 impl VolumeVoxel {
-    pub(crate) fn edge_material(&self) -> VoxelMaterial {
-        match self.edge_effect {
-            VolumeEdgeEffect::Lambertian { .. } => VoxelMaterial::Lambertian { color: self.color },
-            VolumeEdgeEffect::None => panic!("must have edge effect"),
-        }
-    }
     pub(crate) fn volume_material(&self) -> VoxelMaterial {
         VoxelMaterial::Volume { color: self.color }
     }
@@ -350,15 +347,21 @@ mod test {
         let vl = Voxel::Volume(VolumeVoxel {
             density: 0.5,
             color: RgbColor::WHITE,
-            edge_effect: VolumeEdgeEffect::Lambertian {
+            edge_effect: VolumeEdgeEffect::Solid {
                 hit_probability: 0.2,
+                solid_material: SolidVoxel::Lambertian {
+                    albedo: RgbColor::WHITE,
+                },
             },
         });
         let vl2 = Voxel::Volume(VolumeVoxel {
             density: 0.5,
             color: RgbColor::WHITE,
-            edge_effect: VolumeEdgeEffect::Lambertian {
+            edge_effect: VolumeEdgeEffect::Solid {
                 hit_probability: 0.5,
+                solid_material: SolidVoxel::Lambertian {
+                    albedo: RgbColor::WHITE,
+                },
             },
         });
         let vn = Voxel::Volume(VolumeVoxel {

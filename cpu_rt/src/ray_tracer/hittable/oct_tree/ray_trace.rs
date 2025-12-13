@@ -100,12 +100,15 @@ impl OctTreeNode<Voxel> {
             } else {
                 match volume_material.edge_effect {
                     VolumeEdgeEffect::None => (),
-                    VolumeEdgeEffect::Lambertian { hit_probability } => {
+                    VolumeEdgeEffect::Solid {
+                        hit_probability,
+                        solid_material,
+                    } => {
                         let random_number = rand_scalar(0., 1.) as f32;
                         if random_number < hit_probability {
                             return VolumeOutput::StopIteration {
                                 stop_position: rt_state.current_position,
-                                hit_material: volume_material.edge_material(),
+                                hit_material: solid_material.to_material(),
                             };
                         }
                     }
