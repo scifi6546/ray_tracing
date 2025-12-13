@@ -73,12 +73,12 @@ impl Hittable for ConstantMedium {
             uv: Point2::origin(),
         };
         let lighting = self.phase_function.emmit(&hit_ray);
-        let material_effect = if lighting.is_some() {
-            MaterialEffect::Emmit(lighting.unwrap())
+        let material_effect = if let Some(lighting) = lighting {
+            MaterialEffect::Emmit(lighting)
         } else {
             let diffuse = self.phase_function.scatter(*ray, &hit_ray);
-            if diffuse.is_some() {
-                MaterialEffect::Scatter(diffuse.unwrap())
+            if let Some(diffuse) = diffuse {
+                MaterialEffect::Scatter(diffuse)
             } else {
                 MaterialEffect::NoEmmit
             }

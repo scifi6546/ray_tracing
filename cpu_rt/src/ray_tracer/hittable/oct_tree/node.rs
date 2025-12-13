@@ -71,7 +71,7 @@ impl<T: Leafable> OctTreeNode<T> {
             OctTreeChildren::ParentNode(_) => false,
         }
     }
-    pub(crate) fn parent(&self) -> Option<&Box<[OctTreeNode<T>; 8]>> {
+    pub(crate) fn parent(&self) -> Option<&[OctTreeNode<T>; 8]> {
         match &self.children {
             OctTreeChildren::Leaf(_) => None,
             OctTreeChildren::ParentNode(v) => Some(v),

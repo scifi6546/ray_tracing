@@ -9,8 +9,9 @@ struct PerlinGrid {
 impl PerlinGrid {
     pub fn new(width: usize, height: usize) -> Self {
         let mut rng = rand::rngs::StdRng::seed_from_u64(1233897876);
-        let mut data = vec![];
-        data.reserve(width * height);
+
+        let mut data = Vec::with_capacity(width * height);
+
         for _ in 0..width {
             for _ in 0..height {
                 data.push(rng.gen_range(0.0..1.0))

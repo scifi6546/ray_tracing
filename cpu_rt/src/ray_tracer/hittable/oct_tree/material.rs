@@ -49,8 +49,8 @@ impl PartialEq for SolidVoxel {
     }
 }
 impl SolidVoxel {
-    pub(crate) fn to_material(&self) -> VoxelMaterial {
-        match *self {
+    pub(crate) fn to_material(self) -> VoxelMaterial {
+        match self {
             Self::Lambertian { albedo: color } => VoxelMaterial::Lambertian { color },
             Self::Reflect { albedo, fuzz } => VoxelMaterial::Reflect { albedo, fuzz },
         }

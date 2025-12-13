@@ -25,21 +25,21 @@ pub fn gold_cube() -> WorldInfo {
     let g1 = OctTree::cube_pow(
         4,
         Voxel::Solid(SolidVoxel::Reflect {
-            albedo: RgbColor::new(255. / 255., 254. / 255., 0.),
+            albedo: RgbColor::new(1., 254. / 255., 0.),
             fuzz: 0.8,
         }),
     );
     let g2 = OctTree::cube_pow(
         4,
         Voxel::Solid(SolidVoxel::Reflect {
-            albedo: RgbColor::new(255. / 255., 254. / 255., 0.),
+            albedo: RgbColor::new(1., 254. / 255., 0.),
             fuzz: 0.4,
         }),
     );
     let g3 = OctTree::cube_pow(
         4,
         Voxel::Solid(SolidVoxel::Reflect {
-            albedo: RgbColor::new(255. / 255., 254. / 255., 0.),
+            albedo: RgbColor::new(1., 254. / 255., 0.),
             fuzz: 0.1,
         }),
     );

@@ -55,7 +55,7 @@ impl GuiCtx {
         });
     }
 
-    pub fn draw<'a>(&mut self, ctx: &'a mut miniquad::Context) {
+    pub fn draw(&mut self, ctx: &mut miniquad::Context) {
         self.egui_mq.draw(ctx);
     }
     pub fn mouse_motion_event(&mut self, _ctx: &mut miniquad::Context, x: f32, y: f32) {

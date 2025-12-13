@@ -69,7 +69,7 @@ impl PostProcessingStage for SelectMinMag {
                 }
             }
         }
-        return out_texture;
+        out_texture
     }
 }
 pub fn bloom(texture: &mut ParallelImage) {
