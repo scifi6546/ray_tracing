@@ -289,6 +289,10 @@ pub fn get_scenarios() -> Scenarios {
             f: oct_tree_world::volume::oct_tree_volume_metal,
         }),
         Box::new(ScenarioFn {
+            name: "Oct Tree Volume Ice".to_string(),
+            f: oct_tree_world::volume::oct_tree_volume_ice,
+        }),
+        Box::new(ScenarioFn {
             name: "Oct Tree GoldCube".to_string(),
             f: oct_tree_world::metal::gold_cube,
         }),

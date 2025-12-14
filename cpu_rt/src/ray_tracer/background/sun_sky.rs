@@ -12,10 +12,10 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct SunSky {
     pub intensity: RayScalar,
-    sun_radius: RayScalar,
-    sun_theta: RayScalar,
-    sun_phi: RayScalar,
-    sun_brightness: RayScalar,
+    pub sun_radius: RayScalar,
+    pub sun_theta: RayScalar,
+    pub sun_phi: RayScalar,
+    pub sun_brightness: RayScalar,
 }
 impl SunSky {
     pub fn new(sun: Sun, intensity: RayScalar, sun_brightness: RayScalar) -> Self {

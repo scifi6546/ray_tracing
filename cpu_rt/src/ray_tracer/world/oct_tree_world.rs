@@ -5,8 +5,11 @@ use super::{
     Camera, CameraInfo, ConstantColor, DiffuseLight, OctTree, SolidColor, Sphere, Sun, SunSky,
     Transform, Voxel, WorldInfo,
 };
-use crate::prelude::*;
-use crate::ray_tracer::hittable::{Object, SolidVoxel};
+
+use crate::{
+    prelude::*,
+    ray_tracer::hittable::{Object, SolidVoxel},
+};
 use cgmath::{num_traits::FloatConst, prelude::*, Point3, Vector3};
 
 pub fn basic_sphere() -> WorldInfo {
