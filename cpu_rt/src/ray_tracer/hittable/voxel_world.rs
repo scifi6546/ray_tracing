@@ -292,7 +292,7 @@ pub struct CubeMaterial {
 }
 impl CubeMaterial {
     pub fn distance(&self, other: &Self) -> RayScalar {
-        self.color.distance(&other.color) as RayScalar
+        self.color.distance(other.color) as RayScalar
     }
     pub fn color(&self) -> RgbColor {
         self.color

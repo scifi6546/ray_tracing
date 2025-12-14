@@ -17,7 +17,22 @@ impl RgbColor {
         green: 1.0,
         blue: 1.0,
     };
-    pub fn distance(&self, other: &Self) -> f32 {
+    pub const RED: Self = Self {
+        red: 1.,
+        green: 0.,
+        blue: 0.,
+    };
+    pub const GREEN: Self = Self {
+        red: 0.,
+        green: 1.,
+        blue: 0.,
+    };
+    pub const BLUE: Self = Self {
+        red: 0.,
+        green: 0.,
+        blue: 1.,
+    };
+    pub fn distance(&self, other: Self) -> f32 {
         ((self.red - other.red).powi(2)
             + (self.green - other.green).powi(2)
             + (self.blue - other.blue).powi(2))
@@ -73,6 +88,42 @@ impl RgbColor {
     }
     pub fn is_nan(&self) -> bool {
         self.red.is_nan() || self.green.is_nan() || self.blue.is_nan()
+    }
+    pub fn from_color_hex(s: &str) -> Self {
+        let hex_str = s.strip_prefix("#").expect("invalid syntax");
+        let mut total = 0u32;
+        assert_eq!(hex_str.len(), 6);
+        for (idx, char) in hex_str.to_lowercase().char_indices() {
+            let number = match char {
+                '0' => 0x0u32,
+                '1' => 0x1u32,
+                '2' => 0x2u32,
+                '3' => 0x3u32,
+                '4' => 0x4u32,
+                '5' => 0x5u32,
+                '6' => 0x6u32,
+                '7' => 0x7u32,
+                '8' => 0x8u32,
+                '9' => 0x9u32,
+                'a' => 0xAu32,
+                'b' => 0xBu32,
+                'c' => 0xCu32,
+                'd' => 0xDu32,
+                'e' => 0xEu32,
+                'f' => 0xFu32,
+                _ => panic!("invalid char: {}", char),
+            };
+            total += number * 16u32.pow(5 - idx as u32);
+        }
+        println!("total: {:#x}", total);
+        let red_u32 = (total & 0xff0000) >> 16;
+        let green_u32 = (total & 0x00ff00) >> 8;
+        let blue_u32 = total & 0x0000ff;
+        Self {
+            red: red_u32 as f32 / 255.,
+            green: green_u32 as f32 / 255.,
+            blue: blue_u32 as f32 / 255.,
+        }
     }
 }
 impl Mul<f32> for RgbColor {
@@ -183,5 +234,65 @@ impl std::iter::Sum for RgbColor {
 impl std::fmt::Display for RgbColor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {}, {})", self.red, self.green, self.blue)
+    }
+}
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn black() {
+        let b = RgbColor::from_color_hex("#000000");
+        assert!(b.distance(RgbColor::BLACK) < 0.001);
+    }
+    #[test]
+    fn red() {
+        let r = RgbColor::from_color_hex("#ff0000");
+        println!("red: {}", r);
+        assert!(r.distance(RgbColor::RED) < 0.001);
+    }
+    #[test]
+    fn green() {
+        let g = RgbColor::from_color_hex("#00ff00");
+        assert!(g.distance(RgbColor::GREEN) < 0.001);
+    }
+    #[test]
+    fn blue() {
+        let b = RgbColor::from_color_hex("#0000ff");
+        assert!(b.distance(RgbColor::BLUE) < 0.001);
+    }
+    #[test]
+    fn white() {
+        let w = RgbColor::from_color_hex("#ffffff");
+        assert!(w.distance(RgbColor::WHITE) < 0.001);
+    }
+    #[test]
+    fn all_digits() {
+        let colors = [
+            ("#000001", 1),
+            ("#000002", 2),
+            ("#000003", 3),
+            ("#000004", 4),
+            ("#000005", 5),
+            ("#000006", 6),
+            ("#000007", 7),
+            ("#000008", 8),
+            ("#000009", 9),
+            ("#00000A", 10),
+            ("#00000B", 11),
+            ("#00000C", 12),
+            ("#00000D", 13),
+            ("#00000E", 14),
+            ("#00000F", 15),
+        ];
+        for (color_str, blue) in colors {
+            assert_eq!(
+                RgbColor::from_color_hex(color_str),
+                RgbColor {
+                    red: 0.,
+                    green: 0.,
+                    blue: blue as f32 / 255.
+                }
+            )
+        }
     }
 }

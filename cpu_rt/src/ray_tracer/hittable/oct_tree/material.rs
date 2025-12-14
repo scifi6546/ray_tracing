@@ -35,7 +35,7 @@ impl PartialEq for SolidVoxel {
             Self::Lambertian { albedo: color } => match rhs {
                 Self::Lambertian {
                     albedo: other_color,
-                } => color.distance(other_color) < ERROR_MARGIN,
+                } => color.distance(*other_color) < ERROR_MARGIN,
                 Self::Reflect { .. } => false,
             },
             Self::Reflect { albedo, fuzz } => match rhs {
@@ -43,7 +43,7 @@ impl PartialEq for SolidVoxel {
                 Self::Reflect {
                     albedo: rhs_albedo,
                     fuzz: rhs_fuzz,
-                } => (albedo.distance(rhs_albedo) + (fuzz - rhs_fuzz).abs()) < ERROR_MARGIN,
+                } => (albedo.distance(*rhs_albedo) + (fuzz - rhs_fuzz).abs()) < ERROR_MARGIN,
             },
         }
     }
@@ -67,7 +67,7 @@ impl PartialEq for VolumeVoxel {
         const VOLUME_ERROR_MARGIN: RayScalar = 0.0001;
         const COLOR_ERROR_MARGIN: f32 = 0.0001;
         (self.density - rhs.density).abs() < VOLUME_ERROR_MARGIN
-            && (self.color.distance(&rhs.color)) < COLOR_ERROR_MARGIN
+            && (self.color.distance(rhs.color)) < COLOR_ERROR_MARGIN
             && self.edge_effect == rhs.edge_effect
     }
 }
