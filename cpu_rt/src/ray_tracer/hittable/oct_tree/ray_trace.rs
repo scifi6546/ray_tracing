@@ -39,9 +39,14 @@ impl OctTreeNode<Voxel> {
         }
         enum VolumeOutput {
             ContinueIteration(RayTraceState),
-            StopIteration {
+            StopIterationVolume {
                 stop_position: Point3<RayScalar>,
                 hit_material: VoxelMaterial,
+            },
+            StopIterationSolid {
+                stop_position: Point3<RayScalar>,
+                hit_material: VoxelMaterial,
+                normal: Vector3<RayScalar>,
             },
         }
         fn floor_value_integer(a: i32, b: i32) -> i32 {
@@ -81,7 +86,7 @@ impl OctTreeNode<Voxel> {
                     let stop_position =
                         dist_info.last_position + dist_info.distance_left * direction.normalize();
 
-                    VolumeOutput::StopIteration {
+                    VolumeOutput::StopIterationVolume {
                         stop_position,
                         hit_material: previous_volume.volume_material(),
                     }
@@ -106,7 +111,7 @@ impl OctTreeNode<Voxel> {
                     } => {
                         let random_number = rand_scalar(0., 1.) as f32;
                         if random_number < hit_probability {
-                            return VolumeOutput::StopIteration {
+                            return VolumeOutput::StopIterationVolume {
                                 stop_position: rt_state.current_position,
                                 hit_material: solid_material.to_material(),
                             };
@@ -135,7 +140,7 @@ impl OctTreeNode<Voxel> {
                     let stop_position =
                         dist_info.last_position + dist_info.distance_left * direction.normalize();
 
-                    VolumeOutput::StopIteration {
+                    VolumeOutput::StopIterationVolume {
                         stop_position,
                         hit_material: dist_info.previous_volume.volume_material(),
                     }
@@ -159,6 +164,22 @@ impl OctTreeNode<Voxel> {
             current_position: ray.origin,
             volume_distance_left: None,
         };
+        fn handle_hit(
+            node_leaf: &Voxel,
+            rt_state: RayTraceState,
+            ray: Ray,
+            normal: Vector3<RayScalar>,
+        ) -> VolumeOutput {
+            match node_leaf {
+                Voxel::Solid(solid_material) => VolumeOutput::StopIterationSolid {
+                    stop_position: rt_state.current_position,
+                    hit_material: solid_material.to_material(),
+                    normal,
+                },
+                Voxel::Volume(volume) => handle_volume(*volume, rt_state, ray.direction),
+                Voxel::Empty => handle_empty(rt_state, ray.direction),
+            }
+        }
 
         {
             let chunk = self
@@ -171,7 +192,7 @@ impl OctTreeNode<Voxel> {
             match leaf {
                 Voxel::Volume(volume) => match handle_volume(*volume, rt_state, ray.direction) {
                     VolumeOutput::ContinueIteration(new_state) => rt_state = new_state,
-                    VolumeOutput::StopIteration {
+                    VolumeOutput::StopIterationVolume {
                         stop_position,
                         hit_material,
                     } => {
@@ -181,6 +202,11 @@ impl OctTreeNode<Voxel> {
                             normal: initial_normal,
                         })
                     }
+                    VolumeOutput::StopIterationSolid {
+                        stop_position,
+                        hit_material,
+                        normal,
+                    } => todo!("stop iteration solid"),
                 },
                 Voxel::Solid { .. } => {}
                 Voxel::Empty => {}
@@ -292,45 +318,31 @@ impl OctTreeNode<Voxel> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        match node_leaf {
-                            Voxel::Solid(solid_material) => {
-                                let normal = Vector3::new(-1., 0., 0.);
-
+                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(-1., 0., 0.)) {
+                            VolumeOutput::ContinueIteration(new_rt_state) => {
+                                rt_state = new_rt_state
+                            }
+                            VolumeOutput::StopIterationVolume {
+                                stop_position,
+                                hit_material,
+                            } => {
+                                return Some(OctTreeHitInfo::Volume {
+                                    hit_value: hit_material,
+                                    hit_position: stop_position,
+                                })
+                            }
+                            VolumeOutput::StopIterationSolid {
+                                stop_position,
+                                hit_material,
+                                normal,
+                            } => {
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: solid_material.to_material(),
+                                    hit_value: hit_material,
                                     hit_position: rt_state.current_position,
                                     normal,
-                                });
+                                })
                             }
-                            Voxel::Volume(volume) => {
-                                match handle_volume(*volume, rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                            Voxel::Empty => {
-                                match handle_empty(rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                        }
+                        };
                     } else {
                         return None;
                     }
@@ -367,45 +379,31 @@ impl OctTreeNode<Voxel> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        match node_leaf {
-                            Voxel::Solid(solid_material) => {
-                                let normal = Vector3::new(0., 0., 1.);
-
+                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(1., 0., 0.)) {
+                            VolumeOutput::ContinueIteration(new_rt_state) => {
+                                rt_state = new_rt_state
+                            }
+                            VolumeOutput::StopIterationVolume {
+                                stop_position,
+                                hit_material,
+                            } => {
+                                return Some(OctTreeHitInfo::Volume {
+                                    hit_value: hit_material,
+                                    hit_position: stop_position,
+                                })
+                            }
+                            VolumeOutput::StopIterationSolid {
+                                stop_position,
+                                hit_material,
+                                normal,
+                            } => {
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: solid_material.to_material(),
+                                    hit_value: hit_material,
                                     hit_position: rt_state.current_position,
                                     normal,
-                                });
+                                })
                             }
-                            Voxel::Volume(volume) => {
-                                match handle_volume(*volume, rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                            Voxel::Empty => {
-                                match handle_empty(rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                        }
+                        };
                     } else {
                         return None;
                     }
@@ -442,45 +440,31 @@ impl OctTreeNode<Voxel> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        match node_leaf {
-                            Voxel::Solid(solid_material) => {
-                                let normal = Vector3::new(0., -1., 0.);
-
+                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., -1., 0.)) {
+                            VolumeOutput::ContinueIteration(new_rt_state) => {
+                                rt_state = new_rt_state
+                            }
+                            VolumeOutput::StopIterationVolume {
+                                stop_position,
+                                hit_material,
+                            } => {
+                                return Some(OctTreeHitInfo::Volume {
+                                    hit_value: hit_material,
+                                    hit_position: stop_position,
+                                })
+                            }
+                            VolumeOutput::StopIterationSolid {
+                                stop_position,
+                                hit_material,
+                                normal,
+                            } => {
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: solid_material.to_material(),
+                                    hit_value: hit_material,
                                     hit_position: rt_state.current_position,
                                     normal,
-                                });
+                                })
                             }
-                            Voxel::Volume(volume) => {
-                                match handle_volume(*volume, rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                            Voxel::Empty => {
-                                match handle_empty(rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                        }
+                        };
                     } else {
                         return None;
                     }
@@ -515,45 +499,31 @@ impl OctTreeNode<Voxel> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        match node_leaf {
-                            Voxel::Solid(solid_material) => {
-                                let normal = Vector3::new(0., 1., 0.);
-
+                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 1., 0.)) {
+                            VolumeOutput::ContinueIteration(new_rt_state) => {
+                                rt_state = new_rt_state
+                            }
+                            VolumeOutput::StopIterationVolume {
+                                stop_position,
+                                hit_material,
+                            } => {
+                                return Some(OctTreeHitInfo::Volume {
+                                    hit_value: hit_material,
+                                    hit_position: stop_position,
+                                })
+                            }
+                            VolumeOutput::StopIterationSolid {
+                                stop_position,
+                                hit_material,
+                                normal,
+                            } => {
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: solid_material.to_material(),
+                                    hit_value: hit_material,
                                     hit_position: rt_state.current_position,
                                     normal,
-                                });
+                                })
                             }
-                            Voxel::Volume(volume) => {
-                                match handle_volume(*volume, rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                            Voxel::Empty => {
-                                match handle_empty(rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                        }
+                        };
                     } else {
                         return None;
                     }
@@ -590,45 +560,31 @@ impl OctTreeNode<Voxel> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        match node_leaf {
-                            Voxel::Solid(solid_material) => {
-                                let normal = Vector3::new(0., 0., -1.);
-
+                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 0., -1.)) {
+                            VolumeOutput::ContinueIteration(new_rt_state) => {
+                                rt_state = new_rt_state
+                            }
+                            VolumeOutput::StopIterationVolume {
+                                stop_position,
+                                hit_material,
+                            } => {
+                                return Some(OctTreeHitInfo::Volume {
+                                    hit_value: hit_material,
+                                    hit_position: stop_position,
+                                })
+                            }
+                            VolumeOutput::StopIterationSolid {
+                                stop_position,
+                                hit_material,
+                                normal,
+                            } => {
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: solid_material.to_material(),
+                                    hit_value: hit_material,
                                     hit_position: rt_state.current_position,
                                     normal,
-                                });
+                                })
                             }
-                            Voxel::Volume(volume) => {
-                                match handle_volume(*volume, rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                            Voxel::Empty => {
-                                match handle_empty(rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                        }
+                        };
                     } else {
                         return None;
                     }
@@ -665,45 +621,31 @@ impl OctTreeNode<Voxel> {
                             OctTreeChildren::Leaf(v) => v,
                             OctTreeChildren::ParentNode(_) => panic!("should not be a parent node"),
                         };
-                        match node_leaf {
-                            Voxel::Solid(solid_material) => {
-                                let normal = Vector3::new(0., 0., 1.);
-
+                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 0., 1.)) {
+                            VolumeOutput::ContinueIteration(new_rt_state) => {
+                                rt_state = new_rt_state
+                            }
+                            VolumeOutput::StopIterationVolume {
+                                stop_position,
+                                hit_material,
+                            } => {
+                                return Some(OctTreeHitInfo::Volume {
+                                    hit_value: hit_material,
+                                    hit_position: stop_position,
+                                })
+                            }
+                            VolumeOutput::StopIterationSolid {
+                                stop_position,
+                                hit_material,
+                                normal,
+                            } => {
                                 return Some(OctTreeHitInfo::Solid {
-                                    hit_value: solid_material.to_material(),
+                                    hit_value: hit_material,
                                     hit_position: rt_state.current_position,
                                     normal,
-                                });
+                                })
                             }
-                            Voxel::Volume(volume) => {
-                                match handle_volume(*volume, rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                            Voxel::Empty => {
-                                match handle_empty(rt_state, ray.direction) {
-                                    VolumeOutput::ContinueIteration(state) => rt_state = state,
-                                    VolumeOutput::StopIteration {
-                                        stop_position,
-                                        hit_material,
-                                    } => {
-                                        return Some(OctTreeHitInfo::Volume {
-                                            hit_value: hit_material,
-                                            hit_position: stop_position,
-                                        })
-                                    }
-                                };
-                            }
-                        }
+                        };
                     } else {
                         return None;
                     }

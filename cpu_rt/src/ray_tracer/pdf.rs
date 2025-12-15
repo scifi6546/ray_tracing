@@ -59,6 +59,24 @@ impl Pdf for CosinePdf {
         Some((direction, value))
     }
 }
+//isotropic scattering, used for
+pub struct IsotropicPdf {}
+impl Pdf for IsotropicPdf {
+    fn value(&self, _direction: &Ray, _world: &World) -> Option<RayScalar> {
+        Some(1.)
+    }
+    fn is_valid(&self, _world: &World) -> bool {
+        true
+    }
+    fn generate(
+        &self,
+        _incoming_ray: Ray,
+        _hit_point: Point3<RayScalar>,
+        _world: &World,
+    ) -> Option<(Vector3<RayScalar>, RayScalar)> {
+        Some((rand_unit_vec(), 1.))
+    }
+}
 pub struct LightPdf {}
 impl Pdf for LightPdf {
     fn value(&self, ray: &Ray, world: &World) -> Option<RayScalar> {

@@ -8,7 +8,7 @@ use crate::{
     ray_tracer::{
         hittable::{HitRay, HitRecord},
         material::Material,
-        pdf::{LambertianPDF, ScatterRecord},
+        pdf::{IsotropicPdf, LambertianPDF, ScatterRecord},
         rand_unit_vec,
     },
     reflect,
@@ -155,7 +155,7 @@ impl Material for VoxelMaterial {
             Self::Volume { color, .. } => Some(ScatterRecord {
                 specular_ray: None,
                 attenuation: *color,
-                pdf: Some(Rc::new(LambertianPDF::new(record_in.normal()))),
+                pdf: Some(Rc::new(IsotropicPdf {})),
                 scattering_pdf: Self::scattering_pdf_fn,
             }),
             Self::Reflect { albedo, fuzz } => {

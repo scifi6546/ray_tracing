@@ -91,7 +91,6 @@ pub fn random_cosine_direction() -> Vector3<RayScalar> {
     Vector3 { x, y, z }
 }
 
-#[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
     pub origin: Point3<RayScalar>,

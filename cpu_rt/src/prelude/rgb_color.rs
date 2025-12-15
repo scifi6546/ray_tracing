@@ -92,8 +92,8 @@ impl RgbColor {
     pub fn from_color_hex(s: &str) -> Self {
         let hex_str = s.strip_prefix("#").expect("invalid syntax");
         let mut total = 0u32;
-        assert_eq!(hex_str.len(), 6);
-        for (idx, char) in hex_str.to_lowercase().char_indices() {
+        assert!(hex_str.len() >= 6);
+        for (idx, char) in hex_str.to_lowercase().char_indices().take(6) {
             let number = match char {
                 '0' => 0x0u32,
                 '1' => 0x1u32,
@@ -115,7 +115,6 @@ impl RgbColor {
             };
             total += number * 16u32.pow(5 - idx as u32);
         }
-        println!("total: {:#x}", total);
         let red_u32 = (total & 0xff0000) >> 16;
         let green_u32 = (total & 0x00ff00) >> 8;
         let blue_u32 = total & 0x0000ff;
