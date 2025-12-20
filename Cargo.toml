@@ -1,5 +1,5 @@
 [workspace]
-members = ["cpu_rt_runner", "cpu_rt"]
+members = ["cpu_rt_runner", "cpu_rt", "pdf_explorer"]
 resolver = "2"
 [profile.dev]
 opt-level = 0
