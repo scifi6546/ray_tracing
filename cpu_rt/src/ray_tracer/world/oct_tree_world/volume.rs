@@ -534,7 +534,7 @@ pub fn oct_tree_volume_ice() -> WorldInfo {
         for y in 1..9 {
             for z in 0..10 {
                 let offset = Vector3::new(10, 0, 10);
-                let ice_color = RgbColor::from_color_hex("#dce8faff");
+                let ice_color = RgbColor::from_color_hex("#839dc4ff");
                 let snow_color = RgbColor::from_color_hex("#ffffffff");
                 let value = if y >= 8 {
                     Voxel::Volume(VolumeVoxel {
@@ -547,13 +547,13 @@ pub fn oct_tree_volume_ice() -> WorldInfo {
                     })
                 } else {
                     Voxel::Volume(VolumeVoxel {
-                        density: 0.1,
+                        density: 0.5,
                         color: ice_color,
                         edge_effect: VolumeEdgeEffect::Solid {
-                            hit_probability: 0.5,
+                            hit_probability: 0.1,
                             solid_material: SolidVoxel::Reflect {
                                 albedo: ice_color,
-                                fuzz: 0.3,
+                                fuzz: 0.1,
                             },
                         },
                     })
