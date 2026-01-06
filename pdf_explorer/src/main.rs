@@ -4,11 +4,14 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
+use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass, egui};
 
+use cgmath::{InnerSpace, Zero};
+use core::f32;
 use rand::{Rng, rngs::ThreadRng};
 use std::{
     f32::consts::{FRAC_PI_2, PI},
-    ops::{Neg, Range},
+    ops::Range,
 };
 #[derive(Debug, Resource)]
 struct CameraSettings {
@@ -33,13 +36,133 @@ impl Default for CameraSettings {
         }
     }
 }
+#[derive(Debug, Resource, Component)]
+struct DirectionVector {
+    direction: cgmath::Vector3<f32>,
+}
+impl std::default::Default for DirectionVector {
+    fn default() -> Self {
+        Self {
+            direction: cgmath::Vector3::unit_x(),
+        }
+    }
+}
+#[derive(Component, Debug)]
+struct DrawPoint {
+    theta: f32,
+    phi: f32,
+}
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_linear()))
-        .add_systems(Startup, (setup, axis_cube))
+        .add_plugins(EguiPlugin::default())
+        .add_systems(Startup, (setup, axis_cube, ui_startup))
         .init_resource::<CameraSettings>()
+        .init_resource::<DirectionVector>()
         .add_systems(Update, orbit)
+        .add_systems(EguiPrimaryContextPass, ui_system)
         .run();
+}
+fn ui_startup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let theta_num = 50;
+    let phi_num = 50;
+    let sphere = meshes.add(Sphere::default().mesh().uv(32, 18));
+    let sphere_color = materials.add(StandardMaterial {
+        base_color: Color::LinearRgba(LinearRgba {
+            red: 0.5,
+            green: 0.0,
+            blue: 1.0,
+            alpha: 1.0,
+        }),
+        metallic: 1.0,
+        perceptual_roughness: 0.0,
+        ..default()
+    });
+    for i in 0..theta_num {
+        for j in 0..phi_num {
+            let theta = (i as f32 * f32::consts::PI * 2.) / theta_num as f32;
+            let phi = (j as f32 * f32::consts::PI * 2.) / phi_num as f32;
+            commands.spawn((
+                Mesh3d(sphere.clone()),
+                MeshMaterial3d(sphere_color.clone()),
+                Transform::from_xyz(0., 0., 0.).with_scale(Vec3::new(0.1, 0.1, 0.1)),
+                DrawPoint { theta, phi },
+            ));
+        }
+    }
+}
+
+fn ui_system(
+    mut query: Query<(&DrawPoint, &mut Transform)>,
+    mut direction: ResMut<DirectionVector>,
+    mut contexts: EguiContexts,
+) -> Result {
+    egui::Window::new("Hello").show(contexts.ctx_mut()?, |ui| {
+        ui.label("world");
+        let mut x = direction.direction.x;
+        let range = (0.)..=(1.);
+        ui.add(egui::Slider::new(&mut x, range.clone()).text("x"));
+        direction.direction.x = x;
+
+        let mut y = direction.direction.y;
+
+        ui.add(egui::Slider::new(&mut y, range.clone()).text("y"));
+        direction.direction.y = y;
+
+        let mut z = direction.direction.z;
+
+        ui.add(egui::Slider::new(&mut z, range).text("z"));
+        direction.direction.z = z;
+
+        direction.direction = direction.direction.normalize();
+        let p = if (direction.direction.x * direction.direction.x
+            + direction.direction.y * direction.direction.y)
+            .abs()
+            >= 0.1
+        {
+            cgmath::vec3(-direction.direction.y, direction.direction.x, 0.).normalize()
+        } else {
+            cgmath::vec3(0., -direction.direction.z, direction.direction.y)
+        };
+
+        ui.label(format!(
+            "perpendicular: <{:.2}, {:.2}, {:.2}>",
+            p.x, p.y, p.z
+        ));
+        ui.label(format!("dot product: {:.2}", p.dot(direction.direction)));
+        let cross = direction.direction.cross(p);
+        ui.label(format!(
+            "perpendicular 2: <{:.2}, {:.2}, {:.2}>",
+            cross.x, cross.y, cross.z
+        ));
+        ui.label(format!(
+            "dot product: {:.2}",
+            cross.dot(direction.direction)
+        ));
+        ui.label(format!("dot product: {:.2}", cross.dot(p)));
+        let matrix = cgmath::Matrix3::from_cols(p, cross, cgmath::Vector3::zero());
+        for (draw_point, mut transform) in query.iter_mut() {
+            let x = draw_point.theta.cos();
+            let y = draw_point.theta.sin();
+            let world_point = matrix * cgmath::Vector3::new(x, y, 0.);
+
+            let final_matrix = cgmath::Matrix3::from_cols(
+                direction.direction,
+                world_point,
+                cgmath::Vector3::zero(),
+            );
+            let phi_x = draw_point.phi.cos();
+            let phi_y = draw_point.phi.sin();
+            let final_point = final_matrix * cgmath::Vector3::new(phi_x, phi_y, 0.);
+            transform.translation = vec3(final_point.x, final_point.y, final_point.z);
+        }
+    });
+
+    Ok(())
 }
 fn uv_debug_texture() -> Image {
     const TEXTURE_SIZE: usize = 8;
