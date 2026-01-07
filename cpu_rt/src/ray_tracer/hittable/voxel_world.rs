@@ -190,10 +190,6 @@ pub(crate) enum CubeMaterialIndex {
     Solid { index: MaterialIndex },
 }
 impl CubeMaterialIndex {
-    pub fn new_solid(index: MaterialIndex) -> Self {
-        Self::Solid { index }
-    }
-
     pub fn new_air() -> Self {
         Self::Solid {
             index: MaterialIndex::MAX,

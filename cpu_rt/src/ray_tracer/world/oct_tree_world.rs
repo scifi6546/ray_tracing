@@ -3,7 +3,7 @@ mod load_model;
 pub mod metal;
 pub mod volume;
 use super::{
-    Camera, CameraInfo, ConstantColor, DiffuseLight, OctTree, SolidColor, Sphere, Sun, SunSky,
+    Camera, CameraInfo, ConstantColor, DiffuseLight, OctTree, Sky, SolidColor, Sphere, Sun, SunSky,
     Transform, Voxel, WorldInfo,
 };
 pub use load_model::load_voxel_model;
@@ -12,7 +12,7 @@ use crate::{
     prelude::*,
     ray_tracer::hittable::{Object, SolidVoxel},
 };
-use cgmath::{num_traits::FloatConst, prelude::*, Point3, Vector3};
+use cgmath::{num_traits::FloatConst, prelude::*, Point2, Point3, Vector3};
 
 pub fn basic_sphere() -> WorldInfo {
     let origin = Point3::<RayScalar>::new(1.0, 1.0, 1.0);
@@ -285,6 +285,149 @@ pub fn cube_back() -> WorldInfo {
         camera: Camera::new(CameraInfo {
             aspect_ratio: 1.0,
             fov: 20.,
+            origin,
+            look_at,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
+            focus_distance,
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
+        sun: None,
+    }
+}
+pub fn cube_world() -> WorldInfo {
+    let look_at = Point3::<RayScalar>::new(0.0, 5.0, 5.0);
+
+    let origin = Point3::<RayScalar>::new(-20.0, 5.0, -20.0);
+
+    let fov = 40.0;
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+
+    let light = Box::new(DiffuseLight {
+        emit: Box::new(SolidColor {
+            color: 20000.0 * RgbColor::WHITE,
+        }),
+    });
+
+    let light = Object::new(
+        Box::new(Sphere {
+            radius: 1.0,
+            origin: Point3::new(10.0, 10.0, -10.0),
+            material: light,
+        }),
+        Transform::identity(),
+    );
+    let mut tree = OctTree::<Voxel>::empty();
+    for i in 3..6 {
+        for j in 3..6 {
+            for k in 3..6 {
+                tree.set(
+                    Point3::new(i, j, k),
+                    Voxel::Solid(SolidVoxel::Lambertian {
+                        albedo: RgbColor::new(0.65, 0.05, 0.05),
+                    }),
+                )
+            }
+        }
+    }
+    for pos in [
+        Point3::new(0, 0, 0),
+        Point3::new(0, 1, 0),
+        Point3::new(5, 5, 5),
+    ] {
+        tree.set(
+            pos,
+            Voxel::Solid(SolidVoxel::Lambertian {
+                albedo: RgbColor::new(0.65, 0.05, 0.05),
+            }),
+        )
+    }
+    WorldInfo {
+        objects: vec![
+            Object::new(Box::new(tree), Transform::identity()),
+            light.clone(),
+        ],
+        lights: vec![light],
+        background: Box::new(ConstantColor {
+            color: 0.1 * RgbColor::new(1.0, 1.0, 1.0),
+        }),
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov,
+            origin,
+            look_at,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
+            focus_distance,
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
+        sun: None,
+    }
+}
+pub fn explosion() -> WorldInfo {
+    let look_at = Point3::<RayScalar>::new(50.0, 10.0, 50.0);
+
+    let origin = Point3::<RayScalar>::new(-20.0, 50.0, -20.0);
+
+    let fov = 40.0;
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+
+    let light = Box::new(DiffuseLight {
+        emit: Box::new(SolidColor {
+            color: 20000.0 * RgbColor::new(252.0 / 255.0, 79.0 / 255.0, 5.0 / 255.0),
+        }),
+    });
+    let lava_light = Object::new(
+        Box::new(Sphere {
+            radius: 3.0,
+            origin: Point3::new(50.0, 28.0, 50.0),
+            material: light.clone(),
+        }),
+        Transform::identity(),
+    );
+
+    const MAX_Y: i32 = 20;
+    fn height(x: isize, z: isize) -> isize {
+        let center = Point2::new(50.0, 50.0);
+        let radius = center.distance(Point2::new(x as f32, z as f32));
+        let h = (radius / 10.0).cos() * 10.0 + 15.0;
+        h.max(0.0).min((MAX_Y - 1) as f32) as isize
+    }
+    let mut tree = OctTree::<Voxel>::empty();
+    for x in 0..100 {
+        for z in 0..100 {
+            let h = height(x, z);
+            for y in 0..=h {
+                let albedo = if y < 9 {
+                    RgbColor::new(0.65, 0.8, 0.05)
+                } else {
+                    RgbColor::new(0.65, 0.05, 0.05)
+                };
+                tree.set(
+                    Point3::new(x as u32, y as u32, z as u32),
+                    Voxel::Solid(SolidVoxel::Lambertian { albedo }),
+                );
+            }
+        }
+    }
+    WorldInfo {
+        objects: vec![
+            Object::new(Box::new(tree), Transform::identity()),
+            lava_light.clone(),
+        ],
+        lights: vec![lava_light],
+        background: Box::new(Sky { intensity: 0.1 }),
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov,
             origin,
             look_at,
             up_vector: Vector3::unit_y(),

@@ -2,8 +2,6 @@ mod cornell_smoke;
 mod demo;
 mod dielectric;
 
-mod cube_world;
-mod cube_world_big;
 mod easy_cornell_box;
 mod easy_scene;
 mod empty_scene;
@@ -30,10 +28,7 @@ mod world_prelude {
     pub(crate) use super::super::{
         background::Sky,
         camera::{Camera, CameraInfo},
-        hittable::{
-            voxel_world::{CubeMaterial, CubeMaterialIndex},
-            Transform,
-        },
+        hittable::Transform,
     };
 }
 use crate::prelude::*;
@@ -203,14 +198,6 @@ pub fn get_scenarios() -> Scenarios {
             f: demo::cube_field::build_field,
         }),
         Box::new(ScenarioFn {
-            name: "Cube World".to_string(),
-            f: cube_world::cube_world,
-        }),
-        Box::new(ScenarioFn {
-            name: "Cube World Big".to_string(),
-            f: cube_world_big::cube_world_big,
-        }),
-        Box::new(ScenarioFn {
             name: "Empty Scene".to_string(),
             f: empty_scene::empty_scene,
         }),
@@ -277,6 +264,14 @@ pub fn get_scenarios() -> Scenarios {
         Box::new(ScenarioFn {
             name: "Oct Tree Load Model".to_string(),
             f: oct_tree_world::load_voxel_model,
+        }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Cube World".to_string(),
+            f: oct_tree_world::cube_world,
+        }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Explosion".to_string(),
+            f: oct_tree_world::explosion,
         }),
     ];
     let map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
