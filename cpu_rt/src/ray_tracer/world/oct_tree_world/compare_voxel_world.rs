@@ -2,10 +2,7 @@ use super::{Camera, CameraInfo};
 use crate::prelude::{RayScalar, RgbColor};
 use crate::ray_tracer::background::Sky;
 
-use crate::ray_tracer::hittable::hittable_objects::CubeMaterial;
-use crate::ray_tracer::hittable::{
-    voxel_world::CubeMaterialIndex, Object, OctTree, SolidVoxel, Transform, Voxel, VoxelWorld,
-};
+use crate::ray_tracer::hittable::{Object, OctTree, SolidVoxel, Transform, Voxel};
 use crate::ray_tracer::world::WorldInfo;
 
 use cgmath::{prelude::*, Point3, Vector3};
@@ -62,23 +59,22 @@ pub(crate) fn simple_cube() -> WorldInfo {
         (t.dot(t)).sqrt()
     };
 
-    let mut world = VoxelWorld::new(
-        vec![CubeMaterial::new(RgbColor::new(0.65, 0.05, 0.05))],
-        10,
-        10,
-        10,
-    );
+    let mut tree = OctTree::<Voxel>::empty();
     for x in 0..3 {
         for y in 0..3 {
             for z in 0..3 {
-                world.update(x, y, z, CubeMaterialIndex::Solid { index: 0 })
+                tree.set(
+                    Point3 { x, y, z },
+                    Voxel::Solid(SolidVoxel::Lambertian {
+                        albedo: RgbColor::new(0.65, 0.05, 0.05),
+                    }),
+                )
             }
         }
     }
-    let world: OctTree<Voxel> = world.into();
 
     WorldInfo {
-        objects: vec![Object::new(Box::new(world), Transform::identity())],
+        objects: vec![Object::new(Box::new(tree), Transform::identity())],
         lights: vec![],
         background: Box::new(Sky { intensity: 0.6 }),
         camera: Camera::new(CameraInfo {

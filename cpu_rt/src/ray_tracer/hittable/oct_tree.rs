@@ -1,4 +1,3 @@
-mod from_voxel_world;
 mod hittable;
 mod material;
 mod node;

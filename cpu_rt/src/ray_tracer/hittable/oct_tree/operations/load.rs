@@ -2,9 +2,11 @@ use super::{
     super::{material::SolidVoxel, Voxel},
     OctTree,
 };
-use crate::{ray_tracer::hittable::hittable_objects::VoxelMap, RgbColor};
+use serde::Deserialize;
 
+use crate::RgbColor;
 use cgmath::Point3;
+use log::info;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -12,11 +14,30 @@ use std::{
     ops::Neg,
     path::Path,
 };
+#[derive(Deserialize)]
+struct TileType {
+    index: u32,
+    is_air: bool,
+    model_path: Option<String>,
+}
+#[derive(Deserialize)]
+struct ModelMap {
+    tile_types: Vec<TileType>,
+    tile_size: u32,
+    /// outer array is x, inner is z, so indexing looks like `tiles[x][z]`
+    tiles: Vec<Vec<u32>>,
+}
+impl ModelMap {
+    pub(crate) fn num_tiles_x(&self) -> usize {
+        self.tiles.len()
+    }
+}
 impl OctTree<Voxel> {
     pub fn load_map<P: AsRef<Path>>(p: P) -> Result<Self, IoError> {
+        info!("loading map!");
         let file = File::open(p)?;
         let mut tree = OctTree::<Voxel>::empty();
-        let map: VoxelMap = serde_yaml::from_reader(file).expect("failed to parse");
+        let map: ModelMap = serde_yaml::from_reader(file).expect("failed to parse");
         let models = map
             .tile_types
             .iter()
@@ -31,6 +52,7 @@ impl OctTree<Voxel> {
                 }
             })
             .collect::<HashMap<_, _>>();
+
         for x in 0..map.tiles.len() {
             for z in 0..map.tiles[x].len() {
                 let tile_index = map.tiles[x][z];
