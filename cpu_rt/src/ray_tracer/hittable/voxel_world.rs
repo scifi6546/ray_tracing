@@ -1,65 +1,19 @@
-use super::{super::Lambertian, Aabb, HitRecord, Hittable};
+use crate::prelude::*;
 
-use crate::ray_tracer::{
-    hittable::{HitRay, RayAreaInfo},
-    pdf::ScatterRecord,
-    texture::SolidColor,
-};
-use crate::{prelude::*, ray_tracer::Material};
-use cgmath::{prelude::*, Point2, Point3, Vector3};
+use cgmath::{Point3, Vector3};
 pub(crate) use voxel_map::VoxelMap;
 
 mod voxel_map;
 
-use std::ops::Neg;
-
-#[derive(Debug)]
-enum HitResult<T: Solid + std::fmt::Debug> {
-    Hit {
-        position: Point3<RayScalar>,
-        normal: Vector3<RayScalar>,
-        voxel: T,
-    },
-    DidNotHit,
-}
-fn min_idx_vec(v: Vector3<RayScalar>) -> usize {
-    let mut min_val = v.x;
-    let mut min_idx = 0;
-
-    if min_val > v.y {
-        min_val = v.y;
-        min_idx = 1;
-    }
-    if min_val > v.z {
-        return 2;
-    }
-    min_idx
-}
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum CubeType {
-    Solid,
-    Air,
-}
-trait Solid {
-    fn solid(&self) -> CubeType;
-}
-impl Solid for bool {
-    fn solid(&self) -> CubeType {
-        match self {
-            true => CubeType::Solid,
-            false => CubeType::Air,
-        }
-    }
-}
 #[derive(Clone)]
-struct Voxels<T: Clone + Solid> {
+struct Voxels<T: Clone> {
     data: Vec<T>,
     x_dim: usize,
     y_dim: usize,
     z_dim: usize,
 }
 
-impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
+impl<T: Clone + std::fmt::Debug> Voxels<T> {
     /// gets size of voxel grid
     pub(crate) fn size(&self) -> Vector3<usize> {
         Vector3::new(self.x_dim, self.y_dim, self.z_dim)
@@ -94,95 +48,8 @@ impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
             error!("out of range ({}, {}, {})", x, y, z)
         }
     }
-
-    pub(crate) fn trace_voxels(
-        &self,
-        origin: Point3<RayScalar>,
-        direction: Vector3<RayScalar>,
-    ) -> HitResult<T> {
-        let step_size = 1.0 / direction.map(|e| e.abs());
-        let mut step_dir = Vector3::<RayScalar>::zero();
-        let mut next_dist = Vector3::zero();
-        if direction.x < 0.0 {
-            step_dir.x = -1.0;
-            next_dist.x = -1.0 * (origin.x.fract()) / direction.x;
-        } else {
-            step_dir.x = 1.0;
-            next_dist.x = (1.0 - origin.x.fract()) / direction.x;
-        }
-
-        if direction.y < 0.0 {
-            step_dir.y = -1.0;
-            next_dist.y = (origin.y.fract().neg()) / direction.y;
-        } else {
-            step_dir.y = 1.0;
-            next_dist.y = (1.0 - origin.y.fract()) / direction.y;
-        }
-        if direction.z < 0.0 {
-            step_dir.z = -1.0;
-            next_dist.z = (origin.z.fract().neg()) / direction.z;
-        } else {
-            step_dir.z = 1.0;
-            next_dist.z = (1.0 - origin.z.fract()) / direction.z;
-        }
-
-        let mut voxel_pos = origin.map(|e| e as isize);
-        let mut current_pos = origin;
-
-        loop {
-            let min_idx = min_idx_vec(next_dist);
-            let normal = if min_idx == 0 {
-                //min_idx = 0
-                voxel_pos.x += if step_dir.x.is_sign_positive() { 1 } else { -1 };
-                current_pos += direction * next_dist.x;
-                next_dist = next_dist.map(|f| f - next_dist.x);
-                next_dist.x += step_size.x;
-                Vector3::new(step_dir.x.neg(), 0.0, 0.0).normalize()
-            } else if min_idx == 1 {
-                //min_idx = 1
-                voxel_pos.y += if step_dir.y.is_sign_positive() { 1 } else { -1 };
-                current_pos += direction * next_dist.y;
-                next_dist = next_dist.map(|f| f - next_dist.y);
-                next_dist.y += step_size.y;
-                Vector3::new(0.0, step_dir.y.neg(), 0.0).normalize()
-            } else if min_idx == 2 {
-                //min_idx = 2
-                voxel_pos.z += if step_dir.z.is_sign_positive() { 1 } else { -1 };
-                current_pos += direction * next_dist.z;
-                next_dist = next_dist.map(|f| f - next_dist.z);
-                next_dist.z += step_size.z;
-                Vector3::new(0.0, 0.0, step_dir.z.neg()).normalize()
-            } else {
-                panic!("invalid min_idx")
-            };
-            let x_pos = voxel_pos.x;
-            let y_pos = voxel_pos.y;
-            let z_pos = voxel_pos.z;
-            if self.in_range(x_pos, y_pos, z_pos) {
-                let voxel = self.get(x_pos as usize, y_pos as usize, z_pos as usize);
-                match voxel.solid() {
-                    CubeType::Solid => {
-                        return HitResult::Hit {
-                            position: current_pos,
-                            normal,
-                            voxel,
-                        };
-                    }
-                    CubeType::Air => {}
-                }
-            } else {
-                return HitResult::DidNotHit;
-            }
-        }
-    }
 }
-#[derive(Clone, Debug)]
-struct CheckRes {
-    direction: Vector3<RayScalar>,
-    origin: Point3<RayScalar>,
-    normal: Vector3<RayScalar>,
-    t: RayScalar,
-}
+
 type MaterialIndex = u16;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -205,23 +72,8 @@ impl CubeMaterialIndex {
     }
 }
 
-impl Solid for CubeMaterialIndex {
-    fn solid(&self) -> CubeType {
-        match self {
-            Self::Solid { index } => {
-                if *index == MaterialIndex::MAX {
-                    CubeType::Air
-                } else {
-                    CubeType::Solid
-                }
-            }
-        }
-    }
-}
-
 #[derive(Clone)]
 pub(crate) struct CubeMaterial {
-    material: Lambertian,
     color: RgbColor,
 }
 impl CubeMaterial {
@@ -236,42 +88,16 @@ impl std::fmt::Debug for CubeMaterial {
             .finish()
     }
 }
-impl Material for CubeMaterial {
-    fn name(&self) -> &'static str {
-        "cube material"
-    }
 
-    fn scatter(&self, ray_in: Ray, record_in: &HitRay) -> Option<ScatterRecord> {
-        self.material.scatter(ray_in, record_in)
-    }
-
-    fn scattering_pdf(
-        &self,
-        ray_in: Ray,
-        record_in: &HitRecord,
-        scattered_ray: Ray,
-    ) -> Option<RayScalar> {
-        self.material
-            .scattering_pdf(ray_in, record_in, scattered_ray)
-    }
-}
 impl CubeMaterial {
     pub fn new(color: RgbColor) -> Self {
-        CubeMaterial {
-            material: Lambertian {
-                albedo: Box::new(SolidColor { color }),
-            },
-            color,
-        }
+        CubeMaterial { color }
     }
 }
 #[derive(Clone)]
 pub(crate) struct VoxelWorld {
     solid_materials: Vec<CubeMaterial>,
     voxels: Voxels<CubeMaterialIndex>,
-    x: i32,
-    y: i32,
-    z: i32,
 }
 impl VoxelWorld {
     /// gets witdh height and depth of voxel world
@@ -307,9 +133,6 @@ impl VoxelWorld {
                 z as usize,
                 CubeMaterialIndex::new_air(),
             ),
-            x,
-            y,
-            z,
         }
     }
     pub fn update(&mut self, x: isize, y: isize, z: isize, val: CubeMaterialIndex) {
@@ -322,242 +145,5 @@ impl VoxelWorld {
                 }
             }
         };
-    }
-    fn check_x(
-        &self,
-        ray: &Ray,
-        t_min: RayScalar,
-        t_max: RayScalar,
-        x: RayScalar,
-        normal: Vector3<RayScalar>,
-    ) -> Option<CheckRes> {
-        let t = (x - ray.origin.x) / ray.direction.x;
-        if t >= t_min && t <= t_max {
-            let pos = ray.origin + ray.direction * t;
-
-            if pos.y >= 0.0
-                && pos.y <= self.y as RayScalar
-                && pos.z >= 0.0
-                && pos.z <= self.z as RayScalar
-            {
-                Some(CheckRes {
-                    direction: ray.direction,
-                    origin: pos,
-                    normal,
-                    t,
-                })
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-    fn check_y(
-        &self,
-        ray: &Ray,
-        t_min: RayScalar,
-        t_max: RayScalar,
-        y: RayScalar,
-        normal: Vector3<RayScalar>,
-    ) -> Option<CheckRes> {
-        let t = (y - ray.origin.y) / ray.direction.y;
-        if t > t_min && t < t_max {
-            let pos = ray.at(t);
-
-            if pos.x > 0.0
-                && pos.x < self.x as RayScalar
-                && pos.z > 0.0
-                && pos.z < self.z as RayScalar
-            {
-                Some(CheckRes {
-                    direction: ray.direction,
-                    origin: pos,
-                    normal,
-                    t,
-                })
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-    fn check_z(
-        &self,
-        ray: &Ray,
-        t_min: RayScalar,
-        t_max: RayScalar,
-        z: RayScalar,
-        normal: Vector3<RayScalar>,
-    ) -> Option<CheckRes> {
-        let t = (z - ray.origin.z) / ray.direction.z;
-        if t > t_min && t < t_max {
-            let pos = ray.at(t);
-
-            if pos.x >= 0.0
-                && pos.x <= self.x as RayScalar
-                && pos.y >= 0.0
-                && pos.y <= self.y as RayScalar
-            {
-                Some(CheckRes {
-                    direction: ray.direction,
-                    origin: pos,
-                    normal,
-                    t,
-                })
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-    fn manage_hit_res(
-        &self,
-        ray: &Ray,
-        hit: HitResult<CubeMaterialIndex>,
-        t_min: RayScalar,
-        t_max: RayScalar,
-    ) -> Option<HitRecord> {
-        match hit {
-            HitResult::Hit {
-                position,
-                normal,
-                voxel,
-            } => {
-                let dist = ray.origin - position;
-                let t =
-                    Vector3::new(dist.x, dist.y, dist.z).magnitude() / ray.direction.magnitude();
-                if (t > t_min && t < t_max) && t >= 0.0 {
-                    Some(HitRecord::new_ref(
-                        ray,
-                        position,
-                        normal,
-                        t,
-                        Point2::new(0.0, 0.0),
-                        match voxel {
-                            CubeMaterialIndex::Solid { index } => {
-                                &self.solid_materials[index as usize]
-                            }
-                        },
-                    ))
-                } else {
-                    None
-                }
-            }
-            HitResult::DidNotHit => None,
-        }
-    }
-}
-
-impl Hittable for VoxelWorld {
-    fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
-        let aabb = self.bounding_box(t_min, t_max).expect("failed to get aabb");
-        if aabb.contains_point(ray.origin) {
-            let hit_res = self.voxels.trace_voxels(
-                Point3::new(ray.origin.x, ray.origin.y, ray.origin.z),
-                ray.direction,
-            );
-            return self.manage_hit_res(ray, hit_res, t_min, t_max);
-        }
-        let solutions = [
-            self.check_x(ray, t_min, t_max, 0.0, Vector3::new(-1.0, 0.0, 0.0)),
-            self.check_x(
-                ray,
-                t_min,
-                t_max,
-                self.x as RayScalar,
-                Vector3::new(1.0, 0.0, 0.0),
-            ),
-            self.check_y(ray, t_min, t_max, 0.0, Vector3::new(0.0, -1.0, 0.0)),
-            self.check_y(
-                ray,
-                t_min,
-                t_max,
-                self.y as RayScalar,
-                Vector3::new(0.0, 1.0, 0.0),
-            ),
-            self.check_z(ray, t_min, t_max, 0.0, Vector3::new(0.0, 0.0, 1.0)),
-            self.check_z(
-                ray,
-                t_min,
-                t_max,
-                self.z as RayScalar,
-                Vector3::new(0.0, 0.0, 1.0),
-            ),
-        ];
-        let mut min_dist = RayScalar::MAX;
-
-        let mut min_index = usize::MAX;
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..solutions.len() {
-            if let Some(check) = solutions[i].as_ref() {
-                let distance = Point3::new(check.origin.x, check.origin.y, check.origin.z)
-                    .distance(ray.origin);
-                if min_dist > distance {
-                    min_index = i;
-                    min_dist = distance;
-                }
-            }
-        }
-        if min_index != usize::MAX {
-            let s = solutions[min_index].clone().unwrap();
-            let mut idx = s.origin.map(|v| v.floor() as usize);
-            if idx.x == self.x as usize {
-                idx.x = self.x as usize - 1;
-            }
-            if idx.y == self.y as usize {
-                idx.y = self.y as usize - 1;
-            }
-            if idx.z == self.z as usize {
-                idx.z = self.z as usize - 1;
-            }
-
-            let voxel = self.voxels.get(idx.x, idx.y, idx.z);
-            if !voxel.is_solid() {
-                self.manage_hit_res(
-                    ray,
-                    self.voxels.trace_voxels(s.origin, s.direction),
-                    t_min,
-                    t_max,
-                )
-            } else {
-                match voxel {
-                    CubeMaterialIndex::Solid { index } => Some(HitRecord::new_ref(
-                        ray,
-                        s.origin,
-                        s.normal,
-                        s.t,
-                        Point2::new(0.0, 0.0),
-                        &self.solid_materials[index as usize],
-                    )),
-                }
-            }
-        } else {
-            None
-        }
-    }
-
-    fn bounding_box(&self, _time_0: RayScalar, _time_1: RayScalar) -> Option<Aabb> {
-        Some(Aabb {
-            minimum: Point3::new(0.0, 0.0, 0.0),
-            maximum: Point3::new(
-                self.x as RayScalar,
-                self.y as RayScalar,
-                self.z as RayScalar,
-            ),
-        })
-    }
-
-    fn prob(&self, _ray: Ray) -> RayScalar {
-        todo!()
-    }
-
-    fn generate_ray_in_area(&self, _origin: Point3<RayScalar>, _time: RayScalar) -> RayAreaInfo {
-        todo!()
-    }
-    fn name(&self) -> String {
-        "Voxel World".to_string()
     }
 }
