@@ -484,7 +484,7 @@ impl RayTracer {
     }
 
     pub fn threaded_render(self, image: ParallelImage) -> ParallelImageCollector {
-        fn loop_try_get(lock: &RwLock<RayTracer>) -> std::sync::RwLockReadGuard<RayTracer> {
+        fn loop_try_get(lock: &'_ RwLock<RayTracer>) -> std::sync::RwLockReadGuard<'_, RayTracer> {
             loop {
                 let t = lock.try_read();
                 match t {

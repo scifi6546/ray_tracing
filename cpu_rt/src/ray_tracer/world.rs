@@ -8,22 +8,16 @@ mod easy_cornell_box;
 mod easy_scene;
 mod empty_scene;
 mod light_demo;
-mod load_vox_model;
 mod oct_tree_world;
 mod one_sphere;
 mod random_scene;
-mod sinnoh;
-mod translucent_cubeworld;
 mod two_spheres;
-mod voxel_city;
-mod voxel_city_big;
 
 use super::sun::Sun;
 use super::{
     background::{Sky, SunSky},
     bvh::BvhTree,
     camera::{Camera, CameraInfo},
-    hittable::hittable_objects,
     hittable::*,
     material::*,
     ray_tracer_info::{EntityField, WorldEntityCollection},
@@ -32,11 +26,15 @@ use super::{
 };
 
 mod world_prelude {
-    pub(crate) use super::super::background::SunSky;
-    pub(crate) use super::super::hittable::voxel_world::{
-        CubeMaterial, CubeMaterialIndex, PerlinBuilder,
+
+    pub(crate) use super::super::{
+        background::Sky,
+        camera::{Camera, CameraInfo},
+        hittable::{
+            voxel_world::{CubeMaterial, CubeMaterialIndex},
+            Transform,
+        },
     };
-    pub use super::super::sun::Sun;
 }
 use crate::prelude::*;
 
@@ -217,26 +215,6 @@ pub fn get_scenarios() -> Scenarios {
             f: empty_scene::empty_scene,
         }),
         Box::new(ScenarioFn {
-            name: "Voxel City".to_string(),
-            f: voxel_city::voxel_city,
-        }),
-        Box::new(ScenarioFn {
-            name: "Voxel City Big".to_string(),
-            f: voxel_city_big::voxel_city_big,
-        }),
-        Box::new(ScenarioFn {
-            name: "Translucent Cube World".to_string(),
-            f: translucent_cubeworld::translucent_cube_world,
-        }),
-        Box::new(ScenarioFn {
-            name: "Load Voxel Model".to_string(),
-            f: load_vox_model::load_vox_model,
-        }),
-        Box::new(ScenarioFn {
-            name: "Twinleaf Town Map".to_string(),
-            f: sinnoh::twinleaf_map,
-        }),
-        Box::new(ScenarioFn {
             name: "Oct Tree Sphere".to_string(),
             f: oct_tree_world::basic_sphere,
         }),
@@ -296,6 +274,10 @@ pub fn get_scenarios() -> Scenarios {
             name: "Oct Tree GoldCube".to_string(),
             f: oct_tree_world::metal::gold_cube,
         }),
+        Box::new(ScenarioFn {
+            name: "Oct Tree Load Model".to_string(),
+            f: oct_tree_world::load_voxel_model,
+        }),
     ];
     let map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
         .drain(..)
@@ -304,6 +286,6 @@ pub fn get_scenarios() -> Scenarios {
 
     Scenarios {
         items: map,
-        default: "Twinleaf Town Map".to_string(),
+        default: "One Sphere".to_string(),
     }
 }

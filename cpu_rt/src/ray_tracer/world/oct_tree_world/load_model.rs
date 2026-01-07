@@ -1,31 +1,24 @@
 use super::{
-    hittable_objects::*, Camera, CameraInfo, Object, Sky, Transform, VoxelWorld, WorldInfo,
+    super::world_prelude::{Camera, CameraInfo, Sky, Transform},
+    Object, OctTree, RayScalar, WorldInfo,
 };
-use crate::prelude::*;
+
 use cgmath::{prelude::*, Point3, Vector3};
-
-pub fn load_vox_model() -> WorldInfo {
-    const BLOCK_X: i32 = 60;
-    const BLOCK_Y: i32 = 50;
-    const BLOCK_Z: i32 = 60;
-    let model = VoxelModel::load("voxel_assets/apartment_building.vox");
-    let look_at = Point3::new(BLOCK_X as RayScalar / 2.0, 10.0, BLOCK_Z as RayScalar / 2.0);
-
+pub fn load_voxel_model() -> WorldInfo {
+    let tree = OctTree::load_vox("voxel_assets/apartment_building.vox").expect("should load");
     let origin = Point3::<RayScalar>::new(-50.0, 100.0, -40.0);
-    //let origin = Point3::new(-40.0f32, 10.0, -40.0);
 
+    const BLOCK_X: i32 = 60;
+
+    const BLOCK_Z: i32 = 60;
+    let look_at = Point3::new(BLOCK_X as RayScalar / 2.0, 10.0, BLOCK_Z as RayScalar / 2.0);
     let fov = 40.0;
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
-
-    let materials = vec![CubeMaterial::new(RgbColor::WHITE)];
-    let mut world = VoxelWorld::new(materials, vec![], BLOCK_X, BLOCK_Y, BLOCK_Z);
-    model.add_to_world(&mut world, Point3::new(0, 0, 0));
-
     WorldInfo {
-        objects: vec![Object::new(Box::new(world), Transform::identity())],
+        objects: vec![Object::new(Box::new(tree), Transform::identity())],
         lights: vec![],
         background: Box::new(Sky { intensity: 0.4 }),
         camera: Camera::new(CameraInfo {

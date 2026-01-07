@@ -1,10 +1,10 @@
 mod constant_medium;
+mod fast_oct_tree;
 mod oct_tree;
 mod rect;
 mod render_box;
 mod sphere;
 pub mod voxel_world;
-
 use super::{
     ray_tracer_info::{Entity, EntityField},
     Aabb, Material, Ray,
