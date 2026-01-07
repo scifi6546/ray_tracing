@@ -8,13 +8,11 @@ use crate::ray_tracer::{
 use crate::{prelude::*, ray_tracer::Material};
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 pub(crate) use voxel_map::VoxelMap;
-mod perlin;
-mod voxel_map;
-mod voxel_model;
 
-pub use perlin::{PerlinBuilder, PerlinNoise};
+mod voxel_map;
+
 use std::ops::Neg;
-pub use voxel_model::VoxelModel;
+
 #[derive(Debug)]
 enum HitResult<T: Solid + std::fmt::Debug> {
     Hit {
@@ -40,7 +38,6 @@ fn min_idx_vec(v: Vector3<RayScalar>) -> usize {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum CubeType {
     Solid,
-    Translucent { density: RayScalar },
     Air,
 }
 trait Solid {
@@ -61,34 +58,7 @@ struct Voxels<T: Clone + Solid> {
     y_dim: usize,
     z_dim: usize,
 }
-fn step_translucent(
-    position: Point3<RayScalar>,
-    direction: Vector3<RayScalar>,
-    density: RayScalar,
-) -> Option<Point3<RayScalar>> {
-    assert!(density <= 1.0);
-    assert!(density >= 0.0);
-    let max_distance = {
-        let three: RayScalar = 3.0;
-        three.sqrt()
-    };
 
-    let max_r = 1.0 / density;
-    let r = rand_scalar(0.0, max_r);
-
-    if r <= 1.0 {
-        let dist = max_distance * r;
-        let next_pos = position + dist * direction.normalize();
-        let next_voxel = next_pos.map(|f| f.floor() as i32);
-        if next_voxel == position.map(|f| f.floor() as i32) {
-            Some(next_pos)
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
 impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
     /// gets size of voxel grid
     pub(crate) fn size(&self) -> Vector3<usize> {
@@ -125,7 +95,7 @@ impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
         }
     }
 
-    pub fn trace_voxels(
+    pub(crate) fn trace_voxels(
         &self,
         origin: Point3<RayScalar>,
         direction: Vector3<RayScalar>,
@@ -191,17 +161,6 @@ impl<T: Clone + Solid + std::fmt::Debug> Voxels<T> {
             if self.in_range(x_pos, y_pos, z_pos) {
                 let voxel = self.get(x_pos as usize, y_pos as usize, z_pos as usize);
                 match voxel.solid() {
-                    CubeType::Translucent { density } => {
-                        if let Some(position) =
-                            step_translucent(current_pos, direction.normalize(), density)
-                        {
-                            return HitResult::Hit {
-                                position,
-                                normal,
-                                voxel,
-                            };
-                        }
-                    }
                     CubeType::Solid => {
                         return HitResult::Hit {
                             position: current_pos,
@@ -227,25 +186,14 @@ struct CheckRes {
 type MaterialIndex = u16;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum CubeMaterialIndex {
-    Solid {
-        index: MaterialIndex,
-    },
-    Translucent {
-        index: MaterialIndex,
-        density: MaterialIndex,
-    },
+pub(crate) enum CubeMaterialIndex {
+    Solid { index: MaterialIndex },
 }
 impl CubeMaterialIndex {
     pub fn new_solid(index: MaterialIndex) -> Self {
         Self::Solid { index }
     }
-    pub fn new_translucent(index: MaterialIndex, density: RayScalar) -> Self {
-        Self::Translucent {
-            index,
-            density: (density * MaterialIndex::MAX as RayScalar) as MaterialIndex,
-        }
-    }
+
     pub fn new_air() -> Self {
         Self::Solid {
             index: MaterialIndex::MAX,
@@ -253,7 +201,6 @@ impl CubeMaterialIndex {
     }
     pub fn is_solid(&self) -> bool {
         match self {
-            Self::Translucent { index, .. } => *index != MaterialIndex::MAX,
             Self::Solid { index } => *index != MaterialIndex::MAX,
         }
     }
@@ -272,28 +219,16 @@ impl Solid for CubeMaterialIndex {
                     CubeType::Solid
                 }
             }
-            Self::Translucent { index, density } => {
-                if *index == MaterialIndex::MAX {
-                    CubeType::Air
-                } else {
-                    CubeType::Translucent {
-                        density: *density as RayScalar / MaterialIndex::MAX as RayScalar,
-                    }
-                }
-            }
         }
     }
 }
 
 #[derive(Clone)]
-pub struct CubeMaterial {
+pub(crate) struct CubeMaterial {
     material: Lambertian,
     color: RgbColor,
 }
 impl CubeMaterial {
-    pub fn distance(&self, other: &Self) -> RayScalar {
-        self.color.distance(other.color) as RayScalar
-    }
     pub fn color(&self) -> RgbColor {
         self.color
     }
@@ -335,9 +270,8 @@ impl CubeMaterial {
     }
 }
 #[derive(Clone)]
-pub struct VoxelWorld {
+pub(crate) struct VoxelWorld {
     solid_materials: Vec<CubeMaterial>,
-    translucent_materials: Vec<CubeMaterial>,
     voxels: Voxels<CubeMaterialIndex>,
     x: i32,
     y: i32,
@@ -361,23 +295,16 @@ impl VoxelWorld {
             None
         }
     }
-    pub fn get_solid_material(&self, index: MaterialIndex) -> Option<CubeMaterial> {
+    pub(crate) fn get_solid_material(&self, index: MaterialIndex) -> Option<CubeMaterial> {
         if (index as usize) < self.solid_materials.len() {
             Some(self.solid_materials[index as usize].clone())
         } else {
             None
         }
     }
-    pub fn new(
-        solid_materials: Vec<CubeMaterial>,
-        translucent_materials: Vec<CubeMaterial>,
-        x: i32,
-        y: i32,
-        z: i32,
-    ) -> Self {
+    pub(crate) fn new(solid_materials: Vec<CubeMaterial>, x: i32, y: i32, z: i32) -> Self {
         Self {
             solid_materials,
-            translucent_materials,
             voxels: Voxels::new(
                 x as usize,
                 y as usize,
@@ -398,24 +325,7 @@ impl VoxelWorld {
                     error!("invalid cube material index: {}", index)
                 }
             }
-            CubeMaterialIndex::Translucent { index, .. } => {
-                if index == MaterialIndex::MAX
-                    || (index as usize) < self.translucent_materials.len()
-                {
-                    self.voxels.update(x, y, z, val);
-                } else {
-                    error!("invalid cube material index: {}", index)
-                }
-            }
         };
-    }
-    pub fn in_world(&self, x: isize, y: isize, z: isize) -> bool {
-        x >= 0
-            && x < self.x as isize
-            && y >= 0
-            && y < self.y as isize
-            && z >= 0
-            && z < self.z as isize
     }
     fn check_x(
         &self,
@@ -534,9 +444,6 @@ impl VoxelWorld {
                             CubeMaterialIndex::Solid { index } => {
                                 &self.solid_materials[index as usize]
                             }
-                            CubeMaterialIndex::Translucent { index, .. } => {
-                                &self.translucent_materials[index as usize]
-                            }
                         },
                     ))
                 } else {
@@ -629,26 +536,6 @@ impl Hittable for VoxelWorld {
                         Point2::new(0.0, 0.0),
                         &self.solid_materials[index as usize],
                     )),
-                    CubeMaterialIndex::Translucent { index, density } => {
-                        let n = step_translucent(
-                            s.origin,
-                            s.direction.normalize(),
-                            density as RayScalar / MaterialIndex::MAX as RayScalar,
-                        );
-                        if let Some(next) = n {
-                            Some(HitRecord::new_ref(
-                                ray,
-                                next,
-                                s.normal,
-                                s.t,
-                                Point2::new(0.0, 0.0),
-                                &self.translucent_materials[index as usize],
-                            ))
-                        } else {
-                            let hit_res = self.voxels.trace_voxels(s.origin, s.direction);
-                            self.manage_hit_res(ray, hit_res, t_min, t_max)
-                        }
-                    }
                 }
             }
         } else {

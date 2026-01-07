@@ -43,7 +43,6 @@ pub fn cube_world_big() -> WorldInfo {
             CubeMaterial::new(RgbColor::new(0.65, 0.05, 0.05)),
             CubeMaterial::new(RgbColor::new(0.65, 0.8, 0.05)),
         ],
-        vec![],
         100,
         MAX_Y,
         100,

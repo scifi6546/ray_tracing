@@ -32,7 +32,6 @@ impl From<VoxelWorld> for OctTree<Voxel> {
                                 albedo: old_material.color(),
                             })
                         }
-                        CubeMaterialIndex::Translucent { .. } => todo!("translucent"),
                     };
                     world.set(get_point, update_material);
                 }

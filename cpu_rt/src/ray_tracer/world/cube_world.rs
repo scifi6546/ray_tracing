@@ -34,7 +34,6 @@ pub fn cube_world() -> WorldInfo {
 
     let mut world = VoxelWorld::new(
         vec![CubeMaterial::new(RgbColor::new(0.65, 0.05, 0.05))],
-        vec![],
         10,
         10,
         10,
