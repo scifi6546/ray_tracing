@@ -5,6 +5,7 @@ mod dielectric;
 mod easy_cornell_box;
 mod easy_scene;
 mod empty_scene;
+mod fast_oct_tree;
 mod light_demo;
 mod oct_tree_world;
 mod one_sphere;
@@ -26,10 +27,17 @@ use super::{
 mod world_prelude {
 
     pub(crate) use super::super::{
+        background::ConstantColor,
         background::Sky,
         camera::{Camera, CameraInfo},
-        hittable::Transform,
+        hittable::{
+            fast_oct_tree::{FastOctTree, SolidVoxel, Voxel},
+            Object, Sphere, Transform,
+        },
+        material::DiffuseLight,
+        texture::SolidColor,
     };
+    pub use crate::prelude::{RayScalar, RgbColor};
 }
 use crate::prelude::*;
 
@@ -272,6 +280,10 @@ pub fn get_scenarios() -> Scenarios {
         Box::new(ScenarioFn {
             name: "Oct Tree Explosion".to_string(),
             f: oct_tree_world::explosion,
+        }),
+        Box::new(ScenarioFn {
+            name: "Fast Oct Tree".to_string(),
+            f: fast_oct_tree::fast_oct_tree,
         }),
     ];
     let map: HashMap<String, Box<dyn ScenarioCtor>> = scenes

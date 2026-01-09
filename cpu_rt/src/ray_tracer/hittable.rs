@@ -1,5 +1,5 @@
 mod constant_medium;
-mod fast_oct_tree;
+pub(crate) mod fast_oct_tree;
 mod oct_tree;
 mod rect;
 mod render_box;
@@ -20,6 +20,7 @@ use crate::{
 
 pub use constant_medium::ConstantMedium;
 use dyn_clone::{clone_box, DynClone};
+pub(crate) use fast_oct_tree::FastOctTree;
 use log::error;
 pub use oct_tree::{OctTree, SolidVoxel, VolumeEdgeEffect, VolumeVoxel, Voxel};
 pub use rect::{XYRect, XZRect, YZRect};

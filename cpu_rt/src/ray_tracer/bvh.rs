@@ -53,6 +53,21 @@ impl Aabb {
             && self.maximum.y >= point.y
             && self.maximum.z >= point.z
     }
+    /// returns if approximatly equal
+    pub fn approx_eq(&self, rhs: Self) -> bool {
+        const MAX_TOTAL_DIFFERENCE: RayScalar = 0.001;
+        let x_min_error = (self.minimum.x - rhs.minimum.x).abs();
+        let y_min_error = (self.minimum.y - rhs.minimum.y).abs();
+        let z_min_error = (self.minimum.z - rhs.minimum.z).abs();
+
+        let x_max_error = (self.maximum.x - rhs.maximum.x).abs();
+        let y_max_error = (self.maximum.y - rhs.maximum.y).abs();
+        let z_max_error = (self.maximum.z - rhs.maximum.z).abs();
+
+        let total =
+            x_min_error + y_min_error + z_min_error + x_max_error + y_max_error + z_max_error;
+        total < MAX_TOTAL_DIFFERENCE
+    }
 }
 #[derive(Clone)]
 pub struct BvhTree {
@@ -276,5 +291,24 @@ impl BvhTreeNode {
             right: Box::new(right),
             bounding_box,
         }
+    }
+}
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn approx_eq() {
+        let aabb = Aabb {
+            minimum: Point3::new(0., 0., 0.),
+            maximum: Point3::new(1., 1., 1.),
+        };
+        let aabb_zero = Aabb {
+            minimum: Point3::new(0., 0., 0.),
+            maximum: Point3::new(0., 0., 0.),
+        };
+        assert!(aabb.approx_eq(aabb));
+        assert!(!aabb.approx_eq(aabb_zero));
+        assert!(aabb_zero.approx_eq(aabb_zero));
+        assert!(!aabb_zero.approx_eq(aabb));
     }
 }
