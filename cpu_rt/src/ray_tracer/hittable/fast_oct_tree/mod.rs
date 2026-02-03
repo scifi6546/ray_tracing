@@ -2,9 +2,9 @@ mod arena;
 mod hit_info;
 mod hittable;
 mod leafable;
+mod operations;
 mod ray_trace;
 mod voxel;
-
 use cgmath::Point3;
 use leafable::Leafable;
 
@@ -14,13 +14,13 @@ use arena::{Arena, ArenaIndex};
 
 pub(crate) use voxel::{SolidVoxel, VolumeVoxel, Voxel, VoxelMaterial};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum NodeData<T: Leafable> {
     Parent { children: [ArenaIndex; 8] },
     Leaf(T),
     Empty,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct Node<T: Leafable> {
     data: NodeData<T>,
     // size is expressed in powers of 2, so if self.size = 2 the voxel size will be 2.pow(2) or 4 meters
@@ -34,29 +34,125 @@ impl<T: Leafable> Node<T> {
             self.data = NodeData::Leaf(value);
             self
         } else {
-            todo!("set larger data")
+            match self.data {
+                // if self is not a parent setting value to parent
+                NodeData::Empty => {
+                    todo!("set empty to parent")
+                }
+                NodeData::Leaf(leaf) => todo!("set leaf to parent"),
+                NodeData::Parent { .. } => {}
+            };
+            let child_size = self.size - 1;
+            let child_pos = position.map(|v| v >> child_size);
+            let index = Node::<T>::pos_to_index(child_pos);
+            match self.data {
+                NodeData::Parent { children } => {
+                    let pos_in_child = Self::world_pos_to_child_pos(position, self.size);
+                    let child = arena.get(children[index]).expect("should exist");
+                    println!("actual size of child: {}", child.size);
+                    let child_clone = child.clone().set_child(value, pos_in_child, arena);
+                    arena.update(children[index], child_clone);
+
+                    let c0 = arena.get(children[0]);
+                    let c1 = arena.get(children[1]);
+                    let c2 = arena.get(children[2]);
+                    let c3 = arena.get(children[3]);
+                    let c4 = arena.get(children[4]);
+                    let c5 = arena.get(children[6]);
+                    let c6 = arena.get(children[6]);
+                    let c7 = arena.get(children[7]);
+                    if c0 == c1
+                        && c0 == c2
+                        && c0 == c3
+                        && c0 == c4
+                        && c0 == c5
+                        && c0 == c6
+                        && c0 == c7
+                    {
+                        todo!("collapse array as all children are now the same")
+                    } else {
+                        self
+                    }
+                }
+                _ => panic!("must be parent"),
+            }
         }
     }
 
-    fn get(&self, position: TreePosition) -> Option<&T> {
+    fn get(&self, position: TreePosition, arena: &Arena<Self>) -> Option<T> {
         match &self.data {
             NodeData::Empty => todo!("empty"),
-            NodeData::Leaf(leaf) => Some(leaf),
-            NodeData::Parent { children } => todo!("parent"),
+            NodeData::Leaf(leaf) => Some(leaf.clone()),
+            NodeData::Parent { children } => {
+                let child_index = Self::world_pos_to_child_index(position, self.size);
+                let child = arena
+                    .get(children[child_index as usize])
+                    .expect("should have child")
+                    .clone();
+                let output = child.get(Self::world_pos_to_child_pos(position, self.size), arena);
+                output
+            }
         }
     }
     const fn empty() -> Self {
+        Self::empty_size(0)
+    }
+    const fn empty_size(size: u32) -> Self {
         Self {
             data: NodeData::Empty,
-            size: 0,
+            size,
         }
+    }
+    /// returns the index of the position
+    const fn pos_to_index(position: TreePosition) -> usize {
+        match position {
+            Point3 { x: 0, y: 0, z: 0 } => 0,
+            Point3 { x: 0, y: 0, z: 1 } => 1,
+            Point3 { x: 0, y: 1, z: 0 } => 2,
+            Point3 { x: 0, y: 1, z: 1 } => 3,
+            Point3 { x: 1, y: 0, z: 0 } => 4,
+            Point3 { x: 1, y: 0, z: 1 } => 5,
+            Point3 { x: 1, y: 1, z: 0 } => 6,
+            Point3 { x: 1, y: 1, z: 1 } => 7,
+            _ => panic!("unsupported position"),
+        }
+    }
+    const fn index_to_pos(index: usize) -> TreePosition {
+        match index {
+            0 => Point3::new(0, 0, 0),
+            1 => Point3::new(0, 0, 1),
+            2 => Point3::new(0, 1, 0),
+            3 => Point3::new(0, 1, 1),
+            4 => Point3::new(1, 0, 0),
+            5 => Point3::new(1, 0, 1),
+            6 => Point3::new(1, 1, 0),
+            7 => Point3::new(1, 1, 1),
+            _ => panic!("unsupported index"),
+        }
+    }
+    const fn world_pos_to_child_pos(position: TreePosition, size: u32) -> TreePosition {
+        let mask = !(1 << (size - 1));
+        Point3 {
+            x: position.x & mask,
+            y: position.y & mask,
+            z: position.z & mask,
+        }
+    }
+    const fn world_pos_to_child_index(position: TreePosition, size: u32) -> u32 {
+        let child_size = size - 1;
+
+        Self::pos_to_index(Point3 {
+            x: position.x >> child_size,
+            y: position.y >> child_size,
+            z: position.z >> child_size,
+        }) as u32
     }
     fn get_world_size(&self) -> IndexType {
         1 << self.size
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// Overall Tree data structure. Utilizes arena to maintain cache locality and to serve as a framework as I migrate towards GPU compute
 pub(crate) struct FastOctTree<T: Leafable> {
     arena: Arena<Node<T>>,
@@ -69,26 +165,16 @@ impl<T: Leafable> FastOctTree<T> {
     }
     /// gets the size of the node in world units
     fn world_size(&self) -> IndexType {
-        if let Some(root) = self.arena.get_root() {
+        if let Some(root) = self.arena.get_root_ref() {
             root.get_world_size()
         } else {
             0
         }
     }
-    /// sets the value of the item at leaf. Automatically resizes as needed
-    pub fn set(&mut self, value: T, position: TreePosition) {
-        if let Some(root) = self.arena.get_root_mut() {
-            todo!("set children")
-        } else {
-            self.arena.insert(Node::empty());
-            let root = self.arena.get_root().expect("should exist").clone();
-            let new_root = root.set_child(value, position, &mut self.arena);
-            self.arena.update_root(new_root);
-        }
-    }
-    pub fn get(&self, position: TreePosition) -> Option<&T> {
-        if let Some(r) = self.arena.get_root() {
-            r.get(position)
+
+    pub fn get(&self, position: TreePosition) -> Option<T> {
+        if let Some(r) = self.arena.get_root_ref() {
+            r.get(position, &self.arena)
         } else {
             None
         }
@@ -107,13 +193,7 @@ mod test {
         let t = FastOctTree::<u32>::new();
         assert_eq!(t.get(Point3::new(0, 0, 0)), None);
     }
-    #[test]
-    fn get_and_set() {
-        let mut t = FastOctTree::<u32>::new();
-        let l = 0;
-        t.set(l, Point3::new(0, 0, 0));
-        assert_eq!(*t.get(Point3::new(0, 0, 0)).unwrap(), 0);
-    }
+
     #[test]
     fn size_empty() {
         let t = FastOctTree::<u32>::new();
@@ -123,6 +203,56 @@ mod test {
     fn size_one() {
         let mut t = FastOctTree::new();
         t.set(0u32, Point3::new(0, 0, 0));
+        assert_eq!(t.get(Point3::new(0, 0, 0)).unwrap(), 0);
         assert_eq!(t.world_size(), 1)
+    }
+    #[test]
+    fn pos_and_index() {
+        let positions = [
+            Point3::new(0, 0, 0),
+            Point3::new(0, 0, 1),
+            Point3::new(0, 1, 0),
+            Point3::new(0, 1, 1),
+            Point3::new(1, 0, 0),
+            Point3::new(1, 0, 1),
+            Point3::new(1, 1, 0),
+            Point3::new(1, 1, 1),
+        ];
+
+        let indices = [0, 1, 2, 3, 4, 5, 6, 7];
+        for (position, index) in positions.iter().zip(indices) {
+            assert_eq!(Node::<u32>::pos_to_index(*position), index);
+            assert_eq!(Node::<u32>::index_to_pos(index), *position)
+        }
+    }
+    #[test]
+    fn child_world_pos() {
+        assert_eq!(
+            Node::<u32>::world_pos_to_child_pos(Point3::new(0, 0, 0), 2),
+            Point3::new(0, 0, 0)
+        );
+        assert_eq!(
+            Node::<u32>::world_pos_to_child_pos(Point3::new(3, 0, 0), 2),
+            Point3::new(1, 0, 0)
+        );
+    }
+    #[test]
+    fn child_world_index() {
+        assert_eq!(
+            Node::<u32>::world_pos_to_child_index(Point3::new(0, 0, 0), 2),
+            0
+        );
+        assert_eq!(
+            Node::<u32>::world_pos_to_child_index(Point3::new(0, 0, 3), 2),
+            1
+        );
+        assert_eq!(
+            Node::<u32>::world_pos_to_child_index(Point3::new(0, 3, 1), 2),
+            2
+        );
+        assert_eq!(
+            Node::<u32>::world_pos_to_child_index(Point3::new(0, 3, 3), 2),
+            3
+        );
     }
 }
