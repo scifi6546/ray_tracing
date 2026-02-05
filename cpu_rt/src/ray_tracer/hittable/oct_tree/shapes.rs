@@ -94,7 +94,6 @@ impl<T: Leafable> OctTree<T> {
 
     /// Creates a sphere with the given radius
     pub fn sphere(radius: u32, hit_val: T) -> Self {
-        #[allow(dead_code)]
         ///from https://web.archive.org/web/20100323053111/http://www.ics.uci.edu/%7Earvo/code/BoxSphereIntersect.c
         fn sphere_box_intersection(
             sphere_center: Vector3<f32>,

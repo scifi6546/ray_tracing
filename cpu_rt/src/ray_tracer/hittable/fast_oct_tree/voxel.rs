@@ -13,7 +13,6 @@ use std::rc::Rc;
 pub enum Voxel {
     Solid(SolidVoxel),
     Volume(VolumeVoxel),
-    Empty,
 }
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum SolidVoxel {
@@ -28,8 +27,34 @@ impl SolidVoxel {
         }
     }
 }
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub struct VolumeVoxel {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum VolumeEdgeEffect {
+    None,
+    Solid {
+        hit_probability: f32,
+        solid_material: SolidVoxel,
+    },
+}
+#[derive(Copy, Clone, Debug)]
+pub struct VolumeVoxel {
+    pub density: RayScalar,
+    pub color: RgbColor,
+    pub edge_effect: VolumeEdgeEffect,
+}
+impl PartialEq for VolumeVoxel {
+    fn eq(&self, rhs: &VolumeVoxel) -> bool {
+        const VOLUME_ERROR_MARGIN: RayScalar = 0.0001;
+        const COLOR_ERROR_MARGIN: f32 = 0.0001;
+        (self.density - rhs.density).abs() < VOLUME_ERROR_MARGIN
+            && (self.color.distance(rhs.color)) < COLOR_ERROR_MARGIN
+            && self.edge_effect == rhs.edge_effect
+    }
+}
+impl VolumeVoxel {
+    pub(crate) fn volume_material(&self) -> VoxelMaterial {
+        VoxelMaterial::Volume { color: self.color }
+    }
+}
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum VoxelMaterial {
     Lambertian { color: RgbColor },

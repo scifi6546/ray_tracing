@@ -286,6 +286,10 @@ pub fn get_scenarios() -> Scenarios {
             f: fast_oct_tree::fast_oct_tree,
         }),
         Box::new(ScenarioFn {
+            name: "Fast Oct Tree Sphere".to_string(),
+            f: fast_oct_tree::fast_oct_tree_sphere,
+        }),
+        Box::new(ScenarioFn {
             name: "Volcano".to_string(),
             f: oct_tree_world::volcano::volcano,
         }),

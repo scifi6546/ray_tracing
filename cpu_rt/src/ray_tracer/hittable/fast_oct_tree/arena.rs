@@ -1,7 +1,3 @@
-#[derive(Clone, Debug)]
-pub struct Arena<T: Clone + std::fmt::Debug> {
-    data: Vec<ArenaNode<T>>,
-}
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ArenaIndex {
     index: usize,
@@ -15,51 +11,68 @@ struct ArenaNode<T: Clone> {
 impl<T: Clone> ArenaNode<T> {
     const BASE_GENERATION: u32 = 0;
 }
+#[derive(Clone, Debug)]
+pub struct Arena<T: Clone + std::fmt::Debug> {
+    data: Vec<ArenaNode<T>>,
+    deleted_indices: Vec<usize>,
+}
 impl<T: Clone + std::fmt::Debug> Arena<T> {
     pub fn new() -> Self {
-        Self { data: Vec::new() }
+        Self {
+            data: Vec::new(),
+            deleted_indices: Vec::new(),
+        }
     }
     /// inserts a value, If the arena is empty the root node is set
     pub fn insert(&mut self, data: T) -> ArenaIndex {
-        let node = ArenaNode {
-            data,
-            generation: ArenaNode::<T>::BASE_GENERATION,
-        };
-        let index = self.data.len();
-        self.data.push(node);
-        ArenaIndex {
-            index,
-            generation: ArenaNode::<T>::BASE_GENERATION,
+        if !self.deleted_indices.is_empty() {
+            let index = self.deleted_indices.pop().unwrap();
+            self.data[index].data = data;
+            self.data[index].generation += 1;
+            ArenaIndex {
+                index,
+                generation: self.data[index].generation,
+            }
+        } else {
+            let node = ArenaNode {
+                data,
+                generation: ArenaNode::<T>::BASE_GENERATION,
+            };
+            let index = self.data.len();
+            self.data.push(node);
+            ArenaIndex {
+                index,
+                generation: ArenaNode::<T>::BASE_GENERATION,
+            }
         }
     }
     pub fn get(&self, index: ArenaIndex) -> Option<&T> {
-        if self.data.is_empty() {
-            return None;
-        }
-        if index.index >= self.data.len() {
-            return None;
-        }
-        let node = &self.data[index.index];
-        if node.generation != index.generation {
-            return None;
+        if self.key_exists(index) {
+            let node = &self.data[index.index];
+            Some(&node.data)
         } else {
-            return Some(&node.data);
+            None
         }
+    }
+    pub fn key_exists(&self, index: ArenaIndex) -> bool {
+        if index.index >= self.data.len() {
+            return false;
+        }
+        if self.deleted_indices.contains(&index.index) {
+            return false;
+        }
+        if index.generation != self.data[index.index].generation {
+            return false;
+        }
+        return true;
     }
     /// Updates value at index with value
     pub fn update(&mut self, index: ArenaIndex, data: T) {
-        if self.data.is_empty() {
-            panic!("arena is empty")
+        if self.key_exists(index) {
+            self.data[index.index].data = data;
         }
-        let node = &mut self.data[index.index];
-        if node.generation != index.generation {
-            panic!(
-                "node generation: {}, index generation: {}",
-                node.generation, index.generation
-            )
-        }
-        node.data = data
     }
+
     ///returns a copy of the root
     pub fn get_root(&self) -> Option<T> {
         if self.data.is_empty() {
@@ -88,6 +101,11 @@ impl<T: Clone + std::fmt::Debug> Arena<T> {
         } else {
             let generation = self.data[0].generation + 1;
             self.data[0] = ArenaNode { data, generation };
+        }
+    }
+    pub fn delete(&mut self, index: ArenaIndex) {
+        if self.key_exists(index) {
+            self.deleted_indices.push(index.index)
         }
     }
 }
@@ -156,5 +174,29 @@ mod test {
         assert_eq!(*a.get(k).unwrap(), 0);
         a.update(k, 20);
         assert_eq!(*a.get(k).unwrap(), 20);
+    }
+    #[test]
+    fn delete() {
+        let mut a = Arena::<u8>::new();
+        let v = (0..10).map(|i| a.insert(i)).collect::<Vec<_>>();
+        for i in 0..5 {
+            a.delete(v[i]);
+            a.delete(v[i]);
+        }
+        for i in 0..5 {
+            assert!(!a.key_exists(v[i as usize]));
+            assert!(a.get(v[i]).is_none())
+        }
+        for i in 5u8..10 {
+            assert!(a.key_exists(v[i as usize]));
+            assert_eq!(*a.get(v[i as usize]).unwrap(), i)
+        }
+        for i in 0..5 {
+            a.insert(i);
+        }
+        assert_eq!(a.data.len(), 10);
+        for i in 0..5 {
+            assert!(a.get(v[i]).is_none())
+        }
     }
 }

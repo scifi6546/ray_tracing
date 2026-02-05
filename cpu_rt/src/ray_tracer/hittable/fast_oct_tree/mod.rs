@@ -3,7 +3,9 @@ mod hit_info;
 mod hittable;
 mod leafable;
 mod operations;
+mod prelude;
 mod ray_trace;
+mod shapes;
 mod voxel;
 use cgmath::Point3;
 use leafable::Leafable;
@@ -37,7 +39,41 @@ impl<T: Leafable> Node<T> {
             match self.data {
                 // if self is not a parent setting value to parent
                 NodeData::Empty => {
-                    todo!("set empty to parent")
+                    let children = [
+                        arena.insert(Node {
+                            data: NodeData::Empty,
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Empty,
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Empty,
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Empty,
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Empty,
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Empty,
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Empty,
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Empty,
+                            size: self.size - 1,
+                        }),
+                    ];
+                    self.data = NodeData::Parent { children };
                 }
                 NodeData::Leaf(leaf) => todo!("set leaf to parent"),
                 NodeData::Parent { .. } => {}
@@ -49,27 +85,31 @@ impl<T: Leafable> Node<T> {
                 NodeData::Parent { children } => {
                     let pos_in_child = Self::world_pos_to_child_pos(position, self.size);
                     let child = arena.get(children[index]).expect("should exist");
-                    println!("actual size of child: {}", child.size);
                     let child_clone = child.clone().set_child(value, pos_in_child, arena);
                     arena.update(children[index], child_clone);
 
-                    let c0 = arena.get(children[0]);
-                    let c1 = arena.get(children[1]);
-                    let c2 = arena.get(children[2]);
-                    let c3 = arena.get(children[3]);
-                    let c4 = arena.get(children[4]);
-                    let c5 = arena.get(children[6]);
-                    let c6 = arena.get(children[6]);
-                    let c7 = arena.get(children[7]);
-                    if c0 == c1
-                        && c0 == c2
-                        && c0 == c3
-                        && c0 == c4
-                        && c0 == c5
-                        && c0 == c6
-                        && c0 == c7
+                    let child0 = arena.get(children[0]).clone();
+                    let child1 = arena.get(children[1]).clone();
+                    let child2 = arena.get(children[2]).clone();
+                    let child3 = arena.get(children[3]).clone();
+                    let child4 = arena.get(children[4]).clone();
+                    let child5 = arena.get(children[6]).clone();
+                    let child6 = arena.get(children[6]).clone();
+                    let child7 = arena.get(children[7]).clone();
+                    if child0 == child1
+                        && child0 == child2
+                        && child0 == child3
+                        && child0 == child4
+                        && child0 == child5
+                        && child0 == child6
+                        && child0 == child7
                     {
-                        todo!("collapse array as all children are now the same")
+                        let set_value = child0.unwrap().data.clone();
+                        self.data = set_value;
+                        for child in children {
+                            arena.delete(child);
+                        }
+                        self
                     } else {
                         self
                     }
@@ -81,7 +121,7 @@ impl<T: Leafable> Node<T> {
 
     fn get(&self, position: TreePosition, arena: &Arena<Self>) -> Option<T> {
         match &self.data {
-            NodeData::Empty => todo!("empty"),
+            NodeData::Empty => None,
             NodeData::Leaf(leaf) => Some(leaf.clone()),
             NodeData::Parent { children } => {
                 let child_index = Self::world_pos_to_child_index(position, self.size);
@@ -173,8 +213,13 @@ impl<T: Leafable> FastOctTree<T> {
     }
 
     pub fn get(&self, position: TreePosition) -> Option<T> {
-        if let Some(r) = self.arena.get_root_ref() {
-            r.get(position, &self.arena)
+        if let Some(root) = self.arena.get_root_ref() {
+            let world_size = root.get_world_size();
+            if position.x < world_size && position.y < world_size && position.z < world_size {
+                root.get(position, &self.arena)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -234,6 +279,10 @@ mod test {
         assert_eq!(
             Node::<u32>::world_pos_to_child_pos(Point3::new(3, 0, 0), 2),
             Point3::new(1, 0, 0)
+        );
+        assert_eq!(
+            Node::<u32>::world_pos_to_child_pos(Point3::new(3, 0, 0), 3),
+            Point3::new(3, 0, 0)
         );
     }
     #[test]

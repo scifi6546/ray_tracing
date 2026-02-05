@@ -26,14 +26,12 @@ impl<T: Leafable> FastOctTree<T> {
                     },
                     size: old_root_size + 1,
                 };
-                let new_root = new_root.set_child(value, position, &mut self.arena);
                 self.arena.update_root(new_root);
+                self.set(value, position)
             }
         } else {
             self.arena.insert(Node::empty());
-            let root = self.arena.get_root().expect("should exist").clone();
-            let new_root = root.set_child(value, position, &mut self.arena);
-            self.arena.update_root(new_root);
+            self.set(value, position)
         }
     }
 }
@@ -66,22 +64,54 @@ mod test {
         for x in 0..2 {
             for y in 0..2 {
                 for z in 0..2 {
-                    println!("setting <{}, {}, {}>", x, y, z);
                     t.set(i, Point3::new(x, y, z));
                     i += 1;
                 }
             }
         }
-        println!("{:#?}", t);
+
         let mut i = 0;
         for x in 0..2 {
             for y in 0..2 {
                 for z in 0..2 {
-                    println!("getting <{}, {}, {}>", x, y, z);
                     assert_eq!(t.get(Point3::new(x, y, z)).unwrap(), i);
                     i += 1;
                 }
             }
         }
+    }
+    #[test]
+    fn set_far_away() {
+        let mut t = FastOctTree::<u32>::new();
+        let set_point = Point3::new(10, 10, 10);
+        t.set(10, set_point);
+        for x in 0..20 {
+            for y in 0..20 {
+                for z in 0..20 {
+                    let get_point = Point3::new(x, y, z);
+                    let v = t.get(get_point);
+                    if get_point == set_point {
+                        assert_eq!(v, Some(10));
+                    } else {
+                        assert!(v.is_none())
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn collapse() {
+        let mut t = FastOctTree::<u32>::new();
+        for x in 0..16 {
+            for y in 0..16 {
+                for z in 0..16 {
+                    t.set(10, Point3::new(x, y, z))
+                }
+            }
+        }
+
+        let root = t.arena.get_root().unwrap();
+        assert_eq!(root.size, 4);
+        assert_eq!(root.data, NodeData::Leaf(10));
     }
 }
