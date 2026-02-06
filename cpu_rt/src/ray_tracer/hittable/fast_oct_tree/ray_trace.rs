@@ -8,7 +8,7 @@ use crate::{
     prelude::{Ray, RayScalar},
     rand_scalar,
 };
-use cgmath::{prelude::*, Point3, Vector3};
+use cgmath::{num_traits::int, prelude::*, Point3, Vector3};
 use log::{error, warn};
 use std::ops::Neg;
 impl<T: Leafable> FastOctTree<T> {
@@ -19,7 +19,13 @@ impl<T: Leafable> FastOctTree<T> {
     }
     fn get_step_size(&self, position: Point3<i32>) -> u32 {
         if !self.in_range(position) {
-            panic!("out of range")
+            panic!(
+                "out of range, coordinates: <{}, {}, {}> world_size: {}",
+                position.x,
+                position.y,
+                position.z,
+                self.world_size()
+            )
         }
         let root = self.arena.get_root().expect("should have root");
         let mut current_voxel = root.clone();
@@ -706,6 +712,7 @@ impl FastOctTree<Voxel> {
         None
     }
     pub fn trace_ray(&self, ray: Ray) -> Option<HitInfo<Voxel>> {
+        #[derive(Debug)]
         struct PlaneIntersection {
             normal_axis: usize,
             intersect_time: RayScalar,
@@ -769,17 +776,17 @@ impl FastOctTree<Voxel> {
                             intersect_position: size_intersect_position,
                             block_coordinate: Point3::new(
                                 if normal_axis == 0 {
-                                    size_intersect_position.x as i32 - 1
+                                    size_intersect_position.x.round() as i32 - 1
                                 } else {
                                     size_intersect_position.x as i32
                                 },
                                 if normal_axis == 1 {
-                                    size_intersect_position.y as i32 - 1
+                                    size_intersect_position.y.round() as i32 - 1
                                 } else {
                                     size_intersect_position.y as i32
                                 },
                                 if normal_axis == 2 {
-                                    size_intersect_position.z as i32 - 1
+                                    size_intersect_position.z.round() as i32 - 1
                                 } else {
                                     size_intersect_position.z as i32
                                 },
@@ -805,15 +812,11 @@ impl FastOctTree<Voxel> {
                     self.get(intersection.block_coordinate.map(|v| v as u32).map(|v| v))
                 {
                     match voxel {
-                        Voxel::Solid(solid_material) => self.ray_iteration(
-                            intersection.block_coordinate,
-                            Ray {
-                                origin: intersection.intersect_position,
-                                direction: ray.direction,
-                                time: 0.,
-                            },
-                            intersection.normal_vector,
-                        ),
+                        Voxel::Solid(solid_material) => Some(HitInfo::Solid {
+                            hit_value: solid_material.to_material(),
+                            hit_position: intersection.intersect_position,
+                            normal: intersection.normal_vector,
+                        }),
                         Voxel::Volume(_) => self.ray_iteration(
                             intersection.block_coordinate,
                             Ray {

@@ -8,7 +8,7 @@ use crate::prelude::{Ray, RayScalar};
 use cgmath::{prelude::*, Point2, Point3, Vector3};
 impl Hittable for FastOctTree<Voxel> {
     fn hit(&self, ray: &Ray, t_min: RayScalar, t_max: RayScalar) -> Option<HitRecord> {
-        let aabb = self.bounding_box(0., 1.).unwrap();
+        let aabb = self.bounding_box(t_min, t_max).unwrap();
         if aabb.hit(*ray, t_min, t_max) {
             if let Some(hit_info) = self.trace_ray(Ray {
                 origin: ray.origin,

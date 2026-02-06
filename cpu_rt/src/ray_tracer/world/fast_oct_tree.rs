@@ -7,7 +7,7 @@ use super::{
 };
 use cgmath::{prelude::*, Point3, Vector3};
 pub fn fast_oct_tree() -> WorldInfo {
-    let origin = Point3::<RayScalar>::new(10.0, 10.0, 10.0);
+    let origin = Point3::<RayScalar>::new(-10.0, 10.0, 10.0);
     let look_at = Point3::<RayScalar>::new(0., 0., 0.);
     let focus_distance = {
         let t = look_at - origin;
@@ -57,7 +57,8 @@ pub fn fast_oct_tree() -> WorldInfo {
     }
 }
 pub fn fast_oct_tree_sphere() -> WorldInfo {
-    let origin = Point3::<RayScalar>::new(1.0, 1.0, 1.0);
+    //let origin = Point3::<RayScalar>::new(1.0, 1.0, 1.0);
+    let origin = Point3::<RayScalar>::new(-100.0, 10., 100.0);
     let look_at = Point3::<RayScalar>::new(10., 10., 10.);
     let focus_distance = {
         let t = look_at - origin;
