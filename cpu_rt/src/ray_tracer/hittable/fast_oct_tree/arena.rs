@@ -17,6 +17,7 @@ pub struct Arena<T: Clone + std::fmt::Debug> {
     deleted_indices: Vec<usize>,
 }
 impl<T: Clone + std::fmt::Debug> Arena<T> {
+    const BASE_GENERATION: u32 = ArenaNode::<T>::BASE_GENERATION;
     pub fn new() -> Self {
         Self {
             data: Vec::new(),
@@ -25,8 +26,7 @@ impl<T: Clone + std::fmt::Debug> Arena<T> {
     }
     /// inserts a value, If the arena is empty the root node is set
     pub fn insert(&mut self, data: T) -> ArenaIndex {
-        if !self.deleted_indices.is_empty() {
-            let index = self.deleted_indices.pop().unwrap();
+        if let Some(index) = self.deleted_indices.pop() {
             self.data[index].data = data;
             self.data[index].generation += 1;
             ArenaIndex {
@@ -36,13 +36,13 @@ impl<T: Clone + std::fmt::Debug> Arena<T> {
         } else {
             let node = ArenaNode {
                 data,
-                generation: ArenaNode::<T>::BASE_GENERATION,
+                generation: Self::BASE_GENERATION,
             };
             let index = self.data.len();
             self.data.push(node);
             ArenaIndex {
                 index,
-                generation: ArenaNode::<T>::BASE_GENERATION,
+                generation: Self::BASE_GENERATION,
             }
         }
     }
@@ -66,11 +66,10 @@ impl<T: Clone + std::fmt::Debug> Arena<T> {
         }
         return true;
     }
-    /// Updates value at index with value
+    /// Updates value in place at index with value
     pub fn update(&mut self, index: ArenaIndex, data: T) {
-        if self.key_exists(index) {
-            self.data[index.index].data = data;
-        }
+        assert!(self.key_exists(index));
+        self.data[index.index].data = data;
     }
 
     ///returns a copy of the root
@@ -88,25 +87,21 @@ impl<T: Clone + std::fmt::Debug> Arena<T> {
             Some(&self.data[0].data)
         }
     }
-    pub fn get_root_mut(&mut self) -> Option<&mut T> {
-        if self.data.is_empty() {
-            None
-        } else {
-            Some(&mut self.data[0].data)
-        }
-    }
+
     pub fn update_root(&mut self, data: T) {
-        if self.data.is_empty() {
-            self.insert(data);
+        if let Some(root) = self.data.first_mut() {
+            let generation = root.generation + 1;
+            *root = ArenaNode { data, generation };
         } else {
-            let generation = self.data[0].generation + 1;
-            self.data[0] = ArenaNode { data, generation };
+            self.data.push(ArenaNode {
+                data,
+                generation: Self::BASE_GENERATION,
+            })
         }
     }
     pub fn delete(&mut self, index: ArenaIndex) {
-        if self.key_exists(index) {
-            self.deleted_indices.push(index.index)
-        }
+        assert!(self.key_exists(index));
+        self.deleted_indices.push(index.index);
     }
 }
 #[cfg(test)]
@@ -129,23 +124,21 @@ mod test {
     }
     #[test]
     fn get_ref_empty_root() {
-        let mut a = Arena::<()>::new();
+        let a = Arena::<()>::new();
         assert_eq!(a.get_root_ref(), None);
-        assert_eq!(a.get_root_mut(), None)
     }
     #[test]
     fn get_ref_full_root() {
         let mut a = Arena::<u8>::new();
         a.insert(0);
         assert_eq!(a.get_root_ref(), Some(&0));
-        assert_eq!(a.get_root_mut(), Some(&mut 0))
     }
     #[test]
     fn insert_values() {
         let mut a = Arena::<u8>::new();
         a.insert(0);
         assert_eq!(a.get_root_ref(), Some(&0));
-        assert_eq!(a.get_root_mut(), Some(&mut 0));
+
         let keys = (1..100).map(|i| a.insert(i)).collect::<Vec<_>>();
         for (i, k) in keys.iter().enumerate() {
             let v = i as u8 + 1;
@@ -180,7 +173,6 @@ mod test {
         let mut a = Arena::<u8>::new();
         let v = (0..10).map(|i| a.insert(i)).collect::<Vec<_>>();
         for i in 0..5 {
-            a.delete(v[i]);
             a.delete(v[i]);
         }
         for i in 0..5 {

@@ -3,6 +3,7 @@ pub use super::parallel_image::{ParallelImage, ParallelImageCollector};
 pub use cgmath;
 use cgmath::{num_traits::FloatConst, prelude::*};
 pub use rgb_color::RgbColor;
+use std::iter::Iterator;
 mod rgb_color;
 pub(crate) use cgmath::{Point3, Vector3};
 pub use log::{error, info, warn};
@@ -13,6 +14,40 @@ pub fn clamp<T: std::cmp::PartialOrd>(x: T, min: T, max: T) -> T {
         max
     } else {
         x
+    }
+}
+pub struct IterBox {
+    current_point: Point3<u32>,
+    end_point: Point3<u32>,
+}
+impl Iterator for IterBox {
+    type Item = Point3<u32>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let return_point = self.current_point;
+        if self.current_point.x >= self.end_point.x {
+            return None;
+        }
+
+        if self.current_point.z + 1 < self.end_point.z {
+            self.current_point.z += 1;
+        } else if self.current_point.y + 1 < self.end_point.y {
+            self.current_point.z = 0;
+            self.current_point.y += 1;
+        } else if self.current_point.x + 1 < self.end_point.x {
+            self.current_point.y = 0;
+            self.current_point.z = 0;
+            self.current_point.x += 1;
+        } else {
+            self.current_point.x += 1;
+        }
+        Some(return_point)
+    }
+}
+
+pub(crate) fn iter_box(end_point: Point3<u32>) -> IterBox {
+    IterBox {
+        end_point,
+        current_point: Point3::new(0, 0, 0),
     }
 }
 use std::{cmp::PartialOrd, fmt::*};
@@ -135,5 +170,26 @@ mod test {
             let r = rand_u32(0, i / 100);
             assert!(r <= i / 100)
         }
+    }
+    #[test]
+    fn iter_empty_box() {
+        let num = iter_box(Point3::new(0, 0, 0)).count();
+        assert_eq!(num, 0);
+    }
+    #[test]
+    fn iter_4() {
+        let num = iter_box(Point3::new(2, 2, 2)).collect::<Vec<_>>();
+
+        let compare = vec![
+            Point3::new(0, 0, 0),
+            Point3::new(0, 0, 1),
+            Point3::new(0, 1, 0),
+            Point3::new(0, 1, 1),
+            Point3::new(1, 0, 0),
+            Point3::new(1, 0, 1),
+            Point3::new(1, 1, 0),
+            Point3::new(1, 1, 1),
+        ];
+        assert_eq!(compare, num);
     }
 }

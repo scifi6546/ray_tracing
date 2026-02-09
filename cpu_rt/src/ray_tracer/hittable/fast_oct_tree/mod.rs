@@ -29,11 +29,24 @@ struct Node<T: Leafable> {
     size: u32,
 }
 impl<T: Leafable> Node<T> {
+    fn is_leaf(&self) -> bool {
+        match self.data {
+            NodeData::Leaf(_) => true,
+            _ => false,
+        }
+    }
+    fn is_empty(&self) -> bool {
+        match self.data {
+            NodeData::Empty => true,
+            _ => false,
+        }
+    }
     //sets children and returns  a copy of modified version of self
     fn set_child(mut self, value: T, position: TreePosition, arena: &mut Arena<Self>) -> Self {
         if self.size == 0 {
             assert_eq!(position, Point3::new(0, 0, 0));
             self.data = NodeData::Leaf(value);
+
             self
         } else {
             match self.data {
@@ -78,24 +91,26 @@ impl<T: Leafable> Node<T> {
                 NodeData::Leaf(leaf) => todo!("set leaf to parent"),
                 NodeData::Parent { .. } => {}
             };
-            let child_size = self.size - 1;
-            let child_pos = position.map(|v| v >> child_size);
-            let index = Node::<T>::pos_to_index(child_pos);
+
             match self.data {
                 NodeData::Parent { children } => {
+                    let index = Node::<T>::world_pos_to_child_index(position, self.size) as usize;
                     let pos_in_child = Self::world_pos_to_child_pos(position, self.size);
-                    let child = arena.get(children[index]).expect("should exist");
-                    let child_clone = child.clone().set_child(value, pos_in_child, arena);
-                    arena.update(children[index], child_clone);
 
-                    let child0 = arena.get(children[0]).clone();
-                    let child1 = arena.get(children[1]).clone();
-                    let child2 = arena.get(children[2]).clone();
-                    let child3 = arena.get(children[3]).clone();
-                    let child4 = arena.get(children[4]).clone();
-                    let child5 = arena.get(children[6]).clone();
-                    let child6 = arena.get(children[6]).clone();
-                    let child7 = arena.get(children[7]).clone();
+                    let child = arena.get(children[index]).expect("should exist").clone();
+
+                    let child_clone = child.clone().set_child(value, pos_in_child, arena);
+
+                    arena.update(children[index], child_clone.clone());
+
+                    let child0 = arena.get(children[0]).unwrap().clone();
+                    let child1 = arena.get(children[1]).unwrap().clone();
+                    let child2 = arena.get(children[2]).unwrap().clone();
+                    let child3 = arena.get(children[3]).unwrap().clone();
+                    let child4 = arena.get(children[4]).unwrap().clone();
+                    let child5 = arena.get(children[5]).unwrap().clone();
+                    let child6 = arena.get(children[6]).unwrap().clone();
+                    let child7 = arena.get(children[7]).unwrap().clone();
                     if child0 == child1
                         && child0 == child2
                         && child0 == child3
@@ -103,9 +118,9 @@ impl<T: Leafable> Node<T> {
                         && child0 == child5
                         && child0 == child6
                         && child0 == child7
+                        && (child0.is_leaf() || child0.is_empty())
                     {
-                        let set_value = child0.unwrap().data.clone();
-                        self.data = set_value;
+                        self.data = child0.data.clone();
                         for child in children {
                             arena.delete(child);
                         }

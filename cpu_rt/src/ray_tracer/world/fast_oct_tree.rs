@@ -1,7 +1,7 @@
 use super::{
     world_prelude::{
         Camera, CameraInfo, ConstantColor, DiffuseLight, FastOctTree, Object, RayScalar, RgbColor,
-        SolidColor, SolidVoxel, Sphere, Transform, Voxel,
+        Sky, SolidColor, SolidVoxel, Sphere, Transform, Voxel,
     },
     WorldInfo,
 };
@@ -96,6 +96,45 @@ pub fn fast_oct_tree_sphere() -> WorldInfo {
         camera: Camera::new(CameraInfo {
             aspect_ratio: 1.0,
             fov: 20.,
+            origin,
+            look_at,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
+            focus_distance,
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
+        sun: None,
+    }
+}
+pub fn sinnoh() -> WorldInfo {
+    let world =
+        FastOctTree::load_map("./voxel_assets/sinnoh/twinleaf.yml").expect("failed to load world");
+    let tile_size_x = 16;
+    let tile_size_z = 16;
+
+    let block_x = tile_size_x * 32;
+
+    let block_z = tile_size_z * 32;
+
+    let fov = 40.0;
+
+    let look_at = Point3::new(block_x as RayScalar / 2.0, 10.0, block_z as RayScalar / 2.0);
+    //let look_at = Point3::new(0.0, 0.0, 0.0);
+    let origin = Point3::<RayScalar>::new(-500.0, 300.0, block_z as RayScalar / 2.0);
+
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+
+    WorldInfo {
+        objects: vec![Object::new(Box::new(world), Transform::identity())],
+        lights: vec![],
+        background: Box::new(Sky { intensity: 0.6 }),
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov,
             origin,
             look_at,
             up_vector: Vector3::unit_y(),

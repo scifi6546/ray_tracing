@@ -293,6 +293,10 @@ pub fn get_scenarios() -> Scenarios {
             name: "Volcano".to_string(),
             f: oct_tree_world::volcano::volcano,
         }),
+        Box::new(ScenarioFn {
+            name: "Fast Oct Tree Sinnoh".to_string(),
+            f: fast_oct_tree::sinnoh,
+        }),
     ];
     let map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
         .drain(..)

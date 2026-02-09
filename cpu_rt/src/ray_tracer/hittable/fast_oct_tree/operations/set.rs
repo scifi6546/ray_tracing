@@ -38,7 +38,8 @@ impl<T: Leafable> FastOctTree<T> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use cgmath::Point3;
+    use crate::prelude::{iter_box, RayScalar};
+    use cgmath::{MetricSpace, Point3};
     #[test]
     fn get_and_set_one() {
         let mut t = FastOctTree::<u32>::new();
@@ -113,5 +114,45 @@ mod test {
         let root = t.arena.get_root().unwrap();
         assert_eq!(root.size, 4);
         assert_eq!(root.data, NodeData::Leaf(10));
+    }
+    #[test]
+    fn preserves_root() {
+        fn sphere(point: Point3<u32>) -> bool {
+            let radius = 8;
+            let radius = 4;
+
+            let center = Point3::new(radius, radius, radius);
+            let distance = center
+                .map(|v| v as RayScalar)
+                .distance(point.map(|v| v as RayScalar));
+            radius as RayScalar <= distance
+        }
+        let mut tree = FastOctTree::<u32>::new();
+        let end_point = Point3::new(16, 16, 16);
+        let end_point = Point3::new(8, 8, 8);
+
+        for pos in iter_box(end_point) {
+            if sphere(pos) {
+                tree.set(0, pos);
+                if tree.get(pos).is_none() {
+                    //     println!("tree: {:#?}", tree);
+                    println!("failed setting pos: <{}, {}, {}>", pos.x, pos.y, pos.z);
+                    println!("world size: {}", tree.world_size());
+                }
+                assert_eq!(tree.get(pos), Some(0));
+            } else {
+                assert_eq!(tree.get(pos), None);
+            }
+        }
+        for pos in iter_box(end_point) {
+            if sphere(pos) {
+                assert_eq!(tree.get(pos), Some(0));
+            } else {
+                if tree.get(pos).is_some() {
+                    println!("{:#?}", tree)
+                }
+                assert_eq!(tree.get(pos), None);
+            }
+        }
     }
 }
