@@ -6,6 +6,7 @@ mod operations;
 mod prelude;
 mod ray_trace;
 mod shapes;
+mod stats;
 mod voxel;
 use cgmath::Point3;
 use leafable::Leafable;
@@ -14,6 +15,8 @@ pub type IndexType = u32;
 pub type TreePosition = Point3<IndexType>;
 use arena::{Arena, ArenaIndex};
 
+pub(crate) use arena::ArenaStats;
+pub(crate) use stats::FastOctTreeStats;
 pub(crate) use voxel::{SolidVoxel, VolumeVoxel, Voxel, VoxelMaterial};
 
 #[derive(Clone, Debug, PartialEq)]

@@ -1,3 +1,4 @@
+use std::mem::size_of;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ArenaIndex {
     index: usize,
@@ -10,6 +11,12 @@ struct ArenaNode<T: Clone> {
 }
 impl<T: Clone> ArenaNode<T> {
     const BASE_GENERATION: u32 = 0;
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ArenaStats {
+    pub data_len: usize,
+    pub data_len_bytes: usize,
+    pub num_deleted_elements: usize,
 }
 #[derive(Clone, Debug)]
 pub struct Arena<T: Clone + std::fmt::Debug> {
@@ -103,6 +110,13 @@ impl<T: Clone + std::fmt::Debug> Arena<T> {
         assert!(self.key_exists(index));
         self.deleted_indices.push(index.index);
     }
+    pub fn stats(&self) -> ArenaStats {
+        ArenaStats {
+            data_len: self.data.len(),
+            data_len_bytes: self.data.len() * size_of::<T>(),
+            num_deleted_elements: self.deleted_indices.len(),
+        }
+    }
 }
 #[cfg(test)]
 mod test {
@@ -190,5 +204,39 @@ mod test {
         for i in 0..5 {
             assert!(a.get(v[i]).is_none())
         }
+    }
+    #[test]
+    fn stats() {
+        let mut a = Arena::<u32>::new();
+        {
+            assert_eq!(
+                a.stats(),
+                ArenaStats {
+                    data_len: 0,
+                    data_len_bytes: 0,
+                    num_deleted_elements: 0
+                }
+            );
+        }
+        let v = [a.insert(0), a.insert(1)];
+        assert_eq!(
+            a.stats(),
+            ArenaStats {
+                data_len: v.len(),
+                data_len_bytes: 4 * v.len(),
+                num_deleted_elements: 0
+            }
+        );
+        for index in v.iter() {
+            a.delete(*index);
+        }
+        assert_eq!(
+            a.stats(),
+            ArenaStats {
+                data_len: v.len(),
+                data_len_bytes: 4 * v.len(),
+                num_deleted_elements: v.len()
+            }
+        );
     }
 }

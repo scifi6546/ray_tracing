@@ -1,5 +1,3 @@
-use crate::prelude::iter_box;
-
 use super::{
     world_prelude::{
         Camera, CameraInfo, ConstantColor, DiffuseLight, FastOctTree, Object, RayScalar, RgbColor,
@@ -7,8 +5,10 @@ use super::{
     },
     WorldInfo,
 };
+use crate::prelude::iter_box;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
-
+use log::info;
+use std::cmp::max;
 pub fn fast_oct_tree_sphere() -> WorldInfo {
     //let origin = Point3::<RayScalar>::new(1.0, 1.0, 1.0);
     let origin = Point3::<RayScalar>::new(-100.0, 10., 100.0);
@@ -271,7 +271,13 @@ pub fn volcano() -> WorldInfo {
         Transform::identity(),
     );
     let mut tree = FastOctTree::new();
-    for position in iter_box(Point3::new(1000, 1000, 1000)) {
+    let mut max_data_len = 0;
+    for (i, position) in iter_box(Point3::new(1000, 1000, 1000)).enumerate() {
+        max_data_len = max(tree.stats().arena_stats.num_deleted_elements, max_data_len);
+        if i % 1_000_000 == 0 {
+            info!("i: {}", i);
+            info!("max data len: {}", max_data_len);
+        }
         let position_float = position.map(|v| v as RayScalar);
         let mountain_cone = cone(position_float, Point3::new(500., 300., 500.), -1.);
         let crater = cone(position_float, Point3::new(500., 125., 500.), 0.3);
