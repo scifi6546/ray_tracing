@@ -118,7 +118,6 @@ mod test {
     #[test]
     fn preserves_root() {
         fn sphere(point: Point3<u32>) -> bool {
-            let radius = 8;
             let radius = 4;
 
             let center = Point3::new(radius, radius, radius);
@@ -128,7 +127,7 @@ mod test {
             radius as RayScalar <= distance
         }
         let mut tree = FastOctTree::<u32>::new();
-        let end_point = Point3::new(16, 16, 16);
+
         let end_point = Point3::new(8, 8, 8);
 
         for pos in iter_box(end_point) {
@@ -154,5 +153,21 @@ mod test {
                 assert_eq!(tree.get(pos), None);
             }
         }
+    }
+    #[test]
+    fn set_leaf_to_parent() {
+        let mut t = FastOctTree::new();
+        for position in iter_box(Point3::new(2, 2, 2)) {
+            t.set(0u32, position);
+        }
+        t.set(1u32, Point3::new(0, 0, 0));
+        assert_eq!(t.get(Point3::new(0, 0, 0)), Some(1));
+        assert_eq!(t.get(Point3::new(0, 0, 1)), Some(0));
+        assert_eq!(t.get(Point3::new(0, 1, 0)), Some(0));
+        assert_eq!(t.get(Point3::new(0, 1, 1)), Some(0));
+        assert_eq!(t.get(Point3::new(1, 0, 0)), Some(0));
+        assert_eq!(t.get(Point3::new(1, 0, 1)), Some(0));
+        assert_eq!(t.get(Point3::new(1, 1, 0)), Some(0));
+        assert_eq!(t.get(Point3::new(1, 1, 1)), Some(0));
     }
 }

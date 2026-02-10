@@ -37,7 +37,7 @@ mod world_prelude {
         material::DiffuseLight,
         texture::SolidColor,
     };
-    pub use crate::prelude::{RayScalar, RgbColor};
+    pub(crate) use crate::prelude::{iter_box, RayScalar, RgbColor};
 }
 use crate::prelude::*;
 
@@ -210,30 +210,6 @@ pub fn get_scenarios() -> Scenarios {
             f: empty_scene::empty_scene,
         }),
         Box::new(ScenarioFn {
-            name: "Oct Tree Sphere".to_string(),
-            f: oct_tree_world::basic_sphere,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Temple".to_string(),
-            f: oct_tree_world::temple,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Below".to_string(),
-            f: oct_tree_world::temple_below,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Cube".to_string(),
-            f: oct_tree_world::cube,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Back".to_string(),
-            f: oct_tree_world::cube_back,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Sinnoh".to_string(),
-            f: oct_tree_world::compare_voxel_world::sinnoh_direct,
-        }),
-        Box::new(ScenarioFn {
             name: "Oct Tree Cube Test".to_string(),
             f: oct_tree_world::compare_voxel_world::simple_cube,
         }),
@@ -274,18 +250,6 @@ pub fn get_scenarios() -> Scenarios {
             f: oct_tree_world::load_voxel_model,
         }),
         Box::new(ScenarioFn {
-            name: "Oct Tree Cube World".to_string(),
-            f: oct_tree_world::cube_world,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Explosion".to_string(),
-            f: oct_tree_world::explosion,
-        }),
-        Box::new(ScenarioFn {
-            name: "Fast Oct Tree".to_string(),
-            f: fast_oct_tree::fast_oct_tree,
-        }),
-        Box::new(ScenarioFn {
             name: "Fast Oct Tree Sphere".to_string(),
             f: fast_oct_tree::fast_oct_tree_sphere,
         }),
@@ -296,6 +260,18 @@ pub fn get_scenarios() -> Scenarios {
         Box::new(ScenarioFn {
             name: "Fast Oct Tree Sinnoh".to_string(),
             f: fast_oct_tree::sinnoh,
+        }),
+        Box::new(ScenarioFn {
+            name: "Fast Oct Tree Explosion".to_string(),
+            f: fast_oct_tree::explosion,
+        }),
+        Box::new(ScenarioFn {
+            name: "Fast Oct Tree Cubeworld".to_string(),
+            f: fast_oct_tree::cube_world,
+        }),
+        Box::new(ScenarioFn {
+            name: "Fast Oct Tree Volcano".to_string(),
+            f: fast_oct_tree::volcano,
         }),
     ];
     let map: HashMap<String, Box<dyn ScenarioCtor>> = scenes

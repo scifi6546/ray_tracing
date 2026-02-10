@@ -88,7 +88,43 @@ impl<T: Leafable> Node<T> {
                     ];
                     self.data = NodeData::Parent { children };
                 }
-                NodeData::Leaf(leaf) => todo!("set leaf to parent"),
+                NodeData::Leaf(leaf) => {
+                    let children = [
+                        arena.insert(Node {
+                            data: NodeData::Leaf(leaf.clone()),
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Leaf(leaf.clone()),
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Leaf(leaf.clone()),
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Leaf(leaf.clone()),
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Leaf(leaf.clone()),
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Leaf(leaf.clone()),
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Leaf(leaf.clone()),
+                            size: self.size - 1,
+                        }),
+                        arena.insert(Node {
+                            data: NodeData::Leaf(leaf),
+                            size: self.size - 1,
+                        }),
+                    ];
+                    self.data = NodeData::Parent { children };
+                }
                 NodeData::Parent { .. } => {}
             };
 
