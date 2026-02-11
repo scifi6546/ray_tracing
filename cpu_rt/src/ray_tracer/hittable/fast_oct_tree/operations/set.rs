@@ -38,7 +38,7 @@ impl<T: Leafable> FastOctTree<T> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::prelude::{iter_box, RayScalar};
+    use crate::prelude::{IterBox, RayScalar};
     use cgmath::{MetricSpace, Point3};
     #[test]
     fn get_and_set_one() {
@@ -129,8 +129,7 @@ mod test {
         let mut tree = FastOctTree::<u32>::new();
 
         let end_point = Point3::new(8, 8, 8);
-
-        for pos in iter_box(end_point) {
+        for pos in IterBox::from_point(end_point).iter() {
             if sphere(pos) {
                 tree.set(0, pos);
                 if tree.get(pos).is_none() {
@@ -143,7 +142,7 @@ mod test {
                 assert_eq!(tree.get(pos), None);
             }
         }
-        for pos in iter_box(end_point) {
+        for pos in IterBox::from_point(end_point).iter() {
             if sphere(pos) {
                 assert_eq!(tree.get(pos), Some(0));
             } else {
@@ -157,9 +156,10 @@ mod test {
     #[test]
     fn set_leaf_to_parent() {
         let mut t = FastOctTree::new();
-        for position in iter_box(Point3::new(2, 2, 2)) {
+        for position in IterBox::from_xyz(2, 2, 2).iter() {
             t.set(0u32, position);
         }
+
         t.set(1u32, Point3::new(0, 0, 0));
         assert_eq!(t.get(Point3::new(0, 0, 0)), Some(1));
         assert_eq!(t.get(Point3::new(0, 0, 1)), Some(0));

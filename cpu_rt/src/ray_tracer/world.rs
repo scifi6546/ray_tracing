@@ -31,13 +31,13 @@ mod world_prelude {
         background::Sky,
         camera::{Camera, CameraInfo},
         hittable::{
-            fast_oct_tree::{FastOctTree, SolidVoxel, Voxel},
+            fast_oct_tree::{FastOctTree, SolidVoxel, VolumeEdgeEffect, VolumeVoxel, Voxel},
             Object, Sphere, Transform,
         },
         material::DiffuseLight,
         texture::SolidColor,
     };
-    pub(crate) use crate::prelude::{iter_box, RayScalar, RgbColor};
+    pub(crate) use crate::prelude::{IterBox, RayScalar, RgbColor};
 }
 use crate::prelude::*;
 
@@ -254,10 +254,6 @@ pub fn get_scenarios() -> Scenarios {
             f: fast_oct_tree::fast_oct_tree_sphere,
         }),
         Box::new(ScenarioFn {
-            name: "Volcano".to_string(),
-            f: oct_tree_world::volcano::volcano,
-        }),
-        Box::new(ScenarioFn {
             name: "Fast Oct Tree Sinnoh".to_string(),
             f: fast_oct_tree::sinnoh,
         }),
@@ -272,6 +268,10 @@ pub fn get_scenarios() -> Scenarios {
         Box::new(ScenarioFn {
             name: "Fast Oct Tree Volcano".to_string(),
             f: fast_oct_tree::volcano,
+        }),
+        Box::new(ScenarioFn {
+            name: "Fast Oct Tree 2 density".to_string(),
+            f: fast_oct_tree::volume_two_density,
         }),
     ];
     let map: HashMap<String, Box<dyn ScenarioCtor>> = scenes

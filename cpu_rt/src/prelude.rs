@@ -16,11 +16,43 @@ pub fn clamp<T: std::cmp::PartialOrd>(x: T, min: T, max: T) -> T {
         x
     }
 }
-pub struct IterBox {
+pub(crate) struct IterBox {
+    pub start: Point3<u32>,
+    pub end: Point3<u32>,
+}
+impl IterBox {
+    pub(crate) fn from_point(end: Point3<u32>) -> Self {
+        Self {
+            start: Point3::new(0, 0, 0),
+            end,
+        }
+    }
+    pub(crate) fn from_xyz(x: u32, y: u32, z: u32) -> Self {
+        Self::from_point(Point3 { x, y, z })
+    }
+    pub(crate) fn start(self, start: Point3<u32>) -> Self {
+        Self {
+            start,
+            end: self.end,
+        }
+    }
+    pub(crate) fn start_xyz(self, x: u32, y: u32, z: u32) -> Self {
+        self.start(Point3 { x, y, z })
+    }
+    pub(crate) fn iter(&self) -> BoxIter {
+        BoxIter {
+            current_point: self.start,
+            start_point: self.start,
+            end_point: self.end,
+        }
+    }
+}
+pub struct BoxIter {
     current_point: Point3<u32>,
+    start_point: Point3<u32>,
     end_point: Point3<u32>,
 }
-impl Iterator for IterBox {
+impl Iterator for BoxIter {
     type Item = Point3<u32>;
     fn next(&mut self) -> Option<Self::Item> {
         let return_point = self.current_point;
@@ -31,11 +63,11 @@ impl Iterator for IterBox {
         if self.current_point.z + 1 < self.end_point.z {
             self.current_point.z += 1;
         } else if self.current_point.y + 1 < self.end_point.y {
-            self.current_point.z = 0;
+            self.current_point.z = self.start_point.z;
             self.current_point.y += 1;
         } else if self.current_point.x + 1 < self.end_point.x {
-            self.current_point.y = 0;
-            self.current_point.z = 0;
+            self.current_point.y = self.start_point.y;
+            self.current_point.z = self.start_point.z;
             self.current_point.x += 1;
         } else {
             self.current_point.x += 1;
@@ -44,12 +76,6 @@ impl Iterator for IterBox {
     }
 }
 
-pub(crate) fn iter_box(end_point: Point3<u32>) -> IterBox {
-    IterBox {
-        end_point,
-        current_point: Point3::new(0, 0, 0),
-    }
-}
 use std::{cmp::PartialOrd, fmt::*};
 /// Type that a ray uses.
 pub type RayScalar = f64;
@@ -165,20 +191,49 @@ mod test {
         }
     }
     #[test]
-    pub fn test_rand_u32() {
+    fn test_rand_u32() {
         for i in 100..10_000 {
             let r = rand_u32(0, i / 100);
             assert!(r <= i / 100)
         }
     }
     #[test]
+    fn box_start() {
+        let x_start = 3;
+        let y_start = 2;
+        let z_start = 1;
+        let end = 4;
+
+        let iter_array = IterBox::from_xyz(end, end, end)
+            .start(Point3::new(x_start, y_start, z_start))
+            .iter()
+            .collect::<Vec<_>>();
+        let mut compare = vec![];
+        for x in x_start..end {
+            for y in y_start..end {
+                for z in z_start..end {
+                    compare.push(Point3 { x, y, z })
+                }
+            }
+        }
+
+        assert_eq!(iter_array, compare);
+    }
+    #[test]
     fn iter_empty_box() {
-        let num = iter_box(Point3::new(0, 0, 0)).count();
+        let num = IterBox::from_point(Point3::new(0, 0, 0)).iter().count();
+
         assert_eq!(num, 0);
     }
     #[test]
+    fn iter_xyz() {
+        assert_eq!(IterBox::from_xyz(3, 3, 3).iter().count(), 3 * 3 * 3)
+    }
+    #[test]
     fn iter_4() {
-        let num = iter_box(Point3::new(2, 2, 2)).collect::<Vec<_>>();
+        let num = IterBox::from_point(Point3::new(2, 2, 2))
+            .iter()
+            .collect::<Vec<_>>();
 
         let compare = vec![
             Point3::new(0, 0, 0),

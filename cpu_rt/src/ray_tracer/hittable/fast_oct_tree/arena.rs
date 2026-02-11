@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use std::{collections::BTreeSet, mem::size_of};
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ArenaIndex {
     index: usize,
@@ -21,19 +21,19 @@ pub struct ArenaStats {
 #[derive(Clone, Debug)]
 pub struct Arena<T: Clone + std::fmt::Debug> {
     data: Vec<ArenaNode<T>>,
-    deleted_indices: Vec<usize>,
+    deleted_indices: BTreeSet<usize>,
 }
 impl<T: Clone + std::fmt::Debug> Arena<T> {
     const BASE_GENERATION: u32 = ArenaNode::<T>::BASE_GENERATION;
     pub fn new() -> Self {
         Self {
             data: Vec::new(),
-            deleted_indices: Vec::new(),
+            deleted_indices: BTreeSet::new(),
         }
     }
     /// inserts a value, If the arena is empty the root node is set
     pub fn insert(&mut self, data: T) -> ArenaIndex {
-        if let Some(index) = self.deleted_indices.pop() {
+        if let Some(index) = self.deleted_indices.pop_first() {
             self.data[index].data = data;
             self.data[index].generation += 1;
             ArenaIndex {
@@ -108,7 +108,7 @@ impl<T: Clone + std::fmt::Debug> Arena<T> {
     }
     pub fn delete(&mut self, index: ArenaIndex) {
         assert!(self.key_exists(index));
-        self.deleted_indices.push(index.index);
+        self.deleted_indices.insert(index.index);
     }
     pub fn stats(&self) -> ArenaStats {
         ArenaStats {

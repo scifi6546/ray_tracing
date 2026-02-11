@@ -17,7 +17,7 @@ use arena::{Arena, ArenaIndex};
 
 pub(crate) use arena::ArenaStats;
 pub(crate) use stats::FastOctTreeStats;
-pub(crate) use voxel::{SolidVoxel, VolumeVoxel, Voxel, VoxelMaterial};
+pub(crate) use voxel::{SolidVoxel, VolumeEdgeEffect, VolumeVoxel, Voxel, VoxelMaterial};
 
 #[derive(Clone, Debug, PartialEq)]
 enum NodeData<T: Leafable> {

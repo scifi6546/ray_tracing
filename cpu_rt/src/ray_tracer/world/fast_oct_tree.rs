@@ -1,12 +1,13 @@
 use super::{
     world_prelude::{
         Camera, CameraInfo, ConstantColor, DiffuseLight, FastOctTree, Object, RayScalar, RgbColor,
-        Sky, SolidColor, SolidVoxel, Sphere, Transform, Voxel,
+        Sky, SolidColor, SolidVoxel, Sphere, Transform, VolumeEdgeEffect, VolumeVoxel, Voxel,
     },
     WorldInfo,
 };
-use crate::prelude::iter_box;
+use crate::prelude::IterBox;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
+use dot_vox::Position;
 use log::info;
 use std::cmp::max;
 pub fn fast_oct_tree_sphere() -> WorldInfo {
@@ -272,9 +273,9 @@ pub fn volcano() -> WorldInfo {
     );
     let mut tree = FastOctTree::new();
     let mut max_data_len = 0;
-    for (i, position) in iter_box(Point3::new(1000, 1000, 1000)).enumerate() {
+    for (i, position) in IterBox::from_xyz(1000, 1000, 1000).iter().enumerate() {
         max_data_len = max(tree.stats().arena_stats.num_deleted_elements, max_data_len);
-        if i % 1_000_000 == 0 {
+        if i % 10_000_000 == 0 {
             info!("i: {}", i);
             info!("max data len: {}", max_data_len);
         }
@@ -294,6 +295,7 @@ pub fn volcano() -> WorldInfo {
             tree.set(value, position);
         }
     }
+
     WorldInfo {
         objects: vec![
             Object::new(Box::new(tree), Transform::identity()),
@@ -306,6 +308,92 @@ pub fn volcano() -> WorldInfo {
         camera: Camera::new(CameraInfo {
             aspect_ratio: 1.0,
             fov: 20.,
+            origin,
+            look_at,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
+            focus_distance,
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
+        sun: None,
+    }
+}
+pub fn volume_two_density() -> WorldInfo {
+    let look_at = Point3::<RayScalar>::new(5.0, 5.0, 5.0);
+
+    let origin = Point3::<RayScalar>::new(-20.0, 5.0, -20.0);
+    let fov = 40.0;
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+
+    let light = Box::new(DiffuseLight {
+        emit: Box::new(SolidColor {
+            color: 500.0 * RgbColor::WHITE,
+        }),
+    });
+    //let solid = Box::new();
+    let light = Object::new(
+        Box::new(Sphere {
+            radius: 1.0,
+            origin: Point3::new(50.0, 0.0, 20.0),
+            material: light,
+        }),
+        Transform::identity(),
+    );
+    let mut tree = FastOctTree::<Voxel>::new();
+    for pos in IterBox::from_xyz(10, 9, 10).start_xyz(0, 1, 0).iter() {
+        tree.set(
+            Voxel::Volume(VolumeVoxel {
+                density: if pos.y < 5 { 0.3 } else { 0.6 },
+                color: RgbColor::new(0.5, 0.05, 0.5),
+                edge_effect: VolumeEdgeEffect::None,
+            }),
+            pos,
+        );
+    }
+    for pos in IterBox::from_xyz(6, 6, 6).start_xyz(3, 3, 3).iter() {
+        tree.set(
+            Voxel::Solid(SolidVoxel::Lambertian {
+                albedo: RgbColor::new(0.65, 0.05, 0.05),
+            }),
+            pos,
+        );
+    }
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(0, 0, 0),
+    );
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(0, 1, 0),
+    );
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(5, 5, 5),
+    );
+
+    WorldInfo {
+        objects: vec![
+            Object::new(Box::new(tree), Transform::identity()),
+            light.clone(),
+        ],
+        lights: vec![light],
+
+        background: Box::new(ConstantColor {
+            color: 0.1 * RgbColor::new(1.0, 1.0, 1.0),
+        }),
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov,
             origin,
             look_at,
             up_vector: Vector3::unit_y(),
