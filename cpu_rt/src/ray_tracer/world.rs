@@ -7,7 +7,7 @@ mod easy_scene;
 mod empty_scene;
 mod fast_oct_tree;
 mod light_demo;
-mod oct_tree_world;
+
 mod one_sphere;
 mod random_scene;
 mod two_spheres;
@@ -210,10 +210,6 @@ pub fn get_scenarios() -> Scenarios {
             f: empty_scene::empty_scene,
         }),
         Box::new(ScenarioFn {
-            name: "Oct Tree Load Model".to_string(),
-            f: oct_tree_world::load_voxel_model,
-        }),
-        Box::new(ScenarioFn {
             name: "Fast Oct Tree Sphere".to_string(),
             f: fast_oct_tree::fast_oct_tree_sphere,
         }),
@@ -252,6 +248,10 @@ pub fn get_scenarios() -> Scenarios {
         Box::new(ScenarioFn {
             name: "Fast Oct Tree Gold Cube".to_string(),
             f: fast_oct_tree::gold_cube,
+        }),
+        Box::new(ScenarioFn {
+            name: "Fast Oct Tree Apartment Building".to_string(),
+            f: fast_oct_tree::apartment_building,
         }),
     ];
     let map: HashMap<String, Box<dyn ScenarioCtor>> = scenes
