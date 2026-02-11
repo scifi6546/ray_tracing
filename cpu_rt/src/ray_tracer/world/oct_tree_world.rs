@@ -1,7 +1,6 @@
-pub mod compare_voxel_world;
 mod load_model;
 pub mod metal;
-pub mod volume;
+
 use super::{
     Camera, CameraInfo, ConstantColor, DiffuseLight, OctTree, SolidColor, Sphere, Transform, Voxel,
     WorldInfo,

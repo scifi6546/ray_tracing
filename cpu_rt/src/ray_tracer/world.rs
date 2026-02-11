@@ -210,38 +210,6 @@ pub fn get_scenarios() -> Scenarios {
             f: empty_scene::empty_scene,
         }),
         Box::new(ScenarioFn {
-            name: "Oct Tree Cube Test".to_string(),
-            f: oct_tree_world::compare_voxel_world::simple_cube,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Cube Recreation".to_string(),
-            f: oct_tree_world::compare_voxel_world::cube_recreation,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Translucent".to_string(),
-            f: oct_tree_world::volume::oct_tree_volume,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Translucent Two Density".to_string(),
-            f: oct_tree_world::volume::oct_tree_volume_two_density,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Translucent Many Density".to_string(),
-            f: oct_tree_world::volume::oct_tree_volume_many_density,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Translucent Lambertian".to_string(),
-            f: oct_tree_world::volume::oct_tree_volume_lambertian,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Volume Metal".to_string(),
-            f: oct_tree_world::volume::oct_tree_volume_metal,
-        }),
-        Box::new(ScenarioFn {
-            name: "Oct Tree Volume Ice".to_string(),
-            f: oct_tree_world::volume::oct_tree_volume_ice,
-        }),
-        Box::new(ScenarioFn {
             name: "Oct Tree GoldCube".to_string(),
             f: oct_tree_world::metal::gold_cube,
         }),
@@ -272,6 +240,18 @@ pub fn get_scenarios() -> Scenarios {
         Box::new(ScenarioFn {
             name: "Fast Oct Tree 2 density".to_string(),
             f: fast_oct_tree::volume_two_density,
+        }),
+        Box::new(ScenarioFn {
+            name: "Fast Oct Tree Volume Lambertian".to_string(),
+            f: fast_oct_tree::volume_lambertian,
+        }),
+        Box::new(ScenarioFn {
+            name: "Fast Oct Tree Volume Metal".to_string(),
+            f: fast_oct_tree::volume_metal,
+        }),
+        Box::new(ScenarioFn {
+            name: "Fast Oct Tree Volume Ice".to_string(),
+            f: fast_oct_tree::volume_ice,
         }),
     ];
     let map: HashMap<String, Box<dyn ScenarioCtor>> = scenes

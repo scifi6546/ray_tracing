@@ -7,7 +7,7 @@ use super::{
 };
 use crate::prelude::IterBox;
 use cgmath::{prelude::*, Point2, Point3, Vector3};
-use dot_vox::Position;
+
 use log::info;
 use std::cmp::max;
 pub fn fast_oct_tree_sphere() -> WorldInfo {
@@ -391,6 +391,290 @@ pub fn volume_two_density() -> WorldInfo {
         background: Box::new(ConstantColor {
             color: 0.1 * RgbColor::new(1.0, 1.0, 1.0),
         }),
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov,
+            origin,
+            look_at,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
+            focus_distance,
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
+        sun: None,
+    }
+}
+pub fn volume_lambertian() -> WorldInfo {
+    let look_at = Point3::<RayScalar>::new(5.0, 5.0, 5.0);
+
+    let origin = Point3::<RayScalar>::new(-20.0, 5.0, -20.0);
+    let fov = 40.0;
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+
+    let light = Box::new(DiffuseLight {
+        emit: Box::new(SolidColor {
+            color: 500.0 * RgbColor::WHITE,
+        }),
+    });
+
+    let light = Object::new(
+        Box::new(Sphere {
+            radius: 1.0,
+            origin: Point3::new(50.0, 0.0, 20.0),
+            material: light,
+        }),
+        Transform::identity(),
+    );
+    let mut tree = FastOctTree::<Voxel>::new();
+    for position in IterBox::from_xyz(10, 9, 10).start_xyz(0, 1, 0).iter() {
+        tree.set(
+            Voxel::Volume(VolumeVoxel {
+                density: 0.3,
+                color: RgbColor::new(0.5, 0.05, 0.5),
+                edge_effect: VolumeEdgeEffect::Solid {
+                    hit_probability: 0.6,
+                    solid_material: SolidVoxel::Lambertian {
+                        albedo: RgbColor::new(0.5, 0.05, 0.5),
+                    },
+                },
+            }),
+            position,
+        );
+    }
+    for position in IterBox::from_xyz(6, 6, 6).start_xyz(3, 3, 3).iter() {
+        tree.set(
+            Voxel::Solid(SolidVoxel::Lambertian {
+                albedo: RgbColor::new(0.65, 0.05, 0.05),
+            }),
+            position,
+        )
+    }
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(0, 0, 0),
+    );
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(0, 1, 0),
+    );
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(5, 5, 5),
+    );
+    WorldInfo {
+        objects: vec![
+            Object::new(Box::new(tree), Transform::identity()),
+            light.clone(),
+        ],
+        lights: vec![light],
+
+        background: Box::new(ConstantColor {
+            color: 0.1 * RgbColor::new(1.0, 1.0, 1.0),
+        }),
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov,
+            origin,
+            look_at,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
+            focus_distance,
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
+        sun: None,
+    }
+}
+pub fn volume_metal() -> WorldInfo {
+    let look_at = Point3::<RayScalar>::new(5.0, 5.0, 5.0);
+
+    let origin = Point3::<RayScalar>::new(-20.0, 5.0, -20.0);
+    let fov = 40.0;
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+
+    let light = Object::new(
+        Box::new(Sphere {
+            radius: 1.0,
+            origin: Point3::new(0.0, 100.0, 200.0),
+            material: Box::new(DiffuseLight {
+                emit: Box::new(SolidColor {
+                    color: 1000.0 * RgbColor::WHITE,
+                }),
+            }),
+        }),
+        Transform::identity(),
+    );
+    let mut tree = FastOctTree::<Voxel>::new();
+    for position in IterBox::from_xyz(10, 9, 10).start_xyz(0, 1, 0).iter() {
+        tree.set(
+            Voxel::Volume(VolumeVoxel {
+                density: 0.3,
+                color: RgbColor::new(0.5, 0.05, 0.5),
+                edge_effect: VolumeEdgeEffect::Solid {
+                    hit_probability: 0.6,
+                    solid_material: SolidVoxel::Reflect {
+                        albedo: RgbColor::new(0.5, 0.05, 0.5),
+                        fuzz: 0.3,
+                    },
+                },
+            }),
+            position,
+        );
+    }
+    for position in IterBox::from_xyz(6, 6, 6).start_xyz(3, 3, 3).iter() {
+        tree.set(
+            Voxel::Solid(SolidVoxel::Lambertian {
+                albedo: RgbColor::new(0.65, 0.05, 0.05),
+            }),
+            position,
+        );
+    }
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(0, 0, 0),
+    );
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(0, 1, 0),
+    );
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(5, 5, 5),
+    );
+    for position in IterBox::from_xyz(40, 1, 40).iter() {
+        tree.set(
+            Voxel::Solid(SolidVoxel::Lambertian {
+                albedo: RgbColor::new(0.9, 0.9, 0.9),
+            }),
+            position,
+        )
+    }
+    WorldInfo {
+        objects: vec![
+            Object::new(Box::new(tree), Transform::identity()),
+            light.clone(),
+        ],
+        lights: vec![light],
+
+        background: Box::new(ConstantColor {
+            color: 0.1 * RgbColor::new(1.0, 1.0, 1.0),
+        }),
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov,
+            origin,
+            look_at,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
+            focus_distance,
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
+        sun: None,
+    }
+}
+pub fn volume_ice() -> WorldInfo {
+    let look_at = Point3::<RayScalar>::new(5.0, 5.0, 5.0);
+
+    let origin = Point3::<RayScalar>::new(-20.0, 20.0, -20.0);
+    let fov = 40.0;
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
+
+    let light = Object::new(
+        Box::new(Sphere {
+            radius: 1.0,
+            origin: Point3::new(0.0, 100.0, 200.0),
+            material: Box::new(DiffuseLight {
+                emit: Box::new(SolidColor {
+                    color: 500000.0 * RgbColor::WHITE,
+                }),
+            }),
+        }),
+        Transform::identity(),
+    );
+    let mut tree = FastOctTree::<Voxel>::new();
+    for position in IterBox::from_xyz(10, 9, 10).start_xyz(0, 1, 0).iter() {
+        let offset = Vector3::new(10, 0, 10);
+        let ice_color = RgbColor::from_color_hex("#06068dff");
+        let snow_color = RgbColor::from_color_hex("#ffffffff");
+        let value = if position.y >= 8 {
+            Voxel::Volume(VolumeVoxel {
+                density: 0.001,
+                color: snow_color,
+                edge_effect: VolumeEdgeEffect::Solid {
+                    hit_probability: 1.,
+                    solid_material: SolidVoxel::Lambertian { albedo: snow_color },
+                },
+            })
+        } else {
+            Voxel::Volume(VolumeVoxel {
+                density: 0.5,
+                color: ice_color,
+                edge_effect: VolumeEdgeEffect::Solid {
+                    hit_probability: 0.7,
+                    solid_material: SolidVoxel::Reflect {
+                        albedo: ice_color,
+                        fuzz: 0.1,
+                    },
+                },
+            })
+        };
+        tree.set(value, position + offset);
+    }
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(0, 0, 0),
+    );
+    tree.set(
+        Voxel::Solid(SolidVoxel::Lambertian {
+            albedo: RgbColor::new(0.65, 0.05, 0.05),
+        }),
+        Point3::new(0, 1, 0),
+    );
+    for position in IterBox::from_xyz(40, 0, 40).iter() {
+        let v = (position.x + position.z) & 0x1;
+        let color = match v {
+            0 => RgbColor::from_color_hex("#ffffffff"),
+            1 => RgbColor::from_color_hex("#fc0202ff"),
+            _ => panic!("can never get here"),
+        };
+        tree.set(
+            Voxel::Solid(SolidVoxel::Lambertian { albedo: color }),
+            position,
+        );
+    }
+    WorldInfo {
+        objects: vec![
+            Object::new(Box::new(tree), Transform::identity()),
+            light.clone(),
+        ],
+        lights: vec![light],
+
+        background: Box::new(Sky { intensity: 0.6 }),
         camera: Camera::new(CameraInfo {
             aspect_ratio: 1.0,
             fov,
