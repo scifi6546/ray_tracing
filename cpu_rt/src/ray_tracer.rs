@@ -12,7 +12,7 @@ mod save_file;
 mod scenario_info;
 mod sun;
 pub mod texture;
-mod unit_test;
+
 pub mod world;
 use ray_tracer_info::{RayTracerInfo, ScenarioInfo};
 
