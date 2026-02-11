@@ -708,65 +708,59 @@ pub fn gold_cube() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let g1 = {
-        let mut t = FastOctTree::<Voxel>::new();
-        for position in IterBox::from_xyz(16, 16, 16).iter() {
-            t.set(
-                Voxel::Solid(SolidVoxel::Reflect {
-                    albedo: RgbColor::new(1., 254. / 255., 0.),
-                    fuzz: 0.8,
-                }),
-                position,
-            );
-        }
-        t
-    };
-    let g2 = {
-        let mut t = FastOctTree::<Voxel>::new();
-        for position in IterBox::from_xyz(16, 16, 16).iter() {
-            t.set(
-                Voxel::Solid(SolidVoxel::Reflect {
-                    albedo: RgbColor::new(1., 254. / 255., 0.),
-                    fuzz: 0.4,
-                }),
-                position,
-            );
-        }
-        t
-    };
-    let g3 = {
-        let mut t = FastOctTree::<Voxel>::new();
-        for position in IterBox::from_xyz(16, 16, 16).iter() {
-            t.set(
-                Voxel::Solid(SolidVoxel::Reflect {
-                    albedo: RgbColor::new(1., 254. / 255., 0.),
-                    fuzz: 0.1,
-                }),
-                position,
-            );
-        }
-        t
-    };
-    let floor = {
-        let mut t = FastOctTree::<Voxel>::new();
-        for position in IterBox::from_xyz(128, 1, 128).iter() {
-            t.set(
-                Voxel::Solid(SolidVoxel::Lambertian {
-                    albedo: RgbColor {
-                        red: 0.8,
-                        green: 0.8,
-                        blue: 0.8,
-                    },
-                }),
-                position,
-            );
-        }
-        t
-    };
-    let world = floor
-        .combine(&g1, Vector3::new(30, 1, 64))
-        .combine(&g2, Vector3::new(60, 1, 64))
-        .combine(&g3, Vector3::new(90, 1, 64));
+    let cube_size = Vector3::new(16, 16, 16);
+    let mut world = FastOctTree::<Voxel>::new();
+    for position in IterBox::from_xyz(128, 1, 128).iter() {
+        world.set(
+            Voxel::Solid(SolidVoxel::Lambertian {
+                albedo: RgbColor {
+                    red: 0.8,
+                    green: 0.8,
+                    blue: 0.8,
+                },
+            }),
+            position,
+        );
+    }
+    let g1_offset = Point3::new(30, 1, 64);
+    for position in IterBox::from_point(g1_offset + cube_size)
+        .start(g1_offset)
+        .iter()
+    {
+        world.set(
+            Voxel::Solid(SolidVoxel::Reflect {
+                albedo: RgbColor::new(1., 254. / 255., 0.),
+                fuzz: 0.8,
+            }),
+            position,
+        );
+    }
+    let g2_offset = Point3::new(60, 1, 64);
+    for position in IterBox::from_point(g2_offset + cube_size)
+        .start(g2_offset)
+        .iter()
+    {
+        world.set(
+            Voxel::Solid(SolidVoxel::Reflect {
+                albedo: RgbColor::new(1., 254. / 255., 0.),
+                fuzz: 0.4,
+            }),
+            position,
+        );
+    }
+    let g3_offset = Point3::new(90, 1, 64);
+    for position in IterBox::from_point(g3_offset + cube_size)
+        .start(g3_offset)
+        .iter()
+    {
+        world.set(
+            Voxel::Solid(SolidVoxel::Reflect {
+                albedo: RgbColor::new(1., 254. / 255., 0.),
+                fuzz: 0.1,
+            }),
+            position,
+        );
+    }
     WorldInfo {
         objects: vec![
             Object::new(Box::new(world), Transform::identity()),

@@ -210,10 +210,6 @@ pub fn get_scenarios() -> Scenarios {
             f: empty_scene::empty_scene,
         }),
         Box::new(ScenarioFn {
-            name: "Oct Tree GoldCube".to_string(),
-            f: oct_tree_world::metal::gold_cube,
-        }),
-        Box::new(ScenarioFn {
             name: "Oct Tree Load Model".to_string(),
             f: oct_tree_world::load_voxel_model,
         }),
