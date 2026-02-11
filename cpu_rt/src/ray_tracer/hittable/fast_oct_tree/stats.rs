@@ -1,7 +1,7 @@
 use super::arena::ArenaStats;
 use super::{FastOctTree, Leafable};
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct FastOctTreeStats {
+pub struct FastOctTreeStats {
     pub arena_stats: ArenaStats,
 }
 impl<T: Leafable> FastOctTree<T> {

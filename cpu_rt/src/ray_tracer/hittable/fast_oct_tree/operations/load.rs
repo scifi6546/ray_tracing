@@ -15,7 +15,6 @@ use std::{
 #[derive(Deserialize)]
 struct TileType {
     index: u32,
-    is_air: bool,
     model_path: Option<String>,
 }
 #[derive(Deserialize)]

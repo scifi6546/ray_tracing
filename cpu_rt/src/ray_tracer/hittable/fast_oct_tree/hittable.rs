@@ -77,10 +77,10 @@ impl Hittable for FastOctTree<Voxel> {
             None
         }
     }
-    fn prob(&self, ray: Ray) -> RayScalar {
+    fn prob(&self, _ray: Ray) -> RayScalar {
         todo!("prob")
     }
-    fn generate_ray_in_area(&self, origin: Point3<RayScalar>, time: RayScalar) -> RayAreaInfo {
+    fn generate_ray_in_area(&self, _origin: Point3<RayScalar>, _time: RayScalar) -> RayAreaInfo {
         todo!("generate in area")
     }
 }

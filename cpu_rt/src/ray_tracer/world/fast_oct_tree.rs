@@ -1,7 +1,7 @@
 use super::{
     world_prelude::{
-        Camera, CameraInfo, ConstantColor, DiffuseLight, FastOctTree, Object, RayScalar, RgbColor,
-        Sky, SolidColor, SolidVoxel, Sphere, Transform, VolumeEdgeEffect, VolumeVoxel, Voxel,
+        Camera, CameraInfo, ConstantColor, DiffuseLight, Object, RayScalar, RgbColor, Sky,
+        SolidColor, SolidVoxel, Sphere, Transform, VolumeEdgeEffect, VolumeVoxel, Voxel, VoxelGrid,
     },
     WorldInfo,
 };
@@ -33,7 +33,7 @@ pub fn fast_oct_tree_sphere() -> WorldInfo {
     WorldInfo {
         objects: vec![
             Object::new(
-                Box::new(FastOctTree::<Voxel>::sphere(
+                Box::new(VoxelGrid::sphere(
                     10,
                     Voxel::Solid(SolidVoxel::Lambertian {
                         albedo: RgbColor::new(0.5, 0.5, 0.5),
@@ -63,7 +63,7 @@ pub fn fast_oct_tree_sphere() -> WorldInfo {
 }
 pub fn sinnoh() -> WorldInfo {
     let world =
-        FastOctTree::load_map("./voxel_assets/sinnoh/twinleaf.yml").expect("failed to load world");
+        VoxelGrid::load_map("./voxel_assets/sinnoh/twinleaf.yml").expect("failed to load world");
     let tile_size_x = 16;
     let tile_size_z = 16;
 
@@ -132,7 +132,7 @@ pub fn explosion() -> WorldInfo {
         let h = (radius / 10.0).cos() * 10.0 + 15.0;
         h.max(0.0).min((MAX_Y - 1) as f32) as isize
     }
-    let mut tree = FastOctTree::<Voxel>::new();
+    let mut tree = VoxelGrid::new();
     for x in 0..100 {
         for z in 0..100 {
             let h = height(x, z);
@@ -194,7 +194,7 @@ pub fn cube_world() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let mut tree = FastOctTree::<Voxel>::new();
+    let mut tree = VoxelGrid::new();
     for i in 3..6 {
         for j in 3..6 {
             for k in 3..6 {
@@ -271,7 +271,7 @@ pub fn volcano() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let mut tree = FastOctTree::new();
+    let mut tree = VoxelGrid::new();
     let mut max_data_len = 0;
     for (i, position) in IterBox::from_xyz(1000, 1000, 1000).iter().enumerate() {
         max_data_len = max(tree.stats().arena_stats.num_deleted_elements, max_data_len);
@@ -343,7 +343,7 @@ pub fn volume_two_density() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let mut tree = FastOctTree::<Voxel>::new();
+    let mut tree = VoxelGrid::new();
     for pos in IterBox::from_xyz(10, 9, 10).start_xyz(0, 1, 0).iter() {
         tree.set(
             Voxel::Volume(VolumeVoxel {
@@ -429,7 +429,7 @@ pub fn volume_lambertian() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let mut tree = FastOctTree::<Voxel>::new();
+    let mut tree = VoxelGrid::new();
     for position in IterBox::from_xyz(10, 9, 10).start_xyz(0, 1, 0).iter() {
         tree.set(
             Voxel::Volume(VolumeVoxel {
@@ -517,7 +517,7 @@ pub fn volume_metal() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let mut tree = FastOctTree::<Voxel>::new();
+    let mut tree = VoxelGrid::new();
     for position in IterBox::from_xyz(10, 9, 10).start_xyz(0, 1, 0).iter() {
         tree.set(
             Voxel::Volume(VolumeVoxel {
@@ -614,7 +614,7 @@ pub fn volume_ice() -> WorldInfo {
         }),
         Transform::identity(),
     );
-    let mut tree = FastOctTree::<Voxel>::new();
+    let mut tree = VoxelGrid::new();
     for position in IterBox::from_xyz(10, 9, 10).start_xyz(0, 1, 0).iter() {
         let offset = Vector3::new(10, 0, 10);
         let ice_color = RgbColor::from_color_hex("#06068dff");
@@ -709,7 +709,7 @@ pub fn gold_cube() -> WorldInfo {
         Transform::identity(),
     );
     let cube_size = Vector3::new(16, 16, 16);
-    let mut world = FastOctTree::<Voxel>::new();
+    let mut world = VoxelGrid::new();
     for position in IterBox::from_xyz(128, 1, 128).iter() {
         world.set(
             Voxel::Solid(SolidVoxel::Lambertian {
@@ -785,7 +785,7 @@ pub fn gold_cube() -> WorldInfo {
     }
 }
 pub fn apartment_building() -> WorldInfo {
-    let tree = FastOctTree::load_vox("voxel_assets/apartment_building.vox").expect("should load");
+    let tree = VoxelGrid::load_vox("voxel_assets/apartment_building.vox").expect("should load");
     let origin = Point3::<RayScalar>::new(-50.0, 100.0, -40.0);
 
     const BLOCK_X: i32 = 60;

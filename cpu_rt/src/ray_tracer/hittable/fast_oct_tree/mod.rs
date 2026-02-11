@@ -15,9 +15,10 @@ pub type IndexType = u32;
 pub type TreePosition = Point3<IndexType>;
 use arena::{Arena, ArenaIndex};
 
-pub(crate) use arena::ArenaStats;
-pub(crate) use stats::FastOctTreeStats;
-pub(crate) use voxel::{SolidVoxel, VolumeEdgeEffect, VolumeVoxel, Voxel, VoxelMaterial};
+pub use arena::ArenaStats;
+pub use stats::FastOctTreeStats;
+pub use voxel::{SolidVoxel, VolumeEdgeEffect, VolumeVoxel, Voxel};
+pub type VoxelGrid = FastOctTree<Voxel>;
 
 #[derive(Clone, Debug, PartialEq)]
 enum NodeData<T: Leafable> {
@@ -211,19 +212,7 @@ impl<T: Leafable> Node<T> {
             _ => panic!("unsupported position"),
         }
     }
-    const fn index_to_pos(index: usize) -> TreePosition {
-        match index {
-            0 => Point3::new(0, 0, 0),
-            1 => Point3::new(0, 0, 1),
-            2 => Point3::new(0, 1, 0),
-            3 => Point3::new(0, 1, 1),
-            4 => Point3::new(1, 0, 0),
-            5 => Point3::new(1, 0, 1),
-            6 => Point3::new(1, 1, 0),
-            7 => Point3::new(1, 1, 1),
-            _ => panic!("unsupported index"),
-        }
-    }
+
     const fn world_pos_to_child_pos(position: TreePosition, size: u32) -> TreePosition {
         let mask = !(1 << (size - 1));
         Point3 {
@@ -248,7 +237,7 @@ impl<T: Leafable> Node<T> {
 
 #[derive(Clone, Debug)]
 /// Overall Tree data structure. Utilizes arena to maintain cache locality and to serve as a framework as I migrate towards GPU compute
-pub(crate) struct FastOctTree<T: Leafable> {
+pub struct FastOctTree<T: Leafable> {
     arena: Arena<Node<T>>,
 }
 impl<T: Leafable> FastOctTree<T> {
@@ -321,7 +310,6 @@ mod test {
         let indices = [0, 1, 2, 3, 4, 5, 6, 7];
         for (position, index) in positions.iter().zip(indices) {
             assert_eq!(Node::<u32>::pos_to_index(*position), index);
-            assert_eq!(Node::<u32>::index_to_pos(index), *position)
         }
     }
     #[test]

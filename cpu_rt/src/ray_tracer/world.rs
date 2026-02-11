@@ -14,7 +14,7 @@ mod two_spheres;
 
 use super::sun::Sun;
 use super::{
-    background::{Sky, SunSky},
+    background::Sky,
     bvh::BvhTree,
     camera::{Camera, CameraInfo},
     hittable::*,
@@ -31,13 +31,12 @@ mod world_prelude {
         background::Sky,
         camera::{Camera, CameraInfo},
         hittable::{
-            fast_oct_tree::{FastOctTree, SolidVoxel, VolumeEdgeEffect, VolumeVoxel, Voxel},
-            Object, Sphere, Transform,
+            Object, SolidVoxel, Sphere, Transform, VolumeEdgeEffect, VolumeVoxel, Voxel, VoxelGrid,
         },
         material::DiffuseLight,
         texture::SolidColor,
     };
-    pub(crate) use crate::prelude::{IterBox, RayScalar, RgbColor};
+    pub(crate) use crate::prelude::{RayScalar, RgbColor};
 }
 use crate::prelude::*;
 

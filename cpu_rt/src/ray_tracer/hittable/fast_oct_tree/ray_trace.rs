@@ -8,7 +8,7 @@ use crate::{
     prelude::{Ray, RayScalar},
     rand_scalar,
 };
-use cgmath::{num_traits::int, prelude::*, Point3, Vector3};
+use cgmath::{prelude::*, Point3, Vector3};
 use log::{error, warn};
 use std::ops::Neg;
 impl<T: Leafable> FastOctTree<T> {
@@ -50,9 +50,7 @@ impl<T: Leafable> FastOctTree<T> {
             }
         }
     }
-    fn get_homogenous_chunk(&self, pos: Point3<u32>) -> Option<Node<T>> {
-        self.get_chunk(pos)
-    }
+
     /// return the chunk that the pos is contained in, if the pos is inside of a leaf returns the entire leaf
     /// returns none if pos is out of range
     fn get_chunk(&self, position: Point3<u32>) -> Option<Node<T>> {
