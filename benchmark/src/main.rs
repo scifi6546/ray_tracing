@@ -39,7 +39,7 @@ fn main() {
     println!("frame render time: {}", rendering_elapsed.as_millis());
     write!(
         write_file,
-        "{}\t{}\t{}",
+        "\n{}\t{}\t{}",
         commit_id,
         construct_elapsed.as_millis(),
         rendering_elapsed.as_millis()
