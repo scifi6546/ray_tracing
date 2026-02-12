@@ -56,10 +56,13 @@ pub(crate) fn make_schema(connection: &Connection) -> Result<(), SceneSaveError>
     let foreign_keys = database_names
         .iter()
         .map(|name| format!("FOREIGN KEY({}_id) REFERENCES {}({}_id)", name, name, name))
-        .fold(
-            String::new(),
-            |acc, x| if acc != "" { acc + ", " + &x } else { x },
-        );
+        .fold(String::new(), |acc, x| {
+            if !acc.is_empty() {
+                acc + ", " + &x
+            } else {
+                x
+            }
+        });
     let full_statement = format!(
         "CREATE TABLE background (background_id blob{},PRIMARY KEY(background_id), {});",
         type_names, foreign_keys
@@ -102,8 +105,8 @@ pub(crate) fn load_background(
         let names = names_id_pair
             .iter()
             .fold(String::new(), |acc, (_name, id)| {
-                if acc != "" {
-                    acc + ", " + &id
+                if !acc.is_empty() {
+                    acc + ", " + id
                 } else {
                     id.clone()
                 }
@@ -116,14 +119,9 @@ pub(crate) fn load_background(
             .iter()
             .enumerate()
             .filter_map(|(index, (name, _column_name))| {
-                if let Some(uuid) = row
-                    .get::<_, Option<Uuid>>(index)
+                row.get::<_, Option<Uuid>>(index)
                     .expect("failed to get column")
-                {
-                    Some((name.to_string(), uuid))
-                } else {
-                    None
-                }
+                    .map(|uuid| (name.to_string(), uuid))
             })
             .next()
             .expect("No background found")

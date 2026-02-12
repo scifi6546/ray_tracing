@@ -150,16 +150,15 @@ impl BvhTreeNode {
                 Self::None => None,
                 Self::Child { left, right, .. } => {
                     let left_hit = left.hit(objects, ray, t_min, t_max);
-                    if left_hit.is_none() {
-                        right.hit(objects, ray, t_min, t_max)
-                    } else {
-                        let right_hit =
-                            right.hit(objects, ray, t_min, left_hit.as_ref().unwrap().t);
+                    if let Some(left_hit) = left_hit {
+                        let right_hit = right.hit(objects, ray, t_min, left_hit.t);
                         if right_hit.is_some() {
                             right_hit
                         } else {
-                            left_hit
+                            Some(left_hit)
                         }
+                    } else {
+                        right.hit(objects, ray, t_min, t_max)
                     }
                 }
                 Self::Leaf { idx } => objects[*idx].hit(ray, t_min, t_max),

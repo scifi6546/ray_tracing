@@ -62,14 +62,10 @@ impl<T: Clone + std::fmt::Debug> Arena<T> {
         }
     }
     pub fn key_exists(&self, index: ArenaIndex) -> bool {
-        if index.index >= self.data.len() {
-            false
-        } else if self.deleted_indices.contains(&index.index) {
-            false
-        } else if index.generation != self.data[index.index].generation {
+        if index.index >= self.data.len() || self.deleted_indices.contains(&index.index) {
             false
         } else {
-            true
+            index.generation == self.data[index.index].generation
         }
     }
     /// Updates value in place at index with value

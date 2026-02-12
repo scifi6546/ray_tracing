@@ -254,8 +254,8 @@ impl FastOctTree<Voxel> {
                 NodeData::Parent { .. } => panic!("should not be parent"),
                 NodeData::Empty => None,
             };
-            match leaf {
-                Some(value) => match value {
+            if let Some(leaf) = leaf {
+                match leaf {
                     Voxel::Volume(volume) => {
                         match handle_volume(volume, rt_state, ray.direction, initial_normal) {
                             HitOutput::ContinueIteration(new_state) => rt_state = new_state,
@@ -281,8 +281,7 @@ impl FastOctTree<Voxel> {
                         }
                     }
                     Voxel::Solid(..) => {}
-                },
-                None => {}
+                }
             }
         }
 
@@ -416,63 +415,61 @@ impl FastOctTree<Voxel> {
                     } else {
                         return None;
                     }
-                } else {
-                    if self.in_range(Point3::new(
-                        rt_state.block_coordinates.x as i32 - 1,
-                        rt_state.block_coordinates.y as i32,
-                        rt_state.block_coordinates.z as i32,
-                    )) {
-                        rt_state.current_position.x += t_x * ray.direction.x;
-                        let next_step_size = self.get_step_size(Point3::new(
-                            rt_state.block_coordinates.x - 1,
-                            rt_state.current_position.y as i32,
-                            rt_state.current_position.z as i32,
-                        ));
+                } else if self.in_range(Point3::new(
+                    rt_state.block_coordinates.x as i32 - 1,
+                    rt_state.block_coordinates.y as i32,
+                    rt_state.block_coordinates.z as i32,
+                )) {
+                    rt_state.current_position.x += t_x * ray.direction.x;
+                    let next_step_size = self.get_step_size(Point3::new(
+                        rt_state.block_coordinates.x - 1,
+                        rt_state.current_position.y as i32,
+                        rt_state.current_position.z as i32,
+                    ));
 
-                        rt_state.block_coordinates.y = floor_value_integer(
-                            rt_state.current_position.y as i32,
-                            next_step_size as i32,
-                        );
-                        rt_state.block_coordinates.z = floor_value_integer(
-                            rt_state.current_position.z as i32,
-                            next_step_size as i32,
-                        );
-                        rt_state.block_coordinates.x -= next_step_size as i32;
+                    rt_state.block_coordinates.y = floor_value_integer(
+                        rt_state.current_position.y as i32,
+                        next_step_size as i32,
+                    );
+                    rt_state.block_coordinates.z = floor_value_integer(
+                        rt_state.current_position.z as i32,
+                        next_step_size as i32,
+                    );
+                    rt_state.block_coordinates.x -= next_step_size as i32;
 
-                        let node = self
-                            .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
-                            .expect("should be in range");
+                    let node = self
+                        .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
+                        .expect("should be in range");
 
-                        let node_leaf = match node.data {
-                            NodeData::Leaf(leaf) => Some(leaf),
-                            NodeData::Empty => None,
-                            NodeData::Parent { .. } => panic!("should not be parent node"),
-                        };
-                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(1., 0., 0.)) {
-                            HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
-                            HitOutput::StopIterationVolume {
-                                stop_position,
-                                hit_material,
-                            } => {
-                                return Some(HitInfo::Volume {
-                                    hit_value: hit_material,
-                                    hit_position: stop_position,
-                                })
-                            }
-                            HitOutput::StopIterationSolid {
-                                hit_material,
+                    let node_leaf = match node.data {
+                        NodeData::Leaf(leaf) => Some(leaf),
+                        NodeData::Empty => None,
+                        NodeData::Parent { .. } => panic!("should not be parent node"),
+                    };
+                    match handle_hit(node_leaf, rt_state, ray, Vector3::new(1., 0., 0.)) {
+                        HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
+                        HitOutput::StopIterationVolume {
+                            stop_position,
+                            hit_material,
+                        } => {
+                            return Some(HitInfo::Volume {
+                                hit_value: hit_material,
+                                hit_position: stop_position,
+                            })
+                        }
+                        HitOutput::StopIterationSolid {
+                            hit_material,
+                            normal,
+                        } => {
+                            return Some(HitInfo::Solid {
+                                hit_value: hit_material,
+                                hit_position: rt_state.current_position,
                                 normal,
-                            } => {
-                                return Some(HitInfo::Solid {
-                                    hit_value: hit_material,
-                                    hit_position: rt_state.current_position,
-                                    normal,
-                                })
-                            }
-                        };
-                    } else {
-                        return None;
-                    }
+                            })
+                        }
+                    };
+                } else {
+                    return None;
                 }
             } else if t_y < t_x && t_y < t_z {
                 // y is the min
@@ -530,61 +527,59 @@ impl FastOctTree<Voxel> {
                     } else {
                         return None;
                     }
-                } else {
-                    if self.in_range(Point3::new(
-                        rt_state.block_coordinates.x as i32,
-                        rt_state.block_coordinates.y as i32 - 1,
-                        rt_state.block_coordinates.z as i32,
-                    )) {
-                        rt_state.current_position.y += t_y * ray.direction.y;
-                        let next_step_size = self.get_step_size(Point3::new(
-                            rt_state.current_position.x as i32,
-                            rt_state.block_coordinates.y - 1,
-                            rt_state.current_position.z as i32,
-                        )) as i32;
+                } else if self.in_range(Point3::new(
+                    rt_state.block_coordinates.x as i32,
+                    rt_state.block_coordinates.y as i32 - 1,
+                    rt_state.block_coordinates.z as i32,
+                )) {
+                    rt_state.current_position.y += t_y * ray.direction.y;
+                    let next_step_size = self.get_step_size(Point3::new(
+                        rt_state.current_position.x as i32,
+                        rt_state.block_coordinates.y - 1,
+                        rt_state.current_position.z as i32,
+                    )) as i32;
 
-                        rt_state.block_coordinates.x = floor_value_integer(
-                            rt_state.current_position.x as i32,
-                            next_step_size as i32,
-                        );
-                        rt_state.block_coordinates.z = floor_value_integer(
-                            rt_state.current_position.z as i32,
-                            next_step_size as i32,
-                        );
-                        rt_state.block_coordinates.y -= next_step_size as i32;
-                        let node = self
-                            .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
-                            .expect("should be in range");
-                        let node_leaf = match node.data {
-                            NodeData::Leaf(leaf) => Some(leaf),
-                            NodeData::Empty => None,
-                            NodeData::Parent { .. } => panic!("should not be parent node"),
-                        };
-                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 1., 0.)) {
-                            HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
-                            HitOutput::StopIterationVolume {
-                                stop_position,
-                                hit_material,
-                            } => {
-                                return Some(HitInfo::Volume {
-                                    hit_value: hit_material,
-                                    hit_position: stop_position,
-                                })
-                            }
-                            HitOutput::StopIterationSolid {
-                                hit_material,
+                    rt_state.block_coordinates.x = floor_value_integer(
+                        rt_state.current_position.x as i32,
+                        next_step_size as i32,
+                    );
+                    rt_state.block_coordinates.z = floor_value_integer(
+                        rt_state.current_position.z as i32,
+                        next_step_size as i32,
+                    );
+                    rt_state.block_coordinates.y -= next_step_size as i32;
+                    let node = self
+                        .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
+                        .expect("should be in range");
+                    let node_leaf = match node.data {
+                        NodeData::Leaf(leaf) => Some(leaf),
+                        NodeData::Empty => None,
+                        NodeData::Parent { .. } => panic!("should not be parent node"),
+                    };
+                    match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 1., 0.)) {
+                        HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
+                        HitOutput::StopIterationVolume {
+                            stop_position,
+                            hit_material,
+                        } => {
+                            return Some(HitInfo::Volume {
+                                hit_value: hit_material,
+                                hit_position: stop_position,
+                            })
+                        }
+                        HitOutput::StopIterationSolid {
+                            hit_material,
+                            normal,
+                        } => {
+                            return Some(HitInfo::Solid {
+                                hit_value: hit_material,
+                                hit_position: rt_state.current_position,
                                 normal,
-                            } => {
-                                return Some(HitInfo::Solid {
-                                    hit_value: hit_material,
-                                    hit_position: rt_state.current_position,
-                                    normal,
-                                })
-                            }
-                        };
-                    } else {
-                        return None;
-                    }
+                            })
+                        }
+                    };
+                } else {
+                    return None;
                 }
             } else {
                 // z is the min
@@ -642,63 +637,61 @@ impl FastOctTree<Voxel> {
                     } else {
                         return None;
                     }
-                } else {
-                    if self.in_range(Point3::new(
-                        rt_state.block_coordinates.x as i32,
-                        rt_state.block_coordinates.y as i32,
-                        rt_state.block_coordinates.z as i32 - 1,
-                    )) {
-                        rt_state.current_position.z += t_z * ray.direction.z;
-                        let next_step_size = self.get_step_size(Point3::new(
-                            rt_state.current_position.x as i32,
-                            rt_state.current_position.y as i32,
-                            rt_state.block_coordinates.z - 1,
-                        )) as i32;
+                } else if self.in_range(Point3::new(
+                    rt_state.block_coordinates.x as i32,
+                    rt_state.block_coordinates.y as i32,
+                    rt_state.block_coordinates.z as i32 - 1,
+                )) {
+                    rt_state.current_position.z += t_z * ray.direction.z;
+                    let next_step_size = self.get_step_size(Point3::new(
+                        rt_state.current_position.x as i32,
+                        rt_state.current_position.y as i32,
+                        rt_state.block_coordinates.z - 1,
+                    )) as i32;
 
-                        rt_state.block_coordinates.x = floor_value_integer(
-                            rt_state.current_position.x as i32,
-                            next_step_size as i32,
-                        );
-                        rt_state.block_coordinates.y = floor_value_integer(
-                            rt_state.current_position.y as i32,
-                            next_step_size as i32,
-                        );
+                    rt_state.block_coordinates.x = floor_value_integer(
+                        rt_state.current_position.x as i32,
+                        next_step_size as i32,
+                    );
+                    rt_state.block_coordinates.y = floor_value_integer(
+                        rt_state.current_position.y as i32,
+                        next_step_size as i32,
+                    );
 
-                        rt_state.block_coordinates.z -= next_step_size as i32;
+                    rt_state.block_coordinates.z -= next_step_size as i32;
 
-                        let node = self
-                            .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
-                            .expect("should be in range");
-                        let node_leaf = match node.data {
-                            NodeData::Leaf(leaf) => Some(leaf),
-                            NodeData::Empty => None,
-                            NodeData::Parent { .. } => panic!("should not be parent node"),
-                        };
-                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 0., 1.)) {
-                            HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
-                            HitOutput::StopIterationVolume {
-                                stop_position,
-                                hit_material,
-                            } => {
-                                return Some(HitInfo::Volume {
-                                    hit_value: hit_material,
-                                    hit_position: stop_position,
-                                })
-                            }
-                            HitOutput::StopIterationSolid {
-                                hit_material,
+                    let node = self
+                        .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
+                        .expect("should be in range");
+                    let node_leaf = match node.data {
+                        NodeData::Leaf(leaf) => Some(leaf),
+                        NodeData::Empty => None,
+                        NodeData::Parent { .. } => panic!("should not be parent node"),
+                    };
+                    match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 0., 1.)) {
+                        HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
+                        HitOutput::StopIterationVolume {
+                            stop_position,
+                            hit_material,
+                        } => {
+                            return Some(HitInfo::Volume {
+                                hit_value: hit_material,
+                                hit_position: stop_position,
+                            })
+                        }
+                        HitOutput::StopIterationSolid {
+                            hit_material,
+                            normal,
+                        } => {
+                            return Some(HitInfo::Solid {
+                                hit_value: hit_material,
+                                hit_position: rt_state.current_position,
                                 normal,
-                            } => {
-                                return Some(HitInfo::Solid {
-                                    hit_value: hit_material,
-                                    hit_position: rt_state.current_position,
-                                    normal,
-                                })
-                            }
-                        };
-                    } else {
-                        return None;
+                            })
+                        }
                     }
+                } else {
+                    return None;
                 }
             }
         }

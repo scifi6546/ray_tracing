@@ -15,7 +15,7 @@ impl GaussianBlur {
         for x in 0..texture.width() {
             for y in 0..texture.height() {
                 let mut result = texture.get_xy(x, y) * weights[0];
-
+                #[allow(clippy::needless_range_loop)]
                 for i in 1..5 {
                     result += texture.get_clamped(x as i32 + i as i32, y as i32) * weights[i];
                     result += texture.get_clamped(x as i32 - i as i32, y as i32) * weights[i];
@@ -27,7 +27,7 @@ impl GaussianBlur {
         for x in 0..y_mod.width() {
             for y in 0..y_mod.height() {
                 let mut result = x_mod.get_xy(x, y) * weights[0];
-
+                #[allow(clippy::needless_range_loop)]
                 for i in 1..5 {
                     result += x_mod.get_clamped(x as i32, y as i32 + i as i32) * weights[i];
                     result += x_mod.get_clamped(x as i32, y as i32 - i as i32) * weights[i];

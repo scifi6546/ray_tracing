@@ -102,14 +102,12 @@ impl ParallelImage {
     }
     pub(crate) fn split(&self, num_parts: usize) -> Vec<ParallelImagePart> {
         let slice_width = self.width() / num_parts;
-        let mut out_images = vec![];
+        let mut out_images = Vec::with_capacity(num_parts);
         out_images.reserve(num_parts);
         for slice in 0..num_parts {
             let slice_start = slice_width * slice;
             let slice_end = (slice_start + slice_width).min(self.width());
-
-            let mut buffer = vec![];
-            buffer.reserve((slice_end - slice_start) * self.height);
+            let mut buffer = Vec::with_capacity((slice_end - slice_start) * self.height);
 
             for y in 0..self.height {
                 for x in slice_start..slice_end {
@@ -419,19 +417,15 @@ impl ParallelImageCollector {
     }
     pub fn receive(&mut self) -> Option<ParallelImage> {
         for recv in self.receivers.iter_mut() {
-            loop {
-                if let Some(image) = recv.try_recv() {
-                    let num_samples = self
-                        .images
-                        .get(&image.offset())
-                        .map(|img| img.num_samples + 1)
-                        .unwrap_or(1);
+            while let Some(image) = recv.try_recv() {
+                let num_samples = self
+                    .images
+                    .get(&image.offset())
+                    .map(|img| img.num_samples + 1)
+                    .unwrap_or(1);
 
-                    self.images
-                        .insert(image.offset, PartContainer { image, num_samples });
-                } else {
-                    break;
-                }
+                self.images
+                    .insert(image.offset, PartContainer { image, num_samples });
             }
         }
         if !self.images.is_empty() {

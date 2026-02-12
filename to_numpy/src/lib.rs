@@ -12,9 +12,7 @@ pub trait NumpyArray2D {
         );
         let header_bytes = header_str.as_bytes();
         let header_len = header_bytes.len() as u32;
-        let mut out_data = vec![
-            0x93, 'N' as u8, 'U' as u8, 'M' as u8, 'P' as u8, 'Y' as u8, 0x3, 0x00,
-        ];
+        let mut out_data = vec![0x93, b'N', b'U', b'M', b'P', b'Y', 0x3, 0x00];
         for byte in header_len.to_le_bytes().iter() {
             out_data.push(*byte);
         }
@@ -31,7 +29,7 @@ pub trait NumpyArray2D {
             }
         }
 
-        return out_data;
+        out_data
     }
     fn save<P: AsRef<Path>>(&self, path: P) -> std::io::Result<()> {
         let mut file = File::create(path)?;
@@ -50,9 +48,7 @@ pub trait NumpyArray3D {
         );
         let header_bytes = header_str.as_bytes();
         let header_len = header_bytes.len() as u32;
-        let mut out_data = vec![
-            0x93, 'N' as u8, 'U' as u8, 'M' as u8, 'P' as u8, 'Y' as u8, 0x3, 0x00,
-        ];
+        let mut out_data = vec![0x93, b'N', b'U', b'M', b'P', b'Y', 0x3, 0x00];
         for byte in header_len.to_le_bytes().iter() {
             out_data.push(*byte);
         }
@@ -71,7 +67,7 @@ pub trait NumpyArray3D {
             }
         }
 
-        return out_data;
+        out_data
     }
     /// saves image as numpy
     fn save<P: AsRef<Path>>(&self, path: P) -> std::io::Result<()> {
