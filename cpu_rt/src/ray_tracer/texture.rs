@@ -2,7 +2,7 @@ use crate::prelude::*;
 use crate::ray_tracer::rand_vec;
 use cgmath::{InnerSpace, Point2, Point3, Vector3};
 use dyn_clone::clone_box;
-use std::ops::Deref;
+use std::{default::Default, ops::Deref};
 
 pub trait Texture: Send + Sync + dyn_clone::DynClone {
     fn name(&self) -> &'static str;
@@ -158,7 +158,9 @@ impl Perlin {
         }
         acum.abs()
     }
-    pub fn new() -> Self {
+}
+impl Default for Perlin {
+    fn default() -> Self {
         let mut ran_float = [Vector3 {
             x: 0.0,
             y: 0.0,

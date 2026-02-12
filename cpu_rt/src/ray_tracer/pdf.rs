@@ -244,8 +244,7 @@ impl Pdf for LambertianPDF {
             2 => self.sky_pdf.generate(incoming_ray, hit_point, world),
             _ => panic!(),
         };
-        if v.is_some() {
-            let (out_direction, pdf) = v.unwrap();
+        if let Some((out_direction, pdf)) = v {
             let mut sum: RayScalar = 0.0;
             let mut total = 0;
             let value_ray = Ray {

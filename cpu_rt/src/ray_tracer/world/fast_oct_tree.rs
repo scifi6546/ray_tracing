@@ -816,11 +816,29 @@ pub fn apartment_building() -> WorldInfo {
     }
 }
 pub fn city() -> WorldInfo {
+    let origin = Point3::<RayScalar>::new(-50.0, 100.0, -40.0);
+
+    let look_at = Point3::new(0.0, 0.0, 0.0);
+    let fov = 40.0;
+    let focus_distance = {
+        let t = look_at - origin;
+        (t.dot(t)).sqrt()
+    };
     WorldInfo {
         objects: vec![],
         lights: vec![],
-        background: todo!(),
-        camera: todo!(),
+        background: Box::new(Sky { intensity: 0.4 }),
+        camera: Camera::new(CameraInfo {
+            aspect_ratio: 1.0,
+            fov,
+            origin,
+            look_at,
+            up_vector: Vector3::unit_y(),
+            aperture: 0.00001,
+            focus_distance,
+            start_time: 0.0,
+            end_time: 0.0,
+        }),
 
         sun: None,
     }

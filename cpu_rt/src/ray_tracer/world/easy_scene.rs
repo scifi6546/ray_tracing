@@ -92,7 +92,7 @@ pub fn easy_scene() -> WorldInfo {
                             even: Box::new(SolidColor {
                                 color: RgbColor::new(0.5, 1.0, 0.0),
                             }),
-                            odd: Box::new(Perlin::new()),
+                            odd: Box::new(Perlin::default()),
                         }),
                     }),
                 }),

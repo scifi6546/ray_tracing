@@ -36,9 +36,9 @@ impl Hittable for Sphere {
             return None;
         }
         let sqrt_d = discriminant.sqrt();
-        let mut root = (-1.0 * half_b - sqrt_d) / a;
+        let mut root = (-half_b - sqrt_d) / a;
         if root < t_min || t_max < root {
-            root = (-1.0 * half_b + sqrt_d) / a;
+            root = (-half_b + sqrt_d) / a;
             if root < t_min || t_max < root {
                 return None;
             }
@@ -109,8 +109,8 @@ impl Sphere {
         RayScalar::PI() * self.radius.powi(2)
     }
     fn get_sphere_uv(point: Vector3<RayScalar>) -> Point2<RayScalar> {
-        let theta = (-1.0 * point.y).acos();
-        let phi = (-1.0 * point.z).atan2(point.x) + RayScalar::PI();
+        let theta = (-point.y).acos();
+        let phi = (-point.z).atan2(point.x) + RayScalar::PI();
         Point2::new(phi / (2.0 * RayScalar::PI()), theta / RayScalar::PI())
     }
 }
@@ -153,9 +153,9 @@ impl Hittable for MovingSphere {
             return None;
         }
         let sqrt_d = discriminant.sqrt();
-        let mut root = (-1.0 * half_b - sqrt_d) / a;
+        let mut root = (-half_b - sqrt_d) / a;
         if root < t_min || t_max < root {
-            root = (-1.0 * half_b + sqrt_d) / a;
+            root = (-half_b + sqrt_d) / a;
             if root < t_min || t_max < root {
                 return None;
             }

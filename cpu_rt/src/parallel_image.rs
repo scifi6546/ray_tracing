@@ -61,7 +61,7 @@ impl ParallelImage {
                 image.put_pixel(x as u32, self.height() as u32 - y as u32 - 1, u8_color);
             }
         }
-        return image;
+        image
     }
     pub fn get_uv(&self, uv: Point2<RayScalar>) -> RgbColor {
         let x = ((uv.x * (self.width() as RayScalar - 1.0)) as usize).clamp(0, self.width() - 1);
@@ -436,7 +436,7 @@ impl ParallelImageCollector {
         }
         if !self.images.is_empty() {
             Some(ParallelImage::join_container(
-                self.images.iter().map(|(_k, v)| v).collect(),
+                self.images.values().collect(),
             ))
         } else {
             None

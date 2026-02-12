@@ -257,8 +257,7 @@ impl FastOctTree<Voxel> {
             match leaf {
                 Some(value) => match value {
                     Voxel::Volume(volume) => {
-                        match handle_volume(volume.clone(), rt_state, ray.direction, initial_normal)
-                        {
+                        match handle_volume(volume, rt_state, ray.direction, initial_normal) {
                             HitOutput::ContinueIteration(new_state) => rt_state = new_state,
                             HitOutput::StopIterationVolume {
                                 stop_position,

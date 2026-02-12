@@ -34,16 +34,10 @@ struct Node<T: Leafable> {
 }
 impl<T: Leafable> Node<T> {
     fn is_leaf(&self) -> bool {
-        match self.data {
-            NodeData::Leaf(_) => true,
-            _ => false,
-        }
+        matches!(self.data, NodeData::Leaf(_))
     }
     fn is_empty(&self) -> bool {
-        match self.data {
-            NodeData::Empty => true,
-            _ => false,
-        }
+        matches!(self.data, NodeData::Empty)
     }
     //sets children and returns  a copy of modified version of self
     fn set_child(mut self, value: T, position: TreePosition, arena: &mut Arena<Self>) -> Self {
@@ -184,8 +178,7 @@ impl<T: Leafable> Node<T> {
                     .get(children[child_index as usize])
                     .expect("should have child")
                     .clone();
-                let output = child.get(Self::world_pos_to_child_pos(position, self.size), arena);
-                output
+                child.get(Self::world_pos_to_child_pos(position, self.size), arena)
             }
         }
     }

@@ -210,7 +210,7 @@ impl Savable for Camera {
                 }
             })
             .flatten()
-            .map(|info| Camera::new(info))
+            .map(Camera::new)
             .collect::<Vec<_>>())
     }
 }
