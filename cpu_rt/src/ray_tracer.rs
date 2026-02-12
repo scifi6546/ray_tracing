@@ -133,19 +133,12 @@ impl Shader for DiffuseShader {
                 steps: vec![],
             };
         }
-        #[cfg(feature = "debug_tracing")]
-        let steps = vec![];
+
         if let Some(record) = world.nearest_hit(&ray, 0.001, f32::MAX) {
             match record.material_effect {
-                MaterialEffect::Emmit(color) => RayColorOutput {
-                    color,
-                    #[cfg(feature = "debug_tracing")]
-                    steps,
-                },
+                MaterialEffect::Emmit(color) => RayColorOutput { color },
                 MaterialEffect::Scatter(record) => RayColorOutput {
                     color: record.attenuation,
-                    #[cfg(feature = "debug_tracing")]
-                    steps,
                 },
                 MaterialEffect::NoEmmit => RayColorOutput {
                     color: RgbColor::BLACK,

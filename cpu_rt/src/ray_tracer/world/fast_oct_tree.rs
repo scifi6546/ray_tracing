@@ -815,3 +815,13 @@ pub fn apartment_building() -> WorldInfo {
         sun: None,
     }
 }
+pub fn city() -> WorldInfo {
+    WorldInfo {
+        objects: vec![],
+        lights: vec![],
+        background: todo!(),
+        camera: todo!(),
+
+        sun: None,
+    }
+}

@@ -84,6 +84,7 @@ impl Camera {
         let v = w.cross(u);
         (w, u, v)
     }
+    /// gets the ray for  the given screen coordinates
     pub fn get_ray(&self, u: RayScalar, v: RayScalar) -> Ray {
         let rd = self.lens_radius * Self::random_in_unit_disk();
         let offset = self.u * rd.x + self.v * rd.y;
