@@ -816,18 +816,56 @@ pub fn apartment_building() -> WorldInfo {
     }
 }
 pub fn city() -> WorldInfo {
-    let origin = Point3::<RayScalar>::new(-50.0, 100.0, -40.0);
+    const ROAD_WIDTH: u32 = 9;
+    const ROAD_LENGTH: u32 = 400;
+    const LINE_POSITION: u32 = 4;
+    const CELL_SIZE: u32 = 64;
+    const NUMBER_GRIDS: u32 = 5;
+    let origin = Point3::<RayScalar>::new(500.0, 100.0, -400.0);
 
-    let look_at = Point3::new(0.0, 0.0, 0.0);
+    let look_at = Point3::new(50.0, 0.0, 0.0);
     let fov = 40.0;
     let focus_distance = {
         let t = look_at - origin;
         (t.dot(t)).sqrt()
     };
+    let building0 =
+        VoxelGrid::load_vox("./voxel_assets/city/skyscraper0.vox").expect("failed to load");
+    let mut grid = VoxelGrid::new();
+    for i in 0..NUMBER_GRIDS {
+        let x_offset = i * (CELL_SIZE + ROAD_WIDTH);
+        for point in IterBox::from_xyz(ROAD_WIDTH + x_offset, 1, ROAD_LENGTH)
+            .start_xyz(x_offset, 0, 0)
+            .iter()
+        {
+            let albedo = if point.x == LINE_POSITION {
+                RgbColor::from_color_hex("#e4af00")
+            } else {
+                RgbColor::from_color_hex("#363636")
+            };
+            grid.set(Voxel::Solid(SolidVoxel::Lambertian { albedo }), point);
+        }
+        let x_offset = i * (CELL_SIZE + ROAD_WIDTH);
+        for point in IterBox::from_xyz(ROAD_LENGTH, 1, 20 + x_offset)
+            .start_xyz(0, 0, x_offset)
+            .iter()
+        {
+            let albedo = if point.z == LINE_POSITION {
+                RgbColor::from_color_hex("#e4af00")
+            } else {
+                RgbColor::from_color_hex("#363636")
+            };
+            grid.set(Voxel::Solid(SolidVoxel::Lambertian { albedo }), point);
+        }
+    }
+    let grid = grid.combine(
+        &building0,
+        Vector3::new(ROAD_WIDTH as i32, 1, ROAD_WIDTH as i32),
+    );
     WorldInfo {
-        objects: vec![],
+        objects: vec![Object::new(Box::new(grid), Transform::identity())],
         lights: vec![],
-        background: Box::new(Sky { intensity: 0.4 }),
+        background: Box::new(Sky { intensity: 0.6 }),
         camera: Camera::new(CameraInfo {
             aspect_ratio: 1.0,
             fov,
