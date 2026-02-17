@@ -702,15 +702,22 @@ impl FastOctTree<Voxel> {
         None
     }
     pub fn trace_ray(&self, ray: Ray) -> Option<HitInfo<Voxel>> {
-        #[derive(Debug)]
-        struct PlaneIntersection {
-            normal_axis: usize,
-            intersect_time: RayScalar,
-            normal_vector: Vector3<RayScalar>,
-            intersect_position: Point3<RayScalar>,
-            block_coordinate: Point3<i32>,
-        }
-
+        const BLOCK_OFFSETS: [Vector3<i32>; 6] = [
+            Vector3::new(0i32, 0, 0),
+            Vector3::new(-1, 0, 0),
+            Vector3::new(0, 0, 0),
+            Vector3::new(0, -1, 0),
+            Vector3::new(0, 0, 0),
+            Vector3::new(0, 0, -1),
+        ];
+        const NORMALS: [Vector3<RayScalar>; 6] = [
+            Vector3::new(-1., 0., 0.),
+            Vector3::new(1., 0., 0.),
+            Vector3::new(0., -1., 0.),
+            Vector3::new(0., 1., 0.),
+            Vector3::new(0., 0., -1.),
+            Vector3::new(0., 0., 1.),
+        ];
         if ray.origin.x >= 0.0
             && ray.origin.x <= self.world_size() as RayScalar
             && ray.origin.y >= 0.0
@@ -732,100 +739,84 @@ impl FastOctTree<Voxel> {
                 Vector3::unit_x(),
             )
         } else {
-            let mut solutions = (0..3)
-                .flat_map(|normal_axis| {
-                    let zero_intersect_time = ray.intersect_axis(normal_axis, 0.);
-                    let zero_intersect_position = ray.at(zero_intersect_time);
-                    let size_intersect_time =
-                        ray.intersect_axis(normal_axis, self.world_size() as RayScalar);
-                    let size_intersect_position = ray.at(size_intersect_time);
-                    [
-                        PlaneIntersection {
-                            normal_axis,
-                            intersect_time: zero_intersect_time,
-                            normal_vector: Vector3::new(
-                                if normal_axis == 0 { -1.0 } else { 0.0 },
-                                if normal_axis == 1 { -1.0 } else { 0.0 },
-                                if normal_axis == 2 { -1.0 } else { 0.0 },
-                            ),
-                            intersect_position: zero_intersect_position,
-                            block_coordinate: Point3::new(
-                                zero_intersect_position.x as i32,
-                                zero_intersect_position.y as i32,
-                                zero_intersect_position.z as i32,
-                            ),
-                        },
-                        PlaneIntersection {
-                            normal_axis,
-                            intersect_time: size_intersect_time,
-                            normal_vector: Vector3::new(
-                                if normal_axis == 0 { 1.0 } else { 0.0 },
-                                if normal_axis == 1 { 1.0 } else { 0.0 },
-                                if normal_axis == 2 { 1.0 } else { 0.0 },
-                            ),
-                            intersect_position: size_intersect_position,
-                            block_coordinate: Point3::new(
-                                if normal_axis == 0 {
-                                    size_intersect_position.x.round() as i32 - 1
-                                } else {
-                                    size_intersect_position.x as i32
-                                },
-                                if normal_axis == 1 {
-                                    size_intersect_position.y.round() as i32 - 1
-                                } else {
-                                    size_intersect_position.y as i32
-                                },
-                                if normal_axis == 2 {
-                                    size_intersect_position.z.round() as i32 - 1
-                                } else {
-                                    size_intersect_position.z as i32
-                                },
-                            ),
-                        },
-                    ]
-                })
-                .filter(|intersection| {
-                    ((intersection.intersect_position[0] >= 0.
-                        && intersection.intersect_position[0] < self.world_size() as RayScalar)
-                        || intersection.normal_axis == 0)
-                        && ((intersection.intersect_position[1] >= 0.
-                            && intersection.intersect_position[1] < self.world_size() as RayScalar)
-                            || intersection.normal_axis == 1)
-                        && ((intersection.intersect_position[2] >= 0.
-                            && intersection.intersect_position[2] < self.world_size() as RayScalar)
-                            || intersection.normal_axis == 2)
-                })
-                .collect::<Vec<_>>();
-            solutions.sort_by(|a, b| a.intersect_time.partial_cmp(&b.intersect_time).unwrap());
-            if let Some(intersection) = solutions.first() {
-                if let Some(voxel) =
-                    self.get(intersection.block_coordinate.map(|v| v as u32).map(|v| v))
-                {
+            let world_size = self.world_size() as RayScalar;
+
+            let values = [
+                ray.intersect_axis(0, 0.),
+                ray.intersect_axis(0, world_size),
+                ray.intersect_axis(1, 0.),
+                ray.intersect_axis(1, world_size),
+                ray.intersect_axis(2, 0.),
+                ray.intersect_axis(2, world_size),
+            ];
+            let (min_x_index, max_x_index) = if values[0] < values[1] {
+                (0, 1)
+            } else {
+                (1, 0)
+            };
+            let (min_y_index, max_y_index) = if values[2] < values[3] {
+                (2, 3)
+            } else {
+                (3, 2)
+            };
+            let (min_z_index, max_z_index) = if values[4] < values[5] {
+                (4, 5)
+            } else {
+                (5, 4)
+            };
+            let min_index = if values[min_x_index] > values[min_y_index]
+                && values[min_x_index] > values[min_z_index]
+            {
+                min_x_index
+            } else if values[min_y_index] > values[min_x_index]
+                && values[min_y_index] > values[min_z_index]
+            {
+                min_y_index
+            } else {
+                min_z_index
+            };
+            let max_index = if values[max_x_index] < values[max_y_index]
+                && values[max_x_index] < values[max_z_index]
+            {
+                max_x_index
+            } else if values[max_y_index] < values[max_x_index]
+                && values[max_y_index] < values[max_z_index]
+            {
+                max_y_index
+            } else {
+                max_z_index
+            };
+
+            if values[max_index] >= values[min_index] && values[min_index] >= 0. {
+                let position = ray.at(values[min_index]);
+                let block_coordinate = position.map(|v| v as i32) + BLOCK_OFFSETS[min_index];
+                let normal = NORMALS[min_index];
+                if let Some(voxel) = self.get(block_coordinate.map(|v| v as u32)) {
                     match voxel {
                         Voxel::Solid(solid_material) => Some(HitInfo::Solid {
                             hit_value: solid_material.to_material(),
-                            hit_position: intersection.intersect_position,
-                            normal: intersection.normal_vector,
+                            hit_position: position,
+                            normal,
                         }),
                         Voxel::Volume(_) => self.ray_iteration(
-                            intersection.block_coordinate,
+                            block_coordinate,
                             Ray {
-                                origin: intersection.intersect_position,
+                                origin: position,
                                 direction: ray.direction,
                                 time: 0.,
                             },
-                            intersection.normal_vector,
+                            normal,
                         ),
                     }
                 } else {
                     self.ray_iteration(
-                        intersection.block_coordinate,
+                        block_coordinate,
                         Ray {
-                            origin: intersection.intersect_position,
+                            origin: position,
                             direction: ray.direction,
                             time: 0.,
                         },
-                        intersection.normal_vector,
+                        normal,
                     )
                 }
             } else {
