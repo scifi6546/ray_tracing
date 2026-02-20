@@ -117,6 +117,7 @@ impl FastOctTree<Voxel> {
                 hit_material: VoxelMaterial,
                 normal: Vector3<RayScalar>,
             },
+            OutOfRange,
         }
         fn floor_value_integer(a: i32, b: i32) -> i32 {
             a - (a % b)
@@ -125,6 +126,7 @@ impl FastOctTree<Voxel> {
             coord.map(|v| floor_value_integer(v, b))
         }
         // gets the sign of the value, for example -123 -> -1 or 123 -> 1.
+        // can be optmized by doing bitshift magic
         fn int_sign(a: RayScalar) -> i32 {
             if a.is_sign_positive() {
                 1
@@ -216,7 +218,6 @@ impl FastOctTree<Voxel> {
             }
         }
         const MAX_NUMBER_RAY_ITERATIONS: usize = 3000;
-        let original_ray = ray;
 
         let mut rt_state = RayTraceState {
             block_coordinates: floor_point3_integer(
@@ -228,8 +229,8 @@ impl FastOctTree<Voxel> {
         };
         fn handle_hit(
             node_leaf: Option<Voxel>,
-            rt_state: RayTraceState,
-            ray: Ray,
+            rt_state: &RayTraceState,
+            ray: &Ray,
             normal: Vector3<RayScalar>,
         ) -> HitOutput {
             if let Some(voxel) = node_leaf {
@@ -238,88 +239,38 @@ impl FastOctTree<Voxel> {
                         hit_material: solid_material.to_material(),
                         normal,
                     },
-                    Voxel::Volume(volume) => handle_volume(volume, rt_state, ray.direction, normal),
+                    Voxel::Volume(volume) => {
+                        handle_volume(volume, *rt_state, ray.direction, normal)
+                    }
                 }
             } else {
-                handle_empty(rt_state, ray.direction)
+                handle_empty(rt_state.clone(), ray.direction)
             }
         }
+        fn inner_loop(
+            tree: &FastOctTree<Voxel>,
+            ray: &Ray,
+            rt_state: &mut RayTraceState,
+            sign_vec: Vector3<RayScalar>,
+        ) -> HitOutput {
+            let step_size = tree.get_step_size(rt_state.block_coordinates);
 
-        {
-            let chunk = self
-                .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
-                .expect("out of range");
-            let leaf = match chunk.data {
-                NodeData::Leaf(v) => Some(v),
-                NodeData::Parent { .. } => panic!("should not be parent"),
-                NodeData::Empty => None,
-            };
-            if let Some(leaf) = leaf {
-                match leaf {
-                    Voxel::Volume(volume) => {
-                        match handle_volume(volume, rt_state, ray.direction, initial_normal) {
-                            HitOutput::ContinueIteration(new_state) => rt_state = new_state,
-                            HitOutput::StopIterationVolume {
-                                stop_position,
-                                hit_material,
-                            } => {
-                                return Some(HitInfo::Volume {
-                                    hit_value: hit_material,
-                                    hit_position: stop_position,
-                                })
-                            }
-                            HitOutput::StopIterationSolid {
-                                hit_material,
-                                normal,
-                            } => {
-                                return Some(HitInfo::Solid {
-                                    hit_value: hit_material,
-                                    hit_position: rt_state.current_position,
-                                    normal,
-                                })
-                            }
-                        }
-                    }
-                    Voxel::Solid(..) => {}
-                }
-            }
-        }
-
-        let x_sign = if ray.direction.x.is_sign_positive() {
-            1
-        } else {
-            0
-        };
-        let y_sign = if ray.direction.y.is_sign_positive() {
-            1
-        } else {
-            0
-        };
-        let z_sign = if ray.direction.z.is_sign_positive() {
-            1
-        } else {
-            0
-        };
-
-        for _ in 0..MAX_NUMBER_RAY_ITERATIONS {
-            let step_size = self.get_step_size(rt_state.block_coordinates);
-
-            if !self.in_range(rt_state.block_coordinates) {
-                return None;
+            if !tree.in_range(rt_state.block_coordinates) {
+                return HitOutput::OutOfRange;
             }
 
             let t_x = (rt_state.block_coordinates.x as RayScalar
-                + step_size as RayScalar * x_sign as RayScalar
+                + step_size as RayScalar * sign_vec.x
                 - rt_state.current_position.x)
                 / ray.direction.x;
 
             let t_y = (rt_state.block_coordinates.y as RayScalar
-                + step_size as RayScalar * y_sign as RayScalar
+                + step_size as RayScalar * sign_vec.y
                 - rt_state.current_position.y)
                 / ray.direction.y;
 
             let t_z = (rt_state.block_coordinates.z as RayScalar
-                + step_size as RayScalar * z_sign as RayScalar
+                + step_size as RayScalar * sign_vec.z
                 - rt_state.current_position.z)
                 / ray.direction.z;
             if t_x < 0. {
@@ -347,15 +298,15 @@ impl FastOctTree<Voxel> {
                     rt_state.current_position.y,
                     rt_state.current_position.z
                 );
-                return None;
+                return HitOutput::OutOfRange;
             }
             if t_y < 0. {
-                error!("t_y < 0., t_y = {}, original ray: {}", t_y, original_ray);
-                return None;
+                error!("t_y < 0., t_y = {}", t_y);
+                return HitOutput::OutOfRange;
             }
             if t_z < 0. {
-                error!("t_z < 0., t_z = {}, original ray: {}", t_z, original_ray);
-                return None;
+                error!("t_z < 0., t_z = {}", t_z);
+                return HitOutput::OutOfRange;
             }
 
             if t_x < t_y && t_x < t_z {
@@ -365,12 +316,12 @@ impl FastOctTree<Voxel> {
                 if ray.direction.x >= 0. {
                     rt_state.block_coordinates.x += step_size as i32 * int_sign(ray.direction.x);
                     rt_state.current_position.x += t_x * ray.direction.x;
-                    if self.in_range(Point3::new(
+                    if tree.in_range(Point3::new(
                         rt_state.block_coordinates.x as i32,
                         rt_state.current_position.y as i32,
                         rt_state.current_position.z as i32,
                     )) {
-                        let next_step_size = self.get_step_size(Point3::new(
+                        let next_step_size = tree.get_step_size(Point3::new(
                             rt_state.block_coordinates.x,
                             rt_state.current_position.y as i32,
                             rt_state.current_position.z as i32,
@@ -381,7 +332,7 @@ impl FastOctTree<Voxel> {
                         rt_state.block_coordinates.z =
                             floor_value_integer(rt_state.current_position.z as i32, next_step_size);
 
-                        let node = self
+                        let node = tree
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
                             .expect("should be in range");
                         let node_leaf = match node.data {
@@ -389,39 +340,17 @@ impl FastOctTree<Voxel> {
                             NodeData::Empty => None,
                             NodeData::Parent { .. } => panic!("should not be parent node"),
                         };
-
-                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(-1., 0., 0.)) {
-                            HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
-                            HitOutput::StopIterationVolume {
-                                stop_position,
-                                hit_material,
-                            } => {
-                                return Some(HitInfo::Volume {
-                                    hit_value: hit_material,
-                                    hit_position: stop_position,
-                                })
-                            }
-                            HitOutput::StopIterationSolid {
-                                hit_material,
-                                normal,
-                            } => {
-                                return Some(HitInfo::Solid {
-                                    hit_value: hit_material,
-                                    hit_position: rt_state.current_position,
-                                    normal,
-                                })
-                            }
-                        };
+                        handle_hit(node_leaf, rt_state, ray, Vector3::new(-1., 0., 0.))
                     } else {
-                        return None;
+                        HitOutput::OutOfRange
                     }
-                } else if self.in_range(Point3::new(
+                } else if tree.in_range(Point3::new(
                     rt_state.block_coordinates.x as i32 - 1,
                     rt_state.block_coordinates.y as i32,
                     rt_state.block_coordinates.z as i32,
                 )) {
                     rt_state.current_position.x += t_x * ray.direction.x;
-                    let next_step_size = self.get_step_size(Point3::new(
+                    let next_step_size = tree.get_step_size(Point3::new(
                         rt_state.block_coordinates.x - 1,
                         rt_state.current_position.y as i32,
                         rt_state.current_position.z as i32,
@@ -437,7 +366,7 @@ impl FastOctTree<Voxel> {
                     );
                     rt_state.block_coordinates.x -= next_step_size as i32;
 
-                    let node = self
+                    let node = tree
                         .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
                         .expect("should be in range");
 
@@ -446,30 +375,10 @@ impl FastOctTree<Voxel> {
                         NodeData::Empty => None,
                         NodeData::Parent { .. } => panic!("should not be parent node"),
                     };
-                    match handle_hit(node_leaf, rt_state, ray, Vector3::new(1., 0., 0.)) {
-                        HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
-                        HitOutput::StopIterationVolume {
-                            stop_position,
-                            hit_material,
-                        } => {
-                            return Some(HitInfo::Volume {
-                                hit_value: hit_material,
-                                hit_position: stop_position,
-                            })
-                        }
-                        HitOutput::StopIterationSolid {
-                            hit_material,
-                            normal,
-                        } => {
-                            return Some(HitInfo::Solid {
-                                hit_value: hit_material,
-                                hit_position: rt_state.current_position,
-                                normal,
-                            })
-                        }
-                    };
+
+                    handle_hit(node_leaf, rt_state, ray, Vector3::new(1., 0., 0.))
                 } else {
-                    return None;
+                    HitOutput::OutOfRange
                 }
             } else if t_y < t_x && t_y < t_z {
                 // y is the min
@@ -478,12 +387,12 @@ impl FastOctTree<Voxel> {
                 if ray.direction.y >= 0. {
                     rt_state.block_coordinates.y += step_size as i32 * int_sign(ray.direction.y);
                     rt_state.current_position.y += t_y * ray.direction.y;
-                    if self.in_range(Point3::new(
+                    if tree.in_range(Point3::new(
                         rt_state.current_position.x as i32,
                         rt_state.block_coordinates.y as i32,
                         rt_state.current_position.z as i32,
                     )) {
-                        let next_step_size = self.get_step_size(Point3::new(
+                        let next_step_size = tree.get_step_size(Point3::new(
                             rt_state.current_position.x as i32,
                             rt_state.block_coordinates.y,
                             rt_state.current_position.z as i32,
@@ -494,7 +403,7 @@ impl FastOctTree<Voxel> {
                         rt_state.block_coordinates.z =
                             floor_value_integer(rt_state.current_position.z as i32, next_step_size);
 
-                        let node = self
+                        let node = tree
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
                             .expect("should be in range");
                         let node_leaf = match node.data {
@@ -502,38 +411,18 @@ impl FastOctTree<Voxel> {
                             NodeData::Empty => None,
                             NodeData::Parent { .. } => panic!("should not be parent node"),
                         };
-                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., -1., 0.)) {
-                            HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
-                            HitOutput::StopIterationVolume {
-                                stop_position,
-                                hit_material,
-                            } => {
-                                return Some(HitInfo::Volume {
-                                    hit_value: hit_material,
-                                    hit_position: stop_position,
-                                })
-                            }
-                            HitOutput::StopIterationSolid {
-                                hit_material,
-                                normal,
-                            } => {
-                                return Some(HitInfo::Solid {
-                                    hit_value: hit_material,
-                                    hit_position: rt_state.current_position,
-                                    normal,
-                                })
-                            }
-                        };
+
+                        handle_hit(node_leaf, rt_state, ray, Vector3::new(0., -1., 0.))
                     } else {
-                        return None;
+                        HitOutput::OutOfRange
                     }
-                } else if self.in_range(Point3::new(
+                } else if tree.in_range(Point3::new(
                     rt_state.block_coordinates.x as i32,
                     rt_state.block_coordinates.y as i32 - 1,
                     rt_state.block_coordinates.z as i32,
                 )) {
                     rt_state.current_position.y += t_y * ray.direction.y;
-                    let next_step_size = self.get_step_size(Point3::new(
+                    let next_step_size = tree.get_step_size(Point3::new(
                         rt_state.current_position.x as i32,
                         rt_state.block_coordinates.y - 1,
                         rt_state.current_position.z as i32,
@@ -548,7 +437,7 @@ impl FastOctTree<Voxel> {
                         next_step_size as i32,
                     );
                     rt_state.block_coordinates.y -= next_step_size as i32;
-                    let node = self
+                    let node = tree
                         .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
                         .expect("should be in range");
                     let node_leaf = match node.data {
@@ -556,30 +445,10 @@ impl FastOctTree<Voxel> {
                         NodeData::Empty => None,
                         NodeData::Parent { .. } => panic!("should not be parent node"),
                     };
-                    match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 1., 0.)) {
-                        HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
-                        HitOutput::StopIterationVolume {
-                            stop_position,
-                            hit_material,
-                        } => {
-                            return Some(HitInfo::Volume {
-                                hit_value: hit_material,
-                                hit_position: stop_position,
-                            })
-                        }
-                        HitOutput::StopIterationSolid {
-                            hit_material,
-                            normal,
-                        } => {
-                            return Some(HitInfo::Solid {
-                                hit_value: hit_material,
-                                hit_position: rt_state.current_position,
-                                normal,
-                            })
-                        }
-                    };
+
+                    handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 1., 0.))
                 } else {
-                    return None;
+                    HitOutput::OutOfRange
                 }
             } else {
                 // z is the min
@@ -588,12 +457,12 @@ impl FastOctTree<Voxel> {
                 if ray.direction.z >= 0. {
                     rt_state.block_coordinates.z += step_size as i32 * int_sign(ray.direction.z);
                     rt_state.current_position.z += t_z * ray.direction.z;
-                    if self.in_range(Point3::new(
+                    if tree.in_range(Point3::new(
                         rt_state.current_position.x as i32,
                         rt_state.current_position.y as i32,
                         rt_state.block_coordinates.z as i32,
                     )) {
-                        let next_step_size = self.get_step_size(Point3::new(
+                        let next_step_size = tree.get_step_size(Point3::new(
                             rt_state.current_position.x as i32,
                             rt_state.current_position.y as i32,
                             rt_state.block_coordinates.z as i32,
@@ -604,7 +473,7 @@ impl FastOctTree<Voxel> {
                         rt_state.block_coordinates.x =
                             floor_value_integer(rt_state.current_position.x as i32, next_step_size);
 
-                        let node = self
+                        let node = tree
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
                             .expect("should be in range");
                         let node_leaf = match node.data {
@@ -612,38 +481,17 @@ impl FastOctTree<Voxel> {
                             NodeData::Empty => None,
                             NodeData::Parent { .. } => panic!("should not be parent node"),
                         };
-                        match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 0., -1.)) {
-                            HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
-                            HitOutput::StopIterationVolume {
-                                stop_position,
-                                hit_material,
-                            } => {
-                                return Some(HitInfo::Volume {
-                                    hit_value: hit_material,
-                                    hit_position: stop_position,
-                                })
-                            }
-                            HitOutput::StopIterationSolid {
-                                hit_material,
-                                normal,
-                            } => {
-                                return Some(HitInfo::Solid {
-                                    hit_value: hit_material,
-                                    hit_position: rt_state.current_position,
-                                    normal,
-                                })
-                            }
-                        };
+                        handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 0., -1.))
                     } else {
-                        return None;
+                        HitOutput::OutOfRange
                     }
-                } else if self.in_range(Point3::new(
+                } else if tree.in_range(Point3::new(
                     rt_state.block_coordinates.x as i32,
                     rt_state.block_coordinates.y as i32,
                     rt_state.block_coordinates.z as i32 - 1,
                 )) {
                     rt_state.current_position.z += t_z * ray.direction.z;
-                    let next_step_size = self.get_step_size(Point3::new(
+                    let next_step_size = tree.get_step_size(Point3::new(
                         rt_state.current_position.x as i32,
                         rt_state.current_position.y as i32,
                         rt_state.block_coordinates.z - 1,
@@ -660,7 +508,7 @@ impl FastOctTree<Voxel> {
 
                     rt_state.block_coordinates.z -= next_step_size as i32;
 
-                    let node = self
+                    let node = tree
                         .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
                         .expect("should be in range");
                     let node_leaf = match node.data {
@@ -668,30 +516,95 @@ impl FastOctTree<Voxel> {
                         NodeData::Empty => None,
                         NodeData::Parent { .. } => panic!("should not be parent node"),
                     };
-                    match handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 0., 1.)) {
-                        HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
-                        HitOutput::StopIterationVolume {
-                            stop_position,
-                            hit_material,
-                        } => {
-                            return Some(HitInfo::Volume {
-                                hit_value: hit_material,
-                                hit_position: stop_position,
-                            })
-                        }
-                        HitOutput::StopIterationSolid {
-                            hit_material,
-                            normal,
-                        } => {
-                            return Some(HitInfo::Solid {
-                                hit_value: hit_material,
-                                hit_position: rt_state.current_position,
+
+                    handle_hit(node_leaf, rt_state, ray, Vector3::new(0., 0., 1.))
+                } else {
+                    HitOutput::OutOfRange
+                }
+            }
+        }
+
+        {
+            let chunk = self
+                .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
+                .expect("out of range");
+            let leaf = match chunk.data {
+                NodeData::Leaf(v) => Some(v),
+                NodeData::Parent { .. } => panic!("should not be parent"),
+                NodeData::Empty => None,
+            };
+            if let Some(leaf) = leaf {
+                match leaf {
+                    Voxel::Volume(volume) => {
+                        match handle_volume(volume, rt_state, ray.direction, initial_normal) {
+                            HitOutput::ContinueIteration(new_state) => rt_state = new_state,
+                            HitOutput::OutOfRange => return None,
+                            HitOutput::StopIterationVolume {
+                                stop_position,
+                                hit_material,
+                            } => {
+                                return Some(HitInfo::Volume {
+                                    hit_value: hit_material,
+                                    hit_position: stop_position,
+                                })
+                            }
+                            HitOutput::StopIterationSolid {
+                                hit_material,
                                 normal,
-                            })
+                            } => {
+                                return Some(HitInfo::Solid {
+                                    hit_value: hit_material,
+                                    hit_position: rt_state.current_position,
+                                    normal,
+                                })
+                            }
                         }
                     }
-                } else {
-                    return None;
+                    Voxel::Solid(..) => {}
+                }
+            }
+        }
+
+        let sign_vec = Vector3::new(
+            if ray.direction.x.is_sign_positive() {
+                1.
+            } else {
+                0.
+            },
+            if ray.direction.y.is_sign_positive() {
+                1.
+            } else {
+                0.
+            },
+            if ray.direction.z.is_sign_positive() {
+                1.
+            } else {
+                0.
+            },
+        );
+
+        for _ in 0..MAX_NUMBER_RAY_ITERATIONS {
+            match inner_loop(self, &ray, &mut rt_state, sign_vec) {
+                HitOutput::OutOfRange => return None,
+                HitOutput::ContinueIteration(new_rt_state) => rt_state = new_rt_state,
+                HitOutput::StopIterationVolume {
+                    stop_position,
+                    hit_material,
+                } => {
+                    return Some(HitInfo::Volume {
+                        hit_value: hit_material,
+                        hit_position: stop_position,
+                    })
+                }
+                HitOutput::StopIterationSolid {
+                    hit_material,
+                    normal,
+                } => {
+                    return Some(HitInfo::Solid {
+                        hit_value: hit_material,
+                        hit_position: rt_state.current_position,
+                        normal,
+                    })
                 }
             }
         }
@@ -702,6 +615,7 @@ impl FastOctTree<Voxel> {
         None
     }
     pub fn trace_ray(&self, ray: Ray) -> Option<HitInfo<Voxel>> {
+        // uses slab algorithm to trace voxels.
         const BLOCK_OFFSETS: [Vector3<i32>; 6] = [
             Vector3::new(0i32, 0, 0),
             Vector3::new(-1, 0, 0),
