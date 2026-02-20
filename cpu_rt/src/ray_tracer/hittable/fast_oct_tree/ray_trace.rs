@@ -718,12 +718,13 @@ impl FastOctTree<Voxel> {
             Vector3::new(0., 0., -1.),
             Vector3::new(0., 0., 1.),
         ];
+        let world_size = self.world_size() as RayScalar;
         if ray.origin.x >= 0.0
-            && ray.origin.x <= self.world_size() as RayScalar
+            && ray.origin.x <= world_size
             && ray.origin.y >= 0.0
-            && ray.origin.y <= self.world_size() as RayScalar
+            && ray.origin.y <= world_size
             && ray.origin.z >= 0.0
-            && ray.origin.z <= self.world_size() as RayScalar
+            && ray.origin.z <= world_size
         {
             self.ray_iteration(
                 Point3::new(
@@ -739,8 +740,6 @@ impl FastOctTree<Voxel> {
                 Vector3::unit_x(),
             )
         } else {
-            let world_size = self.world_size() as RayScalar;
-
             let values = [
                 ray.intersect_axis(0, 0.),
                 ray.intersect_axis(0, world_size),
