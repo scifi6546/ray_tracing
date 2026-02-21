@@ -3519,7 +3519,6 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_yaml",
- "to_numpy",
  "uuid",
 ]
 
@@ -3714,7 +3713,6 @@ dependencies = [
  "miniquad",
  "rand 0.8.5",
  "rfd",
- "to_numpy",
  "uuid",
 ]
 
@@ -5469,10 +5467,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
-name = "to_numpy"
-version = "0.1.0"
-
-[[package]]
 name = "toml"
 version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5823,6 +5817,10 @@ dependencies = [
  "cc",
  "libc",
 ]
+
+[[package]]
+name = "vulkan_renderer"
+version = "0.1.0"
 
 [[package]]
 name = "walkdir"
