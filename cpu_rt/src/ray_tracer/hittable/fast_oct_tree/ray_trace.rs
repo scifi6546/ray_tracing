@@ -216,7 +216,7 @@ impl FastOctTree<Voxel> {
                     }
                 }
             } else {
-                handle_empty(rt_state.clone(), ray.direction)
+                handle_empty(*rt_state, ray.direction)
             }
         }
         fn inner_loop(
@@ -266,7 +266,7 @@ impl FastOctTree<Voxel> {
                     rt_state.block_coordinates.x += step_size as i32 * int_sign(ray.direction.x);
                     rt_state.current_position.x += t_x * ray.direction.x;
                     if tree.in_range(Point3::new(
-                        rt_state.block_coordinates.x as i32,
+                        rt_state.block_coordinates.x,
                         rt_state.current_position.y as i32,
                         rt_state.current_position.z as i32,
                     )) {
@@ -294,9 +294,9 @@ impl FastOctTree<Voxel> {
                         HitOutput::OutOfRange
                     }
                 } else if tree.in_range(Point3::new(
-                    rt_state.block_coordinates.x as i32 - 1,
-                    rt_state.block_coordinates.y as i32,
-                    rt_state.block_coordinates.z as i32,
+                    rt_state.block_coordinates.x - 1,
+                    rt_state.block_coordinates.y,
+                    rt_state.block_coordinates.z,
                 )) {
                     rt_state.current_position.x += t_x * ray.direction.x;
 
@@ -312,7 +312,7 @@ impl FastOctTree<Voxel> {
                     rt_state.block_coordinates.z =
                         floor_size(rt_state.current_position.z as i32, next_chunk_size);
 
-                    rt_state.block_coordinates.x -= next_step_size as i32;
+                    rt_state.block_coordinates.x -= next_step_size;
 
                     let node = tree
                         .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
@@ -337,7 +337,7 @@ impl FastOctTree<Voxel> {
                     rt_state.current_position.y += t_y * ray.direction.y;
                     if tree.in_range(Point3::new(
                         rt_state.current_position.x as i32,
-                        rt_state.block_coordinates.y as i32,
+                        rt_state.block_coordinates.y,
                         rt_state.current_position.z as i32,
                     )) {
                         let next_chunk_size = tree.get_chunk_size(Point3::new(
@@ -365,9 +365,9 @@ impl FastOctTree<Voxel> {
                         HitOutput::OutOfRange
                     }
                 } else if tree.in_range(Point3::new(
-                    rt_state.block_coordinates.x as i32,
-                    rt_state.block_coordinates.y as i32 - 1,
-                    rt_state.block_coordinates.z as i32,
+                    rt_state.block_coordinates.x,
+                    rt_state.block_coordinates.y - 1,
+                    rt_state.block_coordinates.z,
                 )) {
                     rt_state.current_position.y += t_y * ray.direction.y;
                     let next_chunk_size = tree.get_chunk_size(Point3::new(
@@ -381,7 +381,7 @@ impl FastOctTree<Voxel> {
                     rt_state.block_coordinates.z =
                         floor_size(rt_state.current_position.z as i32, next_chunk_size);
 
-                    rt_state.block_coordinates.y -= next_step_size as i32;
+                    rt_state.block_coordinates.y -= next_step_size;
                     let node = tree
                         .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
                         .expect("should be in range");
@@ -405,12 +405,12 @@ impl FastOctTree<Voxel> {
                     if tree.in_range(Point3::new(
                         rt_state.current_position.x as i32,
                         rt_state.current_position.y as i32,
-                        rt_state.block_coordinates.z as i32,
+                        rt_state.block_coordinates.z,
                     )) {
                         let next_chunk_size = tree.get_chunk_size(Point3::new(
                             rt_state.current_position.x as i32,
                             rt_state.current_position.y as i32,
-                            rt_state.block_coordinates.z as i32,
+                            rt_state.block_coordinates.z,
                         ));
 
                         rt_state.block_coordinates.y =
@@ -431,9 +431,9 @@ impl FastOctTree<Voxel> {
                         HitOutput::OutOfRange
                     }
                 } else if tree.in_range(Point3::new(
-                    rt_state.block_coordinates.x as i32,
-                    rt_state.block_coordinates.y as i32,
-                    rt_state.block_coordinates.z as i32 - 1,
+                    rt_state.block_coordinates.x,
+                    rt_state.block_coordinates.y,
+                    rt_state.block_coordinates.z - 1,
                 )) {
                     rt_state.current_position.z += t_z * ray.direction.z;
                     let next_chunk_size = tree.get_chunk_size(Point3::new(
@@ -447,7 +447,7 @@ impl FastOctTree<Voxel> {
                     rt_state.block_coordinates.y =
                         floor_size(rt_state.current_position.y as i32, next_chunk_size);
 
-                    rt_state.block_coordinates.z -= next_step_size as i32;
+                    rt_state.block_coordinates.z -= next_step_size;
 
                     let node = tree
                         .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
