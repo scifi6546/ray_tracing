@@ -55,11 +55,13 @@ impl<T: Clone + std::fmt::Debug> Arena<T> {
     }
     pub fn get(&self, index: ArenaIndex) -> Option<&T> {
         if self.key_exists(index) {
-            let node = &self.data[index.index];
-            Some(&node.data)
+            Some(self.get_unchecked(index))
         } else {
             None
         }
+    }
+    pub fn get_unchecked(&self, index: ArenaIndex) -> &T {
+        &self.data[index.index].data
     }
     pub fn key_exists(&self, index: ArenaIndex) -> bool {
         if index.index >= self.data.len() || self.deleted_indices.contains(&index.index) {

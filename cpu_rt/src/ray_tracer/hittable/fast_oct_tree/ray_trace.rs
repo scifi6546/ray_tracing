@@ -18,6 +18,9 @@ impl<T: Leafable> FastOctTree<T> {
         all_in_range.x && all_in_range.y && all_in_range.z
     }
     fn get_step_size(&self, position: Point3<i32>) -> u32 {
+        1 << self.get_chunk_size(position)
+    }
+    fn get_chunk_size(&self, position: Point3<i32>) -> u32 {
         if !self.in_range(position) {
             panic!(
                 "out of range, coordinates: <{}, {}, {}> world_size: {}",
@@ -39,14 +42,10 @@ impl<T: Leafable> FastOctTree<T> {
                     );
                     current_position =
                         Node::<T>::world_pos_to_child_pos(current_position, current_voxel.size);
-                    current_voxel = self
-                        .arena
-                        .get(children[index as usize])
-                        .expect("child should exist")
-                        .clone();
+                    current_voxel = self.arena.get_unchecked(children[index as usize]).clone();
                 }
-                NodeData::Leaf(_) => return current_voxel.get_world_size(),
-                NodeData::Empty => return current_voxel.get_world_size(),
+                NodeData::Leaf(_) => return current_voxel.size,
+                NodeData::Empty => return current_voxel.size,
             }
         }
     }
@@ -72,11 +71,7 @@ impl<T: Leafable> FastOctTree<T> {
                             current_position,
                             current_voxel.size,
                         );
-                        current_voxel = self
-                            .arena
-                            .get(children[index as usize])
-                            .expect("child should exist")
-                            .clone();
+                        current_voxel = self.arena.get_unchecked(children[index as usize]).clone();
                     }
                     NodeData::Leaf(_) => return Some(current_voxel),
                     NodeData::Empty => return Some(current_voxel),
@@ -118,21 +113,6 @@ impl FastOctTree<Voxel> {
                 normal: Vector3<RayScalar>,
             },
             OutOfRange,
-        }
-        fn floor_value_integer(a: i32, b: i32) -> i32 {
-            a - (a % b)
-        }
-        fn floor_point3_integer(coord: Point3<i32>, b: i32) -> Point3<i32> {
-            coord.map(|v| floor_value_integer(v, b))
-        }
-        // gets the sign of the value, for example -123 -> -1 or 123 -> 1.
-        // can be optmized by doing bitshift magic
-        fn int_sign(a: RayScalar) -> i32 {
-            if a.is_sign_positive() {
-                1
-            } else {
-                -1
-            }
         }
 
         fn handle_volume(
@@ -219,14 +199,6 @@ impl FastOctTree<Voxel> {
         }
         const MAX_NUMBER_RAY_ITERATIONS: usize = 3000;
 
-        let mut rt_state = RayTraceState {
-            block_coordinates: floor_point3_integer(
-                block_coordinates,
-                self.get_step_size(block_coordinates) as i32,
-            ),
-            current_position: ray.origin,
-            volume_distance_left: None,
-        };
         fn handle_hit(
             node_leaf: Option<Voxel>,
             rt_state: &RayTraceState,
@@ -275,29 +247,6 @@ impl FastOctTree<Voxel> {
                 / ray.direction.z;
             if t_x < 0. {
                 error!("t_x < 0., t_x = {}", t_x);
-                error!(
-                    "ray origin: <{},{},{}>",
-                    rt_state.current_position.x,
-                    rt_state.current_position.y,
-                    rt_state.current_position.z
-                );
-                error!(
-                    "ray direction: <{}, {}, {}>",
-                    ray.direction.x, ray.direction.y, ray.direction.z
-                );
-                error!("step size: {}", step_size);
-                error!(
-                    "block coordiates: <{},{},{}>",
-                    rt_state.block_coordinates.x,
-                    rt_state.block_coordinates.y,
-                    rt_state.block_coordinates.z
-                );
-                error!(
-                    "position: <{}, {}, {}>",
-                    rt_state.current_position.x,
-                    rt_state.current_position.y,
-                    rt_state.current_position.z
-                );
                 return HitOutput::OutOfRange;
             }
             if t_y < 0. {
@@ -321,16 +270,16 @@ impl FastOctTree<Voxel> {
                         rt_state.current_position.y as i32,
                         rt_state.current_position.z as i32,
                     )) {
-                        let next_step_size = tree.get_step_size(Point3::new(
+                        let next_chunk_size = tree.get_chunk_size(Point3::new(
                             rt_state.block_coordinates.x,
                             rt_state.current_position.y as i32,
                             rt_state.current_position.z as i32,
-                        )) as i32;
+                        ));
 
                         rt_state.block_coordinates.y =
-                            floor_value_integer(rt_state.current_position.y as i32, next_step_size);
+                            floor_size(rt_state.current_position.y as i32, next_chunk_size);
                         rt_state.block_coordinates.z =
-                            floor_value_integer(rt_state.current_position.z as i32, next_step_size);
+                            floor_size(rt_state.current_position.z as i32, next_chunk_size);
 
                         let node = tree
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
@@ -350,20 +299,19 @@ impl FastOctTree<Voxel> {
                     rt_state.block_coordinates.z as i32,
                 )) {
                     rt_state.current_position.x += t_x * ray.direction.x;
-                    let next_step_size = tree.get_step_size(Point3::new(
+
+                    let next_chunk_size = tree.get_chunk_size(Point3::new(
                         rt_state.block_coordinates.x - 1,
                         rt_state.current_position.y as i32,
                         rt_state.current_position.z as i32,
                     ));
+                    let next_step_size = 1 << next_chunk_size;
+                    rt_state.block_coordinates.y =
+                        floor_size(rt_state.current_position.y as i32, next_chunk_size);
 
-                    rt_state.block_coordinates.y = floor_value_integer(
-                        rt_state.current_position.y as i32,
-                        next_step_size as i32,
-                    );
-                    rt_state.block_coordinates.z = floor_value_integer(
-                        rt_state.current_position.z as i32,
-                        next_step_size as i32,
-                    );
+                    rt_state.block_coordinates.z =
+                        floor_size(rt_state.current_position.z as i32, next_chunk_size);
+
                     rt_state.block_coordinates.x -= next_step_size as i32;
 
                     let node = tree
@@ -392,16 +340,16 @@ impl FastOctTree<Voxel> {
                         rt_state.block_coordinates.y as i32,
                         rt_state.current_position.z as i32,
                     )) {
-                        let next_step_size = tree.get_step_size(Point3::new(
+                        let next_chunk_size = tree.get_chunk_size(Point3::new(
                             rt_state.current_position.x as i32,
                             rt_state.block_coordinates.y,
                             rt_state.current_position.z as i32,
-                        )) as i32;
+                        ));
 
                         rt_state.block_coordinates.x =
-                            floor_value_integer(rt_state.current_position.x as i32, next_step_size);
+                            floor_size(rt_state.current_position.x as i32, next_chunk_size);
                         rt_state.block_coordinates.z =
-                            floor_value_integer(rt_state.current_position.z as i32, next_step_size);
+                            floor_size(rt_state.current_position.z as i32, next_chunk_size);
 
                         let node = tree
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
@@ -422,20 +370,17 @@ impl FastOctTree<Voxel> {
                     rt_state.block_coordinates.z as i32,
                 )) {
                     rt_state.current_position.y += t_y * ray.direction.y;
-                    let next_step_size = tree.get_step_size(Point3::new(
+                    let next_chunk_size = tree.get_chunk_size(Point3::new(
                         rt_state.current_position.x as i32,
                         rt_state.block_coordinates.y - 1,
                         rt_state.current_position.z as i32,
-                    )) as i32;
+                    ));
+                    let next_step_size = 1 << next_chunk_size;
+                    rt_state.block_coordinates.x =
+                        floor_size(rt_state.current_position.x as i32, next_chunk_size);
+                    rt_state.block_coordinates.z =
+                        floor_size(rt_state.current_position.z as i32, next_chunk_size);
 
-                    rt_state.block_coordinates.x = floor_value_integer(
-                        rt_state.current_position.x as i32,
-                        next_step_size as i32,
-                    );
-                    rt_state.block_coordinates.z = floor_value_integer(
-                        rt_state.current_position.z as i32,
-                        next_step_size as i32,
-                    );
                     rt_state.block_coordinates.y -= next_step_size as i32;
                     let node = tree
                         .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
@@ -462,16 +407,16 @@ impl FastOctTree<Voxel> {
                         rt_state.current_position.y as i32,
                         rt_state.block_coordinates.z as i32,
                     )) {
-                        let next_step_size = tree.get_step_size(Point3::new(
+                        let next_chunk_size = tree.get_chunk_size(Point3::new(
                             rt_state.current_position.x as i32,
                             rt_state.current_position.y as i32,
                             rt_state.block_coordinates.z as i32,
-                        )) as i32;
+                        ));
 
                         rt_state.block_coordinates.y =
-                            floor_value_integer(rt_state.current_position.y as i32, next_step_size);
+                            floor_size(rt_state.current_position.y as i32, next_chunk_size);
                         rt_state.block_coordinates.x =
-                            floor_value_integer(rt_state.current_position.x as i32, next_step_size);
+                            floor_size(rt_state.current_position.x as i32, next_chunk_size);
 
                         let node = tree
                             .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
@@ -491,20 +436,16 @@ impl FastOctTree<Voxel> {
                     rt_state.block_coordinates.z as i32 - 1,
                 )) {
                     rt_state.current_position.z += t_z * ray.direction.z;
-                    let next_step_size = tree.get_step_size(Point3::new(
+                    let next_chunk_size = tree.get_chunk_size(Point3::new(
                         rt_state.current_position.x as i32,
                         rt_state.current_position.y as i32,
                         rt_state.block_coordinates.z - 1,
-                    )) as i32;
-
-                    rt_state.block_coordinates.x = floor_value_integer(
-                        rt_state.current_position.x as i32,
-                        next_step_size as i32,
-                    );
-                    rt_state.block_coordinates.y = floor_value_integer(
-                        rt_state.current_position.y as i32,
-                        next_step_size as i32,
-                    );
+                    ));
+                    let next_step_size = 1 << next_chunk_size;
+                    rt_state.block_coordinates.x =
+                        floor_size(rt_state.current_position.x as i32, next_chunk_size);
+                    rt_state.block_coordinates.y =
+                        floor_size(rt_state.current_position.y as i32, next_chunk_size);
 
                     rt_state.block_coordinates.z -= next_step_size as i32;
 
@@ -524,44 +465,47 @@ impl FastOctTree<Voxel> {
             }
         }
 
-        {
-            let chunk = self
-                .get_chunk(rt_state.block_coordinates.map(|v| v as u32))
-                .expect("out of range");
-            let leaf = match chunk.data {
-                NodeData::Leaf(v) => Some(v),
-                NodeData::Parent { .. } => panic!("should not be parent"),
-                NodeData::Empty => None,
-            };
-            if let Some(leaf) = leaf {
-                match leaf {
-                    Voxel::Volume(volume) => {
-                        match handle_volume(volume, rt_state, ray.direction, initial_normal) {
-                            HitOutput::ContinueIteration(new_state) => rt_state = new_state,
-                            HitOutput::OutOfRange => return None,
-                            HitOutput::StopIterationVolume {
-                                stop_position,
-                                hit_material,
-                            } => {
-                                return Some(HitInfo::Volume {
-                                    hit_value: hit_material,
-                                    hit_position: stop_position,
-                                })
-                            }
-                            HitOutput::StopIterationSolid {
-                                hit_material,
+        let chunk = self
+            .get_chunk(block_coordinates.map(|v| v as u32))
+            .expect("out of range");
+        let mut rt_state = RayTraceState {
+            block_coordinates: block_coordinates.map(|v| floor_size(v, chunk.size)),
+            current_position: ray.origin,
+            volume_distance_left: None,
+        };
+        let leaf = match chunk.data {
+            NodeData::Leaf(v) => Some(v),
+            NodeData::Parent { .. } => panic!("should not be parent"),
+            NodeData::Empty => None,
+        };
+        if let Some(leaf) = leaf {
+            match leaf {
+                Voxel::Volume(volume) => {
+                    match handle_volume(volume, rt_state, ray.direction, initial_normal) {
+                        HitOutput::ContinueIteration(new_state) => rt_state = new_state,
+                        HitOutput::OutOfRange => return None,
+                        HitOutput::StopIterationVolume {
+                            stop_position,
+                            hit_material,
+                        } => {
+                            return Some(HitInfo::Volume {
+                                hit_value: hit_material,
+                                hit_position: stop_position,
+                            })
+                        }
+                        HitOutput::StopIterationSolid {
+                            hit_material,
+                            normal,
+                        } => {
+                            return Some(HitInfo::Solid {
+                                hit_value: hit_material,
+                                hit_position: rt_state.current_position,
                                 normal,
-                            } => {
-                                return Some(HitInfo::Solid {
-                                    hit_value: hit_material,
-                                    hit_position: rt_state.current_position,
-                                    normal,
-                                })
-                            }
+                            })
                         }
                     }
-                    Voxel::Solid(..) => {}
                 }
+                Voxel::Solid(..) => {}
             }
         }
 
@@ -738,11 +682,42 @@ impl FastOctTree<Voxel> {
         }
     }
 }
+/// floors to the nearest size, size is going to be a power of 2
+fn floor_size(value: i32, size: u32) -> i32 {
+    (value >> size) << size
+}
+/// gets the sign of the value, for example -123 -> -1 or 123 -> 1.
+fn int_sign(a: RayScalar) -> i32 {
+    let bits = a.to_bits();
+    let sign = (!bits) >> 63;
+    if sign == 1 {
+        1
+    } else {
+        -1
+    }
+}
 #[cfg(test)]
 mod test {
-    use crate::{prelude::RgbColor, ray_tracer::hittable::fast_oct_tree::SolidVoxel};
+    use crate::{
+        prelude::{IterBox, RgbColor},
+        ray_tracer::hittable::fast_oct_tree::SolidVoxel,
+    };
 
     use super::*;
+    #[test]
+    fn test_int_sign() {
+        let values = [(-123., -1), (-0., -1), (0., 1)];
+        for (arg, expected_value) in values {
+            assert_eq!(int_sign(arg), expected_value)
+        }
+    }
+    #[test]
+    fn test_floor_size() {
+        let values = [(0, 0, 0), (123, 1, 122)];
+        for (arg0, size, expected_output) in values {
+            assert_eq!(floor_size(arg0, size), expected_output);
+        }
+    }
     #[test]
     fn get_empty_chunk() {
         let t = FastOctTree::<Voxel>::new();
@@ -784,6 +759,7 @@ mod test {
             }
         }
     }
+
     #[test]
     fn get_chunk_with_hole() {
         let mut t = FastOctTree::<Voxel>::new();
@@ -826,6 +802,25 @@ mod test {
                     assert_eq!(chunk.size, 0)
                 }
             }
+        }
+    }
+    #[test]
+    fn get_chunk_size_single_block() {
+        let mut t = FastOctTree::<u32>::new();
+        t.set(0, Point3::new(0, 0, 0));
+        assert_eq!(t.get_chunk_size(Point3::new(0, 0, 0)), 0);
+    }
+    #[test]
+    fn get_chunk_size() {
+        let mut t = FastOctTree::<u32>::new();
+        let empty_position = Point3::new(0, 0, 0);
+        for set_position in IterBox::from_xyz(2, 2, 2).iter() {
+            if set_position != empty_position {
+                t.set(0, set_position);
+            }
+        }
+        for coordinates in IterBox::from_xyz(2, 2, 2).iter() {
+            assert_eq!(t.get_chunk_size(coordinates.map(|v| v as i32)), 0);
         }
     }
     #[test]
