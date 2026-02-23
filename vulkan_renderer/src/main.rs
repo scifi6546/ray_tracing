@@ -1,3 +1,4 @@
+use app::record_submit_command_buffer;
 use ash::{
     Device, Entry, Instance,
     ext::debug_utils,
@@ -19,6 +20,7 @@ use winit::{
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::{Window, WindowId},
 };
+mod app;
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -48,43 +50,7 @@ unsafe extern "system" fn vulkan_debug_callback(
 
     vk::FALSE
 }
-unsafe fn record_submit_command_buffer<F: FnOnce(&Device, vk::CommandBuffer)>(
-    device: &Device,
-    command_buffer: vk::CommandBuffer,
-    command_buffer_reuse_fence: vk::Fence,
-    submit_queue: vk::Queue,
-    wait_mask: &[vk::PipelineStageFlags],
-    wait_semaphores: &[vk::Semaphore],
-    signal_semaphores: &[vk::Semaphore],
-    f: F,
-) {
-    unsafe {
-        device
-            .reset_command_buffer(
-                command_buffer,
-                vk::CommandBufferResetFlags::RELEASE_RESOURCES,
-            )
-            .expect("reset command buffer failed");
-        let command_buffer_begin_info = vk::CommandBufferBeginInfo::default()
-            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
-        device
-            .begin_command_buffer(command_buffer, &command_buffer_begin_info)
-            .expect("failed to begin command buffer");
-        f(device, command_buffer);
-        device
-            .end_command_buffer(command_buffer)
-            .expect("failed to create command buffer");
-        let command_buffers = vec![command_buffer];
-        let submit_info = vk::SubmitInfo::default()
-            .wait_semaphores(wait_semaphores)
-            .wait_dst_stage_mask(wait_mask)
-            .command_buffers(&command_buffers)
-            .signal_semaphores(signal_semaphores);
-        device
-            .queue_submit(submit_queue, &[submit_info], command_buffer_reuse_fence)
-            .expect("failed to submit queue");
-    }
-}
+
 fn find_memorytype_index(
     memory_requirements: &vk::MemoryRequirements,
     memory_properties: &vk::PhysicalDeviceMemoryProperties,
@@ -127,6 +93,7 @@ struct App {
     depth_image_memory: vk::DeviceMemory,
     depth_image: vk::Image,
     present_image_views: Vec<vk::ImageView>,
+    present_images: Vec<vk::Image>,
     command_pool: vk::CommandPool,
     swapchain: vk::SwapchainKHR,
     device: Device,
@@ -139,14 +106,18 @@ struct App {
     viewport: vk::Viewport,
     surface_resolution: vk::Extent2D,
     frame_index: usize,
-    present_images: Vec<vk::Image>,
+
     draw_command_buffers: [vk::CommandBuffer; MAX_FRAME_LATENCY],
     setup_command_buffer: vk::CommandBuffer,
+    #[allow(dead_code)]
     app_setup_command_buffer: vk::CommandBuffer,
+    #[allow(dead_code)]
     physical_device: vk::PhysicalDevice,
     present_queue: vk::Queue,
     swapchain_device: khr::swapchain::Device,
+    #[allow(dead_code)]
     window: Window,
+    #[allow(dead_code)]
     entry: Entry,
 }
 impl App {
@@ -891,6 +862,9 @@ impl Drop for App {
             for view in self.present_image_views.iter() {
                 self.device.destroy_image_view(*view, None);
             }
+            for image in self.present_images.drain(..) {
+                self.device.destroy_image(image, None);
+            }
             self.device
                 .reset_command_buffer(
                     self.setup_command_buffer,
@@ -922,7 +896,7 @@ impl ApplicationHandler for WindowContainer {
             app.request_redraw();
         }
     }
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
