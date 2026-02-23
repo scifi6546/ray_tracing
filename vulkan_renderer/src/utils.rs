@@ -1,4 +1,5 @@
 use ash::{Device, vk};
+use std::{borrow::Cow, ffi};
 pub unsafe fn record_submit_command_buffer<F: FnOnce(&Device, vk::CommandBuffer)>(
     device: &Device,
     command_buffer: vk::CommandBuffer,
@@ -35,4 +36,48 @@ pub unsafe fn record_submit_command_buffer<F: FnOnce(&Device, vk::CommandBuffer)
             .queue_submit(submit_queue, &[submit_info], command_buffer_reuse_fence)
             .expect("failed to submit queue");
     }
+}
+pub unsafe extern "system" fn vulkan_debug_callback(
+    message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
+    message_type: vk::DebugUtilsMessageTypeFlagsEXT,
+    p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT<'_>,
+    _user_data: *mut std::os::raw::c_void,
+) -> vk::Bool32 {
+    unsafe {
+        let callback_data = *p_callback_data;
+        let message_id_number = callback_data.message_id_number;
+
+        let message_id_name = if callback_data.p_message_id_name.is_null() {
+            Cow::from("")
+        } else {
+            ffi::CStr::from_ptr(callback_data.p_message_id_name).to_string_lossy()
+        };
+
+        let message = if callback_data.p_message.is_null() {
+            Cow::from("")
+        } else {
+            ffi::CStr::from_ptr(callback_data.p_message).to_string_lossy()
+        };
+
+        println!(
+            "{message_severity:?}:\n{message_type:?} [{message_id_name} ({message_id_number})] : {message}\n",
+        );
+    }
+
+    vk::FALSE
+}
+pub fn find_memorytype_index(
+    memory_requirements: &vk::MemoryRequirements,
+    memory_properties: &vk::PhysicalDeviceMemoryProperties,
+    flags: vk::MemoryPropertyFlags,
+) -> Option<u32> {
+    memory_properties
+        .memory_types
+        .iter()
+        .enumerate()
+        .find(|(index, memory_type)| {
+            (1 << index) & memory_requirements.memory_type_bits != 0
+                && memory_type.property_flags & flags == flags
+        })
+        .map(|(index, _memory_type)| index as _)
 }
