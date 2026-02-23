@@ -1,5 +1,17 @@
-use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
-use std::{borrow::Cow, char::MAX, ffi, u32};
+use ash::{
+    Device, Entry, Instance,
+    ext::debug_utils,
+    khr,
+    util::{Align, read_spv},
+    vk,
+};
+use std::{
+    borrow::Cow,
+    ffi,
+    io::Cursor,
+    mem::{offset_of, size_of, size_of_val},
+    u32, u64,
+};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -88,10 +100,26 @@ fn find_memorytype_index(
         })
         .map(|(index, _memory_type)| index as _)
 }
+#[repr(C)]
+#[derive(Clone, Debug, Copy)]
+struct Vertex {
+    pos: [f32; 4],
+    color: [f32; 4],
+}
 /// The maximum number of frames we allow to be in flight at any given time
 const MAX_FRAME_LATENCY: usize = 3;
 /// Contents are ordered in how they should be freed
 struct App {
+    graphics_pipeline: vk::Pipeline,
+    pipeline_layout: vk::PipelineLayout,
+    fragment_shader_module: vk::ShaderModule,
+    vertex_shader_module: vk::ShaderModule,
+    vertex_buffer_memory: vk::DeviceMemory,
+    vertex_buffer: vk::Buffer,
+    index_buffer_memory: vk::DeviceMemory,
+    index_buffer: vk::Buffer,
+    framebuffers: Vec<vk::Framebuffer>,
+    renderpass: vk::RenderPass,
     draw_commands_reuse_fence: [vk::Fence; MAX_FRAME_LATENCY],
     rendering_complete_semaphores: Vec<vk::Semaphore>,
     present_semaphores: [vk::Semaphore; MAX_FRAME_LATENCY],
@@ -108,6 +136,9 @@ struct App {
     debug_utils_loader: debug_utils::Instance,
     instance: Instance,
     // doesnt need to be destroyed
+    viewport: vk::Viewport,
+    surface_resolution: vk::Extent2D,
+    frame_index: usize,
     present_images: Vec<vk::Image>,
     draw_command_buffers: [vk::CommandBuffer; MAX_FRAME_LATENCY],
     setup_command_buffer: vk::CommandBuffer,
@@ -143,7 +174,7 @@ impl App {
                 .application_version(0)
                 .engine_name(app_name)
                 .engine_version(0)
-                .api_version(vk::make_api_version(0, 1, 0, 0));
+                .api_version(vk::make_api_version(0, 1, 3, 0));
             let create_flags = vk::InstanceCreateFlags::default();
             let create_info = vk::InstanceCreateInfo::default()
                 .application_info(&app_info)
@@ -235,7 +266,7 @@ impl App {
             let surface_capabilities = surface_instance
                 .get_physical_device_surface_capabilities(physical_device, surface)
                 .expect("failed to get capabilities");
-            let mut desired_image_count = surface_capabilities.max_image_count + 1;
+            let mut desired_image_count = surface_capabilities.min_image_count + 1;
             if surface_capabilities.max_image_count > 0
                 && desired_image_count > surface_capabilities.max_image_count
             {
@@ -302,6 +333,7 @@ impl App {
             let present_images = swapchain_device
                 .get_swapchain_images(swapchain)
                 .expect("failed to get present images");
+            println!("swapchain images len: {}", present_images.len());
             let present_image_views = present_images
                 .iter()
                 .map(|image| {
@@ -426,7 +458,284 @@ impl App {
                     .create_fence(&fence_create_info, None)
                     .expect("failed to create fence")
             });
+            let renderpass_attachments = [
+                vk::AttachmentDescription::default()
+                    .format(surface_format.format)
+                    .samples(vk::SampleCountFlags::TYPE_1)
+                    .load_op(vk::AttachmentLoadOp::CLEAR)
+                    .store_op(vk::AttachmentStoreOp::STORE)
+                    .final_layout(vk::ImageLayout::PRESENT_SRC_KHR),
+                vk::AttachmentDescription::default()
+                    .format(vk::Format::D16_UNORM)
+                    .samples(vk::SampleCountFlags::TYPE_1)
+                    .load_op(vk::AttachmentLoadOp::CLEAR)
+                    .initial_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                    .final_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL),
+            ];
+            let color_attachments = [vk::AttachmentReference::default()
+                .attachment(0)
+                .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)];
+            let depth_stencil_attachment = vk::AttachmentReference::default()
+                .attachment(1)
+                .layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+            let subpass_dependencies = [vk::SubpassDependency::default()
+                .src_subpass(vk::SUBPASS_EXTERNAL)
+                .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+                .dst_access_mask(
+                    vk::AccessFlags::COLOR_ATTACHMENT_READ
+                        | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                )
+                .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)];
+            let subpass = [vk::SubpassDescription::default()
+                .color_attachments(&color_attachments)
+                .depth_stencil_attachment(&depth_stencil_attachment)
+                .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)];
+            let renderpass_create_info = vk::RenderPassCreateInfo::default()
+                .attachments(&renderpass_attachments)
+                .subpasses(&subpass)
+                .dependencies(&subpass_dependencies);
+            let renderpass = device
+                .create_render_pass(&renderpass_create_info, None)
+                .expect("failed to crate renderpass");
+            let framebuffers = present_image_views
+                .iter()
+                .map(|present_image_view| {
+                    let framebuffer_attachments = [*present_image_view, depth_image_view];
+                    let framebuffer_create_info = vk::FramebufferCreateInfo::default()
+                        .render_pass(renderpass)
+                        .attachments(&framebuffer_attachments)
+                        .width(surface_resolution.width)
+                        .height(surface_resolution.height)
+                        .layers(1);
+                    device
+                        .create_framebuffer(&framebuffer_create_info, None)
+                        .expect("failed to create device")
+                })
+                .collect();
+            let index_buffer_data = [0u32, 1, 2];
+            let index_buffer_info = vk::BufferCreateInfo::default()
+                .size(size_of_val(&index_buffer_data) as u64)
+                .usage(vk::BufferUsageFlags::INDEX_BUFFER)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE);
+            let index_buffer = device
+                .create_buffer(&index_buffer_info, None)
+                .expect("failed to get index buffer");
+            let index_buffer_memory_requirements =
+                device.get_buffer_memory_requirements(index_buffer);
+            let index_buffer_memory_index = find_memorytype_index(
+                &index_buffer_memory_requirements,
+                &device_memory_properties,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            )
+            .expect("failed to get memory type index");
+            let index_allocate_info = vk::MemoryAllocateInfo::default()
+                .allocation_size(index_buffer_memory_requirements.size)
+                .memory_type_index(index_buffer_memory_index);
+
+            let index_buffer_memory = device
+                .allocate_memory(&index_allocate_info, None)
+                .expect("failed to allocate memory");
+            let index_ptr = device
+                .map_memory(
+                    index_buffer_memory,
+                    0,
+                    index_buffer_memory_requirements.size,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .expect("failed to map");
+            let mut index_slice = Align::new(
+                index_ptr,
+                align_of::<u32>() as u64,
+                index_buffer_memory_requirements.size,
+            );
+            index_slice.copy_from_slice(&index_buffer_data);
+            device.unmap_memory(index_buffer_memory);
+            device
+                .bind_buffer_memory(index_buffer, index_buffer_memory, 0)
+                .expect("failed to bind index buffer memory to index buffer");
+            let vertices = [
+                Vertex {
+                    pos: [-1.0, 1.0, 0.0, 1.0],
+                    color: [0.0, 1.0, 0.0, 1.0],
+                },
+                Vertex {
+                    pos: [1.0, 1.0, 0.0, 1.0],
+                    color: [0.0, 0.0, 1.0, 1.0],
+                },
+                Vertex {
+                    pos: [0.0, -1.0, 0.0, 1.0],
+                    color: [1.0, 0.0, 0.0, 1.0],
+                },
+            ];
+            let vertex_input_buffer = vk::BufferCreateInfo::default()
+                .size(size_of_val(&vertices) as u64)
+                .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE);
+            let vertex_buffer = device
+                .create_buffer(&vertex_input_buffer, None)
+                .expect("failed to create vertex buffer");
+            let vertex_buffer_memory_requirements =
+                device.get_buffer_memory_requirements(vertex_buffer);
+            let vertex_buffer_memory_index = find_memorytype_index(
+                &vertex_buffer_memory_requirements,
+                &device_memory_properties,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            )
+            .expect("failed to get memory requirements");
+            let vertex_buffer_allocate_info = vk::MemoryAllocateInfo::default()
+                .allocation_size(vertex_buffer_memory_requirements.size)
+                .memory_type_index(vertex_buffer_memory_index);
+            let vertex_buffer_memory = device
+                .allocate_memory(&vertex_buffer_allocate_info, None)
+                .expect("failed to allocate memory for vertex buffer");
+            let vertex_ptr = device
+                .map_memory(
+                    vertex_buffer_memory,
+                    0,
+                    vertex_buffer_memory_requirements.size,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .expect("failed to map vertex buffer to device space");
+            let mut vertex_align = Align::new(
+                vertex_ptr,
+                align_of::<Vertex>() as u64,
+                vertex_buffer_memory_requirements.size,
+            );
+            vertex_align.copy_from_slice(&vertices);
+            device.unmap_memory(vertex_buffer_memory);
+            device
+                .bind_buffer_memory(vertex_buffer, vertex_buffer_memory, 0)
+                .expect("failed to bind memory");
+            let mut vertex_spv_file = Cursor::new(include_bytes!("../shaders/vert.spv"));
+            let mut fragment_spv_file = Cursor::new(include_bytes!("../shaders/frag.spv"));
+
+            let vertex_code = read_spv(&mut vertex_spv_file).expect("failed to read vertex shader");
+            let vertex_shader_info = vk::ShaderModuleCreateInfo::default().code(&vertex_code);
+            let vertex_shader_module = device
+                .create_shader_module(&vertex_shader_info, None)
+                .expect("Failed to create vertex shader");
+            let fragment_code =
+                read_spv(&mut fragment_spv_file).expect("failed to read fragment shader");
+            let fragment_shader_info = vk::ShaderModuleCreateInfo::default().code(&fragment_code);
+            let fragment_shader_module = device
+                .create_shader_module(&fragment_shader_info, None)
+                .expect("failed to create fragment shader module");
+            let layout_create_info = vk::PipelineLayoutCreateInfo::default();
+            let pipeline_layout = device
+                .create_pipeline_layout(&layout_create_info, None)
+                .expect("failed to create layout");
+            let shader_entry_name = c"main";
+            let shader_stage_create_infos = [
+                vk::PipelineShaderStageCreateInfo::default()
+                    .module(vertex_shader_module)
+                    .name(&shader_entry_name)
+                    .stage(vk::ShaderStageFlags::VERTEX),
+                vk::PipelineShaderStageCreateInfo::default()
+                    .module(fragment_shader_module)
+                    .name(shader_entry_name)
+                    .stage(vk::ShaderStageFlags::FRAGMENT),
+            ];
+            let vertex_input_binding_description = [vk::VertexInputBindingDescription::default()
+                .binding(0)
+                .stride(size_of::<Vertex>() as u32)
+                .input_rate(vk::VertexInputRate::VERTEX)];
+            let vertex_input_attribute_descriptions = [
+                vk::VertexInputAttributeDescription::default()
+                    .location(0)
+                    .binding(0)
+                    .format(vk::Format::R32G32B32A32_SFLOAT)
+                    .offset(offset_of!(Vertex, pos) as u32),
+                vk::VertexInputAttributeDescription::default()
+                    .location(1)
+                    .binding(0)
+                    .format(vk::Format::R32G32B32A32_SFLOAT)
+                    .offset(offset_of!(Vertex, color) as u32),
+            ];
+            let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::default()
+                .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
+                .vertex_binding_descriptions(&vertex_input_binding_description);
+            let vertex_input_assembly_state_info =
+                vk::PipelineInputAssemblyStateCreateInfo::default()
+                    .topology(vk::PrimitiveTopology::TRIANGLE_FAN);
+            let viewports = [vk::Viewport {
+                x: 0.,
+                y: 0.,
+                width: surface_resolution.width as f32,
+                height: surface_resolution.height as f32,
+                min_depth: 0.,
+                max_depth: 1.,
+            }];
+            let scissors = [surface_resolution.into()];
+            let viewport_state_info = vk::PipelineViewportStateCreateInfo::default()
+                .viewports(&viewports)
+                .scissors(&scissors);
+            let rasterization_info = vk::PipelineRasterizationStateCreateInfo::default()
+                .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
+                .line_width(1.)
+                .polygon_mode(vk::PolygonMode::FILL);
+            let multisample_state_info = vk::PipelineMultisampleStateCreateInfo::default()
+                .rasterization_samples(vk::SampleCountFlags::TYPE_1);
+            let noop_stencil_state = vk::StencilOpState::default()
+                .fail_op(vk::StencilOp::KEEP)
+                .pass_op(vk::StencilOp::KEEP)
+                .depth_fail_op(vk::StencilOp::KEEP)
+                .compare_op(vk::CompareOp::ALWAYS);
+            let depth_state_info = vk::PipelineDepthStencilStateCreateInfo::default()
+                .depth_test_enable(true)
+                .depth_write_enable(true)
+                .depth_compare_op(vk::CompareOp::LESS_OR_EQUAL)
+                .front(noop_stencil_state)
+                .back(noop_stencil_state)
+                .max_depth_bounds(1.);
+            let color_blend_attachment_states = [vk::PipelineColorBlendAttachmentState {
+                blend_enable: 0,
+                src_color_blend_factor: vk::BlendFactor::SRC_COLOR,
+                dst_color_blend_factor: vk::BlendFactor::ONE_MINUS_DST_COLOR,
+                color_blend_op: vk::BlendOp::ADD,
+                src_alpha_blend_factor: vk::BlendFactor::ZERO,
+                dst_alpha_blend_factor: vk::BlendFactor::ZERO,
+                alpha_blend_op: vk::BlendOp::ADD,
+                color_write_mask: vk::ColorComponentFlags::RGBA,
+            }];
+            let color_blend_state = vk::PipelineColorBlendStateCreateInfo::default()
+                .logic_op(vk::LogicOp::CLEAR)
+                .attachments(&color_blend_attachment_states);
+            let dynamic_states = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
+            let dynamic_state_info =
+                vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
+            let graphics_pipeline_infos = [vk::GraphicsPipelineCreateInfo::default()
+                .stages(&shader_stage_create_infos)
+                .vertex_input_state(&vertex_input_state_info)
+                .input_assembly_state(&vertex_input_assembly_state_info)
+                .viewport_state(&viewport_state_info)
+                .rasterization_state(&rasterization_info)
+                .multisample_state(&multisample_state_info)
+                .depth_stencil_state(&depth_state_info)
+                .color_blend_state(&color_blend_state)
+                .dynamic_state(&dynamic_state_info)
+                .layout(pipeline_layout)
+                .render_pass(renderpass)];
+            let graphics_pipeline = device
+                .create_graphics_pipelines(
+                    vk::PipelineCache::null(),
+                    &graphics_pipeline_infos,
+                    None,
+                )
+                .expect("failed to get graphics pipeline")[0];
             Self {
+                viewport: viewports[0],
+                surface_resolution,
+                frame_index: 0,
+                graphics_pipeline,
+                pipeline_layout,
+                fragment_shader_module,
+                vertex_shader_module,
+                vertex_buffer_memory,
+                vertex_buffer,
+                index_buffer_memory,
+                index_buffer,
+                framebuffers,
+                renderpass,
                 draw_commands_reuse_fence,
                 rendering_complete_semaphores,
                 depth_image_view,
@@ -455,13 +764,118 @@ impl App {
         }
     }
     fn request_redraw(&mut self) {
-        self.window.request_redraw()
+        let current_frame_index = self.frame_index % MAX_FRAME_LATENCY;
+        let draw_commands_reuse_fence = self.draw_commands_reuse_fence[current_frame_index];
+        unsafe {
+            self.device
+                .wait_for_fences(&[draw_commands_reuse_fence], true, u64::MAX)
+                .expect("failed to wait for fence");
+            self.device
+                .reset_fences(&[draw_commands_reuse_fence])
+                .expect("failed to reset fence");
+        }
+
+        unsafe {
+            let present_complete_semaphore = self.present_semaphores[current_frame_index];
+            let draw_command_buffer = self.draw_command_buffers[current_frame_index];
+            let (present_index, _) = self
+                .swapchain_device
+                .acquire_next_image(
+                    self.swapchain,
+                    u64::MAX,
+                    present_complete_semaphore,
+                    vk::Fence::null(),
+                )
+                .expect("failed to acquire next image");
+            let clear_values = [
+                vk::ClearValue {
+                    color: vk::ClearColorValue {
+                        float32: [0., 0.5, 0., 0.],
+                    },
+                },
+                vk::ClearValue {
+                    depth_stencil: vk::ClearDepthStencilValue {
+                        depth: 1.,
+                        stencil: 0,
+                    },
+                },
+            ];
+            let rendering_complete_semaphore =
+                self.rendering_complete_semaphores[current_frame_index];
+            let renderpass_begin_info = vk::RenderPassBeginInfo::default()
+                .render_pass(self.renderpass)
+                .framebuffer(self.framebuffers[current_frame_index])
+                .render_area(self.surface_resolution.into())
+                .clear_values(&clear_values);
+            record_submit_command_buffer(
+                &self.device,
+                draw_command_buffer,
+                draw_commands_reuse_fence,
+                self.present_queue,
+                &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
+                &[present_complete_semaphore],
+                &[rendering_complete_semaphore],
+                |device, command_buffer| {
+                    device.cmd_begin_render_pass(
+                        command_buffer,
+                        &renderpass_begin_info,
+                        vk::SubpassContents::INLINE,
+                    );
+                    device.cmd_bind_pipeline(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.graphics_pipeline,
+                    );
+
+                    device.cmd_set_viewport(command_buffer, 0, &[self.viewport]);
+                    device.cmd_set_scissor(command_buffer, 0, &[self.surface_resolution.into()]);
+                    device.cmd_bind_index_buffer(
+                        command_buffer,
+                        self.index_buffer,
+                        0,
+                        vk::IndexType::UINT32,
+                    );
+                    device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.vertex_buffer], &[0]);
+                    device.cmd_draw_indexed(command_buffer, 3, 1, 0, 0, 1);
+                    device.cmd_end_render_pass(command_buffer);
+                },
+            );
+            let wait_semaphore = [rendering_complete_semaphore];
+            let swapchains = [self.swapchain];
+            let present_indices = [present_index];
+            let present_info = vk::PresentInfoKHR::default()
+                .wait_semaphores(&wait_semaphore)
+                .swapchains(&swapchains)
+                .image_indices(&present_indices);
+            self.swapchain_device
+                .queue_present(self.present_queue, &present_info)
+                .expect("failed to present queue");
+        }
+
+        self.frame_index += 1;
+
+        //self.window.request_redraw()
     }
 }
 impl Drop for App {
     fn drop(&mut self) {
         unsafe {
             self.device.device_wait_idle().expect("failed to wait idle");
+            self.device.destroy_pipeline(self.graphics_pipeline, None);
+            self.device
+                .destroy_pipeline_layout(self.pipeline_layout, None);
+            self.device
+                .destroy_shader_module(self.fragment_shader_module, None);
+            self.device
+                .destroy_shader_module(self.vertex_shader_module, None);
+            self.device.free_memory(self.vertex_buffer_memory, None);
+            self.device.destroy_buffer(self.vertex_buffer, None);
+            self.device.free_memory(self.index_buffer_memory, None);
+            self.device.destroy_buffer(self.index_buffer, None);
+            for framebuffer in self.framebuffers.drain(..) {
+                self.device.destroy_framebuffer(framebuffer, None);
+            }
+            self.device.destroy_render_pass(self.renderpass, None);
             for fence in self.draw_commands_reuse_fence {
                 self.device.destroy_fence(fence, None);
             }
@@ -494,6 +908,7 @@ impl Drop for App {
         }
     }
 }
+
 #[derive(Default)]
 struct WindowContainer {
     app: Option<App>,
