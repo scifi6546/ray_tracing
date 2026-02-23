@@ -1,4 +1,3 @@
-use app::record_submit_command_buffer;
 use ash::{
     Device, Entry, Instance,
     ext::debug_utils,
@@ -13,6 +12,7 @@ use std::{
     mem::{offset_of, size_of, size_of_val},
     u32, u64,
 };
+use utils::record_submit_command_buffer;
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -20,7 +20,7 @@ use winit::{
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::{Window, WindowId},
 };
-mod app;
+mod utils;
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
