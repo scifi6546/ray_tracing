@@ -1,4 +1,4 @@
-use super::{Vertex, find_memorytype_index, record_submit_command_buffer};
+use super::{Model, Vertex, find_memorytype_index, record_submit_command_buffer};
 use ash::{Device, Instance, khr, util::read_spv, vk};
 use std::{io::Cursor, mem::offset_of};
 pub struct PresentPass {
@@ -17,6 +17,7 @@ pub struct PresentPass {
     pub viewport: vk::Viewport,
     #[allow(dead_code)]
     pub present_images: Vec<vk::Image>,
+    pub surface_resolution: vk::Extent2D,
 }
 impl PresentPass {
     pub fn new(
@@ -323,7 +324,80 @@ impl PresentPass {
                 depth_image,
                 depth_image_memory,
                 viewport: viewports[0],
+                surface_resolution,
             }
+        }
+    }
+    pub fn draw(
+        &self,
+        device: &Device,
+        model: &Model,
+        draw_command_buffer: vk::CommandBuffer,
+        present_queue: &vk::Queue,
+        draw_commandbuffer_reuse_fence: vk::Fence,
+        present_complete_semaphore: vk::Semaphore,
+        rendering_complete_semaphore: vk::Semaphore,
+        current_frame_index: usize,
+    ) {
+        unsafe {
+            let clear_values = [
+                vk::ClearValue {
+                    color: vk::ClearColorValue {
+                        float32: [0., 0.5, 0., 0.],
+                    },
+                },
+                vk::ClearValue {
+                    depth_stencil: vk::ClearDepthStencilValue {
+                        depth: 1.,
+                        stencil: 0,
+                    },
+                },
+            ];
+
+            let renderpass_begin_info = vk::RenderPassBeginInfo::default()
+                .render_pass(self.renderpass)
+                .framebuffer(self.framebuffers[current_frame_index])
+                .render_area(self.surface_resolution.into())
+                .clear_values(&clear_values);
+            device
+                .wait_for_fences(&[draw_commandbuffer_reuse_fence], true, u64::MAX)
+                .expect("failed to wait for fence");
+            device
+                .reset_fences(&[draw_commandbuffer_reuse_fence])
+                .expect("failed to reset fence");
+            record_submit_command_buffer(
+                device,
+                draw_command_buffer,
+                draw_commandbuffer_reuse_fence,
+                *present_queue,
+                &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
+                &[present_complete_semaphore],
+                &[rendering_complete_semaphore],
+                |device, command_buffer| {
+                    device.cmd_begin_render_pass(
+                        command_buffer,
+                        &renderpass_begin_info,
+                        vk::SubpassContents::INLINE,
+                    );
+                    device.cmd_bind_pipeline(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.graphics_pipeline,
+                    );
+
+                    device.cmd_set_viewport(command_buffer, 0, &[self.viewport]);
+                    device.cmd_set_scissor(command_buffer, 0, &[self.surface_resolution.into()]);
+                    device.cmd_bind_index_buffer(
+                        command_buffer,
+                        model.index_buffer,
+                        0,
+                        vk::IndexType::UINT32,
+                    );
+                    device.cmd_bind_vertex_buffers(command_buffer, 0, &[model.vertex_buffer], &[0]);
+                    device.cmd_draw_indexed(command_buffer, 3, 1, 0, 0, 1);
+                    device.cmd_end_render_pass(command_buffer);
+                },
+            );
         }
     }
     pub fn free(&mut self, device: &Device) {

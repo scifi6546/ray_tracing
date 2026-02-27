@@ -31,7 +31,6 @@ pub struct App {
     debug_utils_loader: debug_utils::Instance,
     instance: Instance,
 
-    surface_resolution: vk::Extent2D,
     frame_index: usize,
 
     draw_command_buffers: [vk::CommandBuffer; Self::MAX_FRAME_LATENCY],
@@ -292,7 +291,6 @@ impl App {
                 surface_format,
             );
             Self {
-                surface_resolution,
                 frame_index: 0,
                 triangle_model,
                 present_pass,
@@ -320,17 +318,11 @@ impl App {
     }
     pub fn request_redraw(&mut self) {
         let current_frame_index = self.frame_index % Self::MAX_FRAME_LATENCY;
-        let draw_commands_reuse_fence = self.draw_commands_reuse_fence[current_frame_index];
-        unsafe {
-            self.device
-                .wait_for_fences(&[draw_commands_reuse_fence], true, u64::MAX)
-                .expect("failed to wait for fence");
-            self.device
-                .reset_fences(&[draw_commands_reuse_fence])
-                .expect("failed to reset fence");
-        }
+        let draw_commandbuffer_reuse_fence = self.draw_commands_reuse_fence[current_frame_index];
 
         unsafe {
+            let rendering_complete_semaphore =
+                self.rendering_complete_semaphores[current_frame_index];
             let present_complete_semaphore = self.present_semaphores[current_frame_index];
             let draw_command_buffer = self.draw_command_buffers[current_frame_index];
             let (present_index, _) = self
@@ -342,64 +334,17 @@ impl App {
                     vk::Fence::null(),
                 )
                 .expect("failed to acquire next image");
-            let clear_values = [
-                vk::ClearValue {
-                    color: vk::ClearColorValue {
-                        float32: [0., 0.5, 0., 0.],
-                    },
-                },
-                vk::ClearValue {
-                    depth_stencil: vk::ClearDepthStencilValue {
-                        depth: 1.,
-                        stencil: 0,
-                    },
-                },
-            ];
-            let rendering_complete_semaphore =
-                self.rendering_complete_semaphores[current_frame_index];
-            let renderpass_begin_info = vk::RenderPassBeginInfo::default()
-                .render_pass(self.present_pass.renderpass)
-                .framebuffer(self.present_pass.framebuffers[current_frame_index])
-                .render_area(self.surface_resolution.into())
-                .clear_values(&clear_values);
-            record_submit_command_buffer(
+            self.present_pass.draw(
                 &self.device,
+                &self.triangle_model,
                 draw_command_buffer,
-                draw_commands_reuse_fence,
-                self.present_queue,
-                &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
-                &[present_complete_semaphore],
-                &[rendering_complete_semaphore],
-                |device, command_buffer| {
-                    device.cmd_begin_render_pass(
-                        command_buffer,
-                        &renderpass_begin_info,
-                        vk::SubpassContents::INLINE,
-                    );
-                    device.cmd_bind_pipeline(
-                        command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.present_pass.graphics_pipeline,
-                    );
-
-                    device.cmd_set_viewport(command_buffer, 0, &[self.present_pass.viewport]);
-                    device.cmd_set_scissor(command_buffer, 0, &[self.surface_resolution.into()]);
-                    device.cmd_bind_index_buffer(
-                        command_buffer,
-                        self.triangle_model.index_buffer,
-                        0,
-                        vk::IndexType::UINT32,
-                    );
-                    device.cmd_bind_vertex_buffers(
-                        command_buffer,
-                        0,
-                        &[self.triangle_model.vertex_buffer],
-                        &[0],
-                    );
-                    device.cmd_draw_indexed(command_buffer, 3, 1, 0, 0, 1);
-                    device.cmd_end_render_pass(command_buffer);
-                },
+                &self.present_queue,
+                draw_commandbuffer_reuse_fence,
+                present_complete_semaphore,
+                rendering_complete_semaphore,
+                current_frame_index,
             );
+
             let wait_semaphore = [rendering_complete_semaphore];
             let swapchains = [self.swapchain];
             let present_indices = [present_index];
