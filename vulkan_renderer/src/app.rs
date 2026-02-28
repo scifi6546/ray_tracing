@@ -7,17 +7,19 @@ use super::utils::{find_memorytype_index, record_submit_command_buffer, vulkan_d
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
 use model::Model;
 
+use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
 use winit::{
     event_loop::ActiveEventLoop,
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::Window,
 };
+struct Base {}
 /// Contents are ordered in how they should be freed
 pub struct App {
     present_pass: PresentPass,
 
-    triangle_model: Model,
-
+    triangle_model: Option<Model>,
+    allocator: Option<Allocator>,
     draw_commands_reuse_fence: [vk::Fence; Self::MAX_FRAME_LATENCY],
     rendering_complete_semaphores: Vec<vk::Semaphore>,
     present_semaphores: [vk::Semaphore; Self::MAX_FRAME_LATENCY],
@@ -233,9 +235,6 @@ impl App {
                 .get_swapchain_images(swapchain)
                 .expect("failed to get present images");
 
-            let device_memory_properties =
-                instance.get_physical_device_memory_properties(physical_device);
-
             let semaphore_create_info = vk::SemaphoreCreateInfo::default();
 
             let present_semaphores = std::array::from_fn(|_| {
@@ -257,6 +256,15 @@ impl App {
                     .create_fence(&fence_create_info, None)
                     .expect("failed to create fence")
             });
+            let mut allocator = Allocator::new(&AllocatorCreateDesc {
+                instance: instance.clone(),
+                device: device.clone(),
+                physical_device,
+                debug_settings: Default::default(),
+                buffer_device_address: false,
+                allocation_sizes: Default::default(),
+            })
+            .expect("failed to create allocator");
 
             let vertices = [
                 Vertex {
@@ -273,12 +281,7 @@ impl App {
                 },
             ];
             let index_buffer_data = [0u32, 1, 2];
-            let triangle_model = Model::new(
-                &vertices,
-                &index_buffer_data,
-                &device,
-                device_memory_properties,
-            );
+            let triangle_model = Model::new(&vertices, &index_buffer_data, &device, &mut allocator);
 
             let present_pass = PresentPass::new(
                 &device,
@@ -292,8 +295,9 @@ impl App {
             );
             Self {
                 frame_index: 0,
-                triangle_model,
+                triangle_model: Some(triangle_model),
                 present_pass,
+                allocator: Some(allocator),
                 draw_commands_reuse_fence,
                 rendering_complete_semaphores,
                 command_pool,
@@ -336,7 +340,7 @@ impl App {
                 .expect("failed to acquire next image");
             self.present_pass.draw(
                 &self.device,
-                &self.triangle_model,
+                self.triangle_model.as_ref().unwrap(),
                 draw_command_buffer,
                 &self.present_queue,
                 draw_commandbuffer_reuse_fence,
@@ -367,7 +371,10 @@ impl Drop for App {
         unsafe {
             self.device.device_wait_idle().expect("failed to wait idle");
             self.present_pass.free(&self.device);
-            self.triangle_model.free(&self.device);
+            self.triangle_model
+                .take()
+                .expect("was already freed")
+                .free(&self.device, self.allocator.as_mut().unwrap());
 
             for fence in self.draw_commands_reuse_fence {
                 self.device.destroy_fence(fence, None);
@@ -388,6 +395,7 @@ impl Drop for App {
             self.device.destroy_command_pool(self.command_pool, None);
             self.swapchain_device
                 .destroy_swapchain(self.swapchain, None);
+            drop(self.allocator.take().expect("is already freed"));
             self.device.destroy_device(None);
             self.surface_instance.destroy_surface(self.surface, None);
             self.debug_utils_loader

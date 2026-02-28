@@ -1,11 +1,15 @@
 use super::Vertex;
-use crate::utils::find_memorytype_index;
+
 use ash::{Device, util::Align, vk};
+use gpu_allocator::{
+    MemoryLocation,
+    vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
+};
 use std::mem::size_of_val;
 pub struct Model {
-    pub vertex_buffer_memory: vk::DeviceMemory,
+    pub vertex_allocation: Allocation,
     pub vertex_buffer: vk::Buffer,
-    pub index_buffer_memory: vk::DeviceMemory,
+    pub index_allocation: Allocation,
     pub index_buffer: vk::Buffer,
 }
 type Index = u32;
@@ -17,7 +21,7 @@ impl Model {
         vertices: &[Vertex],
         indices: &[u32],
         device: &Device,
-        device_memory_properties: vk::PhysicalDeviceMemoryProperties,
+        allocator: &mut Allocator,
     ) -> Self {
         println!(
             "indices size_of_val: {}, vertices size_of_val: {}",
@@ -34,93 +38,95 @@ impl Model {
                 .expect("failed to get index buffer");
             let index_buffer_memory_requirements =
                 device.get_buffer_memory_requirements(index_buffer);
-            let index_buffer_memory_index = find_memorytype_index(
-                &index_buffer_memory_requirements,
-                &device_memory_properties,
-                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            )
-            .expect("failed to get memory type index");
-            let index_allocate_info = vk::MemoryAllocateInfo::default()
-                .allocation_size(index_buffer_memory_requirements.size)
-                .memory_type_index(index_buffer_memory_index);
+            let index_allocation = allocator
+                .allocate(&AllocationCreateDesc {
+                    name: "Model Index Buffer",
+                    requirements: index_buffer_memory_requirements,
+                    location: MemoryLocation::CpuToGpu,
+                    linear: true,
+                    allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+                })
+                .expect("failed to allocate");
+            {
+                let index_ptr = index_allocation.mapped_ptr().unwrap();
 
-            let index_buffer_memory = device
-                .allocate_memory(&index_allocate_info, None)
-                .expect("failed to allocate memory");
-            let index_ptr = device
-                .map_memory(
-                    index_buffer_memory,
-                    0,
+                let mut index_slice = Align::new(
+                    index_ptr.as_ptr(),
+                    Self::index_type_alignment() as u64,
                     index_buffer_memory_requirements.size,
-                    vk::MemoryMapFlags::empty(),
-                )
-                .expect("failed to map");
-            let mut index_slice = Align::new(
-                index_ptr,
-                Self::index_type_alignment() as u64,
-                index_buffer_memory_requirements.size,
-            );
-            index_slice.copy_from_slice(indices);
-            device.unmap_memory(index_buffer_memory);
+                );
+                index_slice.copy_from_slice(indices);
+            }
+
             device
-                .bind_buffer_memory(index_buffer, index_buffer_memory, 0)
+                .bind_buffer_memory(
+                    index_buffer,
+                    index_allocation.memory(),
+                    index_allocation.offset(),
+                )
                 .expect("failed to bind index buffer memory to index buffer");
 
             let vertex_input_buffer = vk::BufferCreateInfo::default()
                 .size(size_of_val(vertices) as u64)
                 .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
                 .sharing_mode(vk::SharingMode::EXCLUSIVE);
-            println!("vertex size: {}", size_of::<Vertex>());
+
             let vertex_buffer = device
                 .create_buffer(&vertex_input_buffer, None)
                 .expect("failed to create vertex buffer");
+
             let vertex_buffer_memory_requirements =
                 device.get_buffer_memory_requirements(vertex_buffer);
-            let vertex_buffer_memory_index = find_memorytype_index(
-                &vertex_buffer_memory_requirements,
-                &device_memory_properties,
-                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            )
-            .expect("failed to get memory requirements");
-            let vertex_buffer_allocate_info = vk::MemoryAllocateInfo::default()
-                .allocation_size(vertex_buffer_memory_requirements.size)
-                .memory_type_index(vertex_buffer_memory_index);
-            let vertex_buffer_memory = device
-                .allocate_memory(&vertex_buffer_allocate_info, None)
-                .expect("failed to allocate memory for vertex buffer");
-            let vertex_ptr = device
-                .map_memory(
-                    vertex_buffer_memory,
-                    0,
-                    vertex_buffer_memory_requirements.size,
-                    vk::MemoryMapFlags::empty(),
-                )
-                .expect("failed to map vertex buffer to device space");
-            let mut vertex_align = Align::new(
-                vertex_ptr,
-                align_of::<Vertex>() as u64,
-                vertex_buffer_memory_requirements.size,
-            );
-            vertex_align.copy_from_slice(vertices);
-            device.unmap_memory(vertex_buffer_memory);
+            let vertex_allocation = allocator
+                .allocate(&AllocationCreateDesc {
+                    name: "vertex buffer allocation",
+                    requirements: vertex_buffer_memory_requirements,
+                    location: MemoryLocation::CpuToGpu,
+                    linear: true,
+                    allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+                })
+                .expect("failed to create allocation");
+
+            {
+                let vertex_ptr = vertex_allocation
+                    .mapped_ptr()
+                    .expect("failed to get a vertex pointer");
+                let mut vertex_slice = Align::new(
+                    vertex_ptr.as_ptr(),
+                    Self::index_type_alignment() as u64,
+                    index_buffer_memory_requirements.size,
+                );
+                vertex_slice.copy_from_slice(vertices);
+            }
+
             device
-                .bind_buffer_memory(vertex_buffer, vertex_buffer_memory, 0)
+                .bind_buffer_memory(
+                    vertex_buffer,
+                    vertex_allocation.memory(),
+                    vertex_allocation.offset(),
+                )
                 .expect("failed to bind memory");
             Self {
-                vertex_buffer_memory,
+                vertex_allocation,
+
                 vertex_buffer,
-                index_buffer_memory,
+                index_allocation,
                 index_buffer,
             }
         }
     }
-    pub fn free(&mut self, device: &Device) {
+    pub fn free(self, device: &Device, allocator: &mut Allocator) {
         unsafe {
             device.device_wait_idle().expect("failed to free");
-            device.free_memory(self.index_buffer_memory, None);
+            allocator
+                .free(self.vertex_allocation)
+                .expect("failed to free vertex allocation");
+            allocator
+                .free(self.index_allocation)
+                .expect("failed to free index allocation");
+
             device.destroy_buffer(self.index_buffer, None);
 
-            device.free_memory(self.vertex_buffer_memory, None);
             device.destroy_buffer(self.vertex_buffer, None);
         }
     }
