@@ -3,7 +3,7 @@ mod present_pass;
 use super::Vertex;
 use present_pass::PresentPass;
 
-use super::utils::{find_memorytype_index, record_submit_command_buffer, vulkan_debug_callback};
+use super::utils::{record_submit_command_buffer, vulkan_debug_callback};
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
 use model::Model;
 
@@ -16,7 +16,7 @@ use winit::{
 struct Base {}
 /// Contents are ordered in how they should be freed
 pub struct App {
-    present_pass: PresentPass,
+    present_pass: Option<PresentPass>,
 
     triangle_model: Option<Model>,
     allocator: Option<Allocator>,
@@ -285,18 +285,18 @@ impl App {
 
             let present_pass = PresentPass::new(
                 &device,
-                physical_device,
                 setup_command_buffer,
                 &instance,
                 swapchain,
                 present_queue,
+                &mut allocator,
                 surface_resolution,
                 surface_format,
             );
             Self {
                 frame_index: 0,
                 triangle_model: Some(triangle_model),
-                present_pass,
+                present_pass: Some(present_pass),
                 allocator: Some(allocator),
                 draw_commands_reuse_fence,
                 rendering_complete_semaphores,
@@ -338,16 +338,19 @@ impl App {
                     vk::Fence::null(),
                 )
                 .expect("failed to acquire next image");
-            self.present_pass.draw(
-                &self.device,
-                self.triangle_model.as_ref().unwrap(),
-                draw_command_buffer,
-                &self.present_queue,
-                draw_commandbuffer_reuse_fence,
-                present_complete_semaphore,
-                rendering_complete_semaphore,
-                current_frame_index,
-            );
+            self.present_pass
+                .as_ref()
+                .expect("should not be freed")
+                .draw(
+                    &self.device,
+                    self.triangle_model.as_ref().unwrap(),
+                    draw_command_buffer,
+                    &self.present_queue,
+                    draw_commandbuffer_reuse_fence,
+                    present_complete_semaphore,
+                    rendering_complete_semaphore,
+                    current_frame_index,
+                );
 
             let wait_semaphore = [rendering_complete_semaphore];
             let swapchains = [self.swapchain];
@@ -370,7 +373,13 @@ impl Drop for App {
     fn drop(&mut self) {
         unsafe {
             self.device.device_wait_idle().expect("failed to wait idle");
-            self.present_pass.free(&self.device);
+            self.present_pass
+                .take()
+                .expect("should not already be freed")
+                .free(
+                    &self.device,
+                    self.allocator.as_mut().expect("already dropped"),
+                );
             self.triangle_model
                 .take()
                 .expect("was already freed")

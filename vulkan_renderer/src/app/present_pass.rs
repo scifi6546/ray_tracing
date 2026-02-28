@@ -1,5 +1,9 @@
-use super::{Model, Vertex, find_memorytype_index, record_submit_command_buffer};
+use super::{Model, Vertex, record_submit_command_buffer};
 use ash::{Device, Instance, khr, util::read_spv, vk};
+use gpu_allocator::{
+    MemoryLocation,
+    vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
+};
 use std::{io::Cursor, mem::offset_of};
 pub struct PresentPass {
     pub graphics_pipeline: vk::Pipeline,
@@ -12,7 +16,8 @@ pub struct PresentPass {
     pub present_image_views: Vec<vk::ImageView>,
     pub depth_image_view: vk::ImageView,
     pub depth_image: vk::Image,
-    pub depth_image_memory: vk::DeviceMemory,
+    pub depth_image_allocation: Allocation,
+
     //does not need to be freed
     pub viewport: vk::Viewport,
     #[allow(dead_code)]
@@ -22,17 +27,15 @@ pub struct PresentPass {
 impl PresentPass {
     pub fn new(
         device: &Device,
-        physical_device: vk::PhysicalDevice,
         setup_command_buffer: vk::CommandBuffer,
         instance: &Instance,
         swapchain: vk::SwapchainKHR,
         present_queue: vk::Queue,
+        allocator: &mut Allocator,
         surface_resolution: vk::Extent2D,
         surface_format: vk::SurfaceFormatKHR,
     ) -> Self {
         unsafe {
-            let device_memory_properties =
-                instance.get_physical_device_memory_properties(physical_device);
             let swapchain_device = khr::swapchain::Device::new(&instance, &device);
             let renderpass_attachments = [
                 vk::AttachmentDescription::default()
@@ -87,20 +90,23 @@ impl PresentPass {
                 .create_image(&depth_image_create_info, None)
                 .expect("failed to create depth image");
             let depth_memory_requirements = device.get_image_memory_requirements(depth_image);
-            let depth_image_memory_index = find_memorytype_index(
-                &depth_memory_requirements,
-                &device_memory_properties,
-                vk::MemoryPropertyFlags::DEVICE_LOCAL,
-            )
-            .expect("failed to find sutible index for depth image");
-            let depth_image_allocate_info = vk::MemoryAllocateInfo::default()
-                .allocation_size(depth_memory_requirements.size)
-                .memory_type_index(depth_image_memory_index);
-            let depth_image_memory = device
-                .allocate_memory(&depth_image_allocate_info, None)
-                .expect("failed to allocate");
+
+            let depth_image_allocation = allocator
+                .allocate(&AllocationCreateDesc {
+                    name: "depth image allocation",
+                    requirements: depth_memory_requirements,
+                    location: MemoryLocation::GpuOnly,
+                    linear: true,
+                    allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+                })
+                .expect("failed to allocate depth image");
+
             device
-                .bind_image_memory(depth_image, depth_image_memory, 0)
+                .bind_image_memory(
+                    depth_image,
+                    depth_image_allocation.memory(),
+                    depth_image_allocation.offset(),
+                )
                 .expect("failed to bind memory");
             record_submit_command_buffer(
                 &device,
@@ -314,6 +320,7 @@ impl PresentPass {
             Self {
                 graphics_pipeline,
                 pipeline_layout,
+                depth_image_allocation,
                 renderpass,
                 fragment_shader_module,
                 vertex_shader_module,
@@ -322,7 +329,6 @@ impl PresentPass {
                 present_images,
                 depth_image_view,
                 depth_image,
-                depth_image_memory,
                 viewport: viewports[0],
                 surface_resolution,
             }
@@ -400,7 +406,7 @@ impl PresentPass {
             );
         }
     }
-    pub fn free(&mut self, device: &Device) {
+    pub fn free(mut self, device: &Device, allocator: &mut Allocator) {
         unsafe {
             device.device_wait_idle().expect("failed to wait idle");
 
@@ -417,7 +423,9 @@ impl PresentPass {
             }
 
             device.destroy_image_view(self.depth_image_view, None);
-            device.free_memory(self.depth_image_memory, None);
+            allocator
+                .free(self.depth_image_allocation)
+                .expect("failed to free");
             device.destroy_image(self.depth_image, None);
         }
     }
