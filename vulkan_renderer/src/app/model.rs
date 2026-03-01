@@ -1,4 +1,4 @@
-use super::SetupCommandBuffer;
+use super::{Descriptors, SetupCommandBuffer};
 use ash::{Device, util::Align, vk};
 use gpu_allocator::{
     MemoryLocation,
@@ -11,6 +11,7 @@ use std::mem::{offset_of, size_of_val};
 pub struct PresentVertex {
     pub pos: [f32; 4],
     pub color: [f32; 4],
+    pub uv: [f32; 2],
 }
 impl PresentVertex {
     pub const fn input_binding_description() -> [vk::VertexInputBindingDescription; 1] {
@@ -20,7 +21,7 @@ impl PresentVertex {
             input_rate: vk::VertexInputRate::VERTEX,
         }]
     }
-    pub const fn attribute_descriptions() -> [vk::VertexInputAttributeDescription; 2] {
+    pub const fn attribute_descriptions() -> [vk::VertexInputAttributeDescription; 3] {
         [
             vk::VertexInputAttributeDescription {
                 location: 0,
@@ -34,11 +35,19 @@ impl PresentVertex {
                 format: vk::Format::R32G32B32A32_SFLOAT,
                 offset: offset_of!(Self, color) as u32,
             },
+            vk::VertexInputAttributeDescription {
+                location: 2,
+                binding: 0,
+                format: vk::Format::R32G32_SFLOAT,
+                offset: offset_of!(Self, uv) as u32,
+            },
         ]
     }
 }
 
 pub struct PresentModel {
+    texture_image_view: vk::ImageView,
+    sampler: vk::Sampler,
     texture_allocation: Allocation,
     texture_image: vk::Image,
     image_buffer: vk::Buffer,
@@ -47,6 +56,8 @@ pub struct PresentModel {
     pub vertex_buffer: vk::Buffer,
     pub index_allocation: Allocation,
     pub index_buffer: vk::Buffer,
+    // does not need to get freed
+    pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub num_indices: usize,
 }
 type Index = u32;
@@ -65,6 +76,7 @@ impl PresentModel {
         allocator: &mut Allocator,
         setup_command_buffer: &mut SetupCommandBuffer,
         present_queue: &vk::Queue,
+        descriptors: &Descriptors,
     ) -> Self {
         unsafe {
             let index_buffer_info = vk::BufferCreateInfo::default()
@@ -284,8 +296,62 @@ impl PresentModel {
                     );
                 },
             );
-
+            let sampler_info = vk::SamplerCreateInfo {
+                mag_filter: vk::Filter::LINEAR,
+                min_filter: vk::Filter::LINEAR,
+                mipmap_mode: vk::SamplerMipmapMode::LINEAR,
+                address_mode_u: vk::SamplerAddressMode::MIRRORED_REPEAT,
+                address_mode_v: vk::SamplerAddressMode::MIRRORED_REPEAT,
+                address_mode_w: vk::SamplerAddressMode::MIRRORED_REPEAT,
+                max_anisotropy: 1.0,
+                border_color: vk::BorderColor::FLOAT_OPAQUE_WHITE,
+                compare_op: vk::CompareOp::NEVER,
+                ..Default::default()
+            };
+            let sampler = device.create_sampler(&sampler_info, None).unwrap();
+            let tex_image_view_info = vk::ImageViewCreateInfo {
+                view_type: vk::ImageViewType::TYPE_2D,
+                format: texture_create_info.format,
+                components: vk::ComponentMapping {
+                    r: vk::ComponentSwizzle::R,
+                    g: vk::ComponentSwizzle::G,
+                    b: vk::ComponentSwizzle::B,
+                    a: vk::ComponentSwizzle::A,
+                },
+                subresource_range: vk::ImageSubresourceRange {
+                    aspect_mask: vk::ImageAspectFlags::COLOR,
+                    level_count: 1,
+                    layer_count: 1,
+                    ..Default::default()
+                },
+                image: texture_image,
+                ..Default::default()
+            };
+            let texture_image_view = device
+                .create_image_view(&tex_image_view_info, None)
+                .unwrap();
+            let layout = [descriptors.layout];
+            let descriptor_allocate_info = vk::DescriptorSetAllocateInfo::default()
+                .descriptor_pool(descriptors.pool)
+                .set_layouts(&layout);
+            let descriptor_sets = device
+                .allocate_descriptor_sets(&descriptor_allocate_info)
+                .expect("failed to allocate descriptor set");
+            let texture_descriptor = [vk::DescriptorImageInfo {
+                image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                image_view: texture_image_view,
+                sampler,
+            }];
+            let write_descriptor_sets = [vk::WriteDescriptorSet::default()
+                .dst_set(descriptor_sets[0])
+                .descriptor_count(1)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .image_info(&texture_descriptor)];
+            device.update_descriptor_sets(&write_descriptor_sets, &[]);
             Self {
+                descriptor_sets,
+                texture_image_view,
+                sampler,
                 texture_allocation,
                 texture_image,
                 image_allocation,
@@ -301,6 +367,9 @@ impl PresentModel {
     pub fn free(self, device: &Device, allocator: &mut Allocator) {
         unsafe {
             device.device_wait_idle().expect("failed to free");
+
+            device.destroy_image_view(self.texture_image_view, None);
+            device.destroy_sampler(self.sampler, None);
             allocator
                 .free(self.texture_allocation)
                 .expect("failed to free texture allocation");

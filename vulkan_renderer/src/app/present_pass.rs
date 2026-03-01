@@ -1,4 +1,6 @@
-use super::{PresentModel, PresentVertex, SetupCommandBuffer, record_submit_command_buffer};
+use super::{
+    Descriptors, PresentModel, PresentVertex, SetupCommandBuffer, record_submit_command_buffer,
+};
 use ash::{Device, Instance, khr, util::read_spv, vk};
 use gpu_allocator::{
     MemoryLocation,
@@ -32,6 +34,7 @@ impl PresentPass {
         swapchain: vk::SwapchainKHR,
         present_queue: vk::Queue,
         allocator: &mut Allocator,
+        descriptors: &Descriptors,
         surface_resolution: vk::Extent2D,
         surface_format: vk::SurfaceFormatKHR,
     ) -> Self {
@@ -214,7 +217,9 @@ impl PresentPass {
             let fragment_shader_module = device
                 .create_shader_module(&fragment_shader_info, None)
                 .expect("failed to create fragment shader module");
-            let layout_create_info = vk::PipelineLayoutCreateInfo::default();
+            let set_layouts = [descriptors.layout];
+            let layout_create_info =
+                vk::PipelineLayoutCreateInfo::default().set_layouts(&set_layouts);
             let pipeline_layout = device
                 .create_pipeline_layout(&layout_create_info, None)
                 .expect("failed to create layout");
@@ -372,6 +377,14 @@ impl PresentPass {
                         command_buffer,
                         &renderpass_begin_info,
                         vk::SubpassContents::INLINE,
+                    );
+                    device.cmd_bind_descriptor_sets(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.pipeline_layout,
+                        0,
+                        &model.descriptor_sets,
+                        &[],
                     );
                     device.cmd_bind_pipeline(
                         command_buffer,

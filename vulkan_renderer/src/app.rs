@@ -1,4 +1,5 @@
 mod command_buffer;
+mod descriptors;
 mod model;
 mod present_pass;
 use present_pass::PresentPass;
@@ -9,6 +10,7 @@ use super::utils::{record_submit_command_buffer, vulkan_debug_callback};
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
 use model::{PresentModel, PresentVertex};
 
+use descriptors::Descriptors;
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
 use winit::{
     event_loop::ActiveEventLoop,
@@ -23,6 +25,7 @@ pub struct App {
     present_pass: Option<PresentPass>,
 
     triangle_model: Option<PresentModel>,
+    descriptors: Descriptors,
     allocator: Option<Allocator>,
     setup_command_buffer: SetupCommandBuffer,
     draw_commands_reuse_fence: [vk::Fence; Self::MAX_FRAME_LATENCY],
@@ -271,23 +274,27 @@ impl App {
                 allocation_sizes: Default::default(),
             })
             .expect("failed to create allocator");
-
+            let descriptors = Descriptors::new(&device);
             let vertices = [
                 PresentVertex {
                     pos: [-1., -1., 0., 1.],
                     color: [1., 0., 0., 1.],
+                    uv: [0., 0.],
                 },
                 PresentVertex {
                     pos: [-1., 1., 0., 1.],
                     color: [0., 1., 0., 1.],
+                    uv: [0., 1.],
                 },
                 PresentVertex {
                     pos: [1., 1., 0., 1.],
                     color: [0., 1., 1., 1.],
+                    uv: [1., 1.],
                 },
                 PresentVertex {
                     pos: [1., -1., 0., 1.],
                     color: [1., 1., 0., 1.],
+                    uv: [1., 0.],
                 },
             ];
 
@@ -299,6 +306,7 @@ impl App {
                 &mut allocator,
                 &mut setup_command_buffer,
                 &present_queue,
+                &descriptors,
             );
 
             let present_pass = PresentPass::new(
@@ -308,11 +316,13 @@ impl App {
                 swapchain,
                 present_queue,
                 &mut allocator,
+                &descriptors,
                 surface_resolution,
                 surface_format,
             );
             Self {
                 frame_index: 0,
+                descriptors,
                 triangle_model: Some(triangle_model),
                 present_pass: Some(present_pass),
                 allocator: Some(allocator),
@@ -402,7 +412,7 @@ impl Drop for App {
                 .take()
                 .expect("was already freed")
                 .free(&self.device, self.allocator.as_mut().unwrap());
-
+            self.descriptors.free(&self.device);
             for fence in self.draw_commands_reuse_fence {
                 self.device.destroy_fence(fence, None);
             }
