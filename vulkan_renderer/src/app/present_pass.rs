@@ -7,6 +7,22 @@ use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
 };
 use std::io::Cursor;
+struct DepthImageData {
+    image: vk::Image,
+    allocation: Allocation,
+    view: vk::ImageView,
+}
+impl DepthImageData {
+    pub fn free(self, device: &Device, allocator: &mut Allocator) {
+        unsafe {
+            device.destroy_image_view(self.view, None);
+            device.destroy_image(self.image, None);
+            allocator
+                .free(self.allocation)
+                .expect("failed to deallocate");
+        }
+    }
+}
 pub struct PresentPass {
     pub graphics_pipeline: vk::Pipeline,
     pub pipeline_layout: vk::PipelineLayout,
@@ -16,9 +32,7 @@ pub struct PresentPass {
     pub framebuffers: Vec<vk::Framebuffer>,
 
     pub present_image_views: Vec<vk::ImageView>,
-    pub depth_image_view: vk::ImageView,
-    pub depth_image: vk::Image,
-    pub depth_image_allocation: Allocation,
+    depth_images: Vec<DepthImageData>,
 
     //does not need to be freed
     pub viewport: vk::Viewport,
@@ -27,6 +41,7 @@ pub struct PresentPass {
     pub surface_resolution: vk::Extent2D,
 }
 impl PresentPass {
+    const DEPTH_FORMAT: vk::Format = vk::Format::D16_UNORM;
     pub fn new(
         device: &Device,
         setup_command_buffer: &mut SetupCommandBuffer,
@@ -48,7 +63,7 @@ impl PresentPass {
                     .store_op(vk::AttachmentStoreOp::STORE)
                     .final_layout(vk::ImageLayout::PRESENT_SRC_KHR),
                 vk::AttachmentDescription::default()
-                    .format(vk::Format::D16_UNORM)
+                    .format(Self::DEPTH_FORMAT)
                     .samples(vk::SampleCountFlags::TYPE_1)
                     .load_op(vk::AttachmentLoadOp::CLEAR)
                     .initial_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
@@ -79,38 +94,49 @@ impl PresentPass {
             let renderpass = device
                 .create_render_pass(&renderpass_create_info, None)
                 .expect("failed to crate renderpass");
-            let depth_image_create_info = vk::ImageCreateInfo::default()
-                .image_type(vk::ImageType::TYPE_2D)
-                .format(vk::Format::D16_UNORM)
-                .extent(surface_resolution.into())
-                .mip_levels(1)
-                .array_layers(1)
-                .samples(vk::SampleCountFlags::TYPE_1)
-                .tiling(vk::ImageTiling::OPTIMAL)
-                .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
-                .sharing_mode(vk::SharingMode::EXCLUSIVE);
-            let depth_image = device
-                .create_image(&depth_image_create_info, None)
-                .expect("failed to create depth image");
-            let depth_memory_requirements = device.get_image_memory_requirements(depth_image);
+            let present_images = swapchain_device
+                .get_swapchain_images(swapchain)
+                .expect("failed to get present images");
+            let mut depth_images = present_images
+                .iter()
+                .map(|_| {
+                    let depth_image_create_info = vk::ImageCreateInfo::default()
+                        .image_type(vk::ImageType::TYPE_2D)
+                        .format(Self::DEPTH_FORMAT)
+                        .extent(surface_resolution.into())
+                        .mip_levels(1)
+                        .array_layers(1)
+                        .samples(vk::SampleCountFlags::TYPE_1)
+                        .tiling(vk::ImageTiling::OPTIMAL)
+                        .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
+                        .sharing_mode(vk::SharingMode::EXCLUSIVE);
+                    let depth_image = device
+                        .create_image(&depth_image_create_info, None)
+                        .expect("failed to create depth image");
+                    let depth_memory_requirements =
+                        device.get_image_memory_requirements(depth_image);
 
-            let depth_image_allocation = allocator
-                .allocate(&AllocationCreateDesc {
-                    name: "depth image allocation",
-                    requirements: depth_memory_requirements,
-                    location: MemoryLocation::GpuOnly,
-                    linear: true,
-                    allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+                    let depth_image_allocation = allocator
+                        .allocate(&AllocationCreateDesc {
+                            name: "depth image allocation",
+                            requirements: depth_memory_requirements,
+                            location: MemoryLocation::GpuOnly,
+                            linear: true,
+                            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+                        })
+                        .expect("failed to allocate depth image");
+
+                    device
+                        .bind_image_memory(
+                            depth_image,
+                            depth_image_allocation.memory(),
+                            depth_image_allocation.offset(),
+                        )
+                        .expect("failed to bind memory");
+                    (depth_image, depth_image_allocation)
                 })
-                .expect("failed to allocate depth image");
+                .collect::<Vec<_>>();
 
-            device
-                .bind_image_memory(
-                    depth_image,
-                    depth_image_allocation.memory(),
-                    depth_image_allocation.offset(),
-                )
-                .expect("failed to bind memory");
             setup_command_buffer.record_command_buffer(
                 device,
                 present_queue,
@@ -118,20 +144,26 @@ impl PresentPass {
                 &[],
                 &[],
                 |device, setup_command_buffer| {
-                    let layout_transition_barriers = vk::ImageMemoryBarrier::default()
-                        .image(depth_image)
-                        .dst_access_mask(
-                            vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
-                                | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
-                        )
-                        .new_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-                        .old_layout(vk::ImageLayout::UNDEFINED)
-                        .subresource_range(
-                            vk::ImageSubresourceRange::default()
-                                .aspect_mask(vk::ImageAspectFlags::DEPTH)
-                                .layer_count(1)
-                                .level_count(1),
-                        );
+                    let layout_transition_barriers = depth_images
+                        .iter()
+                        .map(|(image, _)| {
+                            vk::ImageMemoryBarrier::default()
+                                .image(*image)
+                                .dst_access_mask(
+                                    vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
+                                        | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                                )
+                                .new_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                                .old_layout(vk::ImageLayout::UNDEFINED)
+                                .subresource_range(
+                                    vk::ImageSubresourceRange::default()
+                                        .aspect_mask(vk::ImageAspectFlags::DEPTH)
+                                        .layer_count(1)
+                                        .level_count(1),
+                                )
+                        })
+                        .collect::<Vec<_>>();
+
                     device.cmd_pipeline_barrier(
                         setup_command_buffer,
                         vk::PipelineStageFlags::BOTTOM_OF_PIPE,
@@ -139,28 +171,33 @@ impl PresentPass {
                         vk::DependencyFlags::empty(),
                         &[],
                         &[],
-                        &[layout_transition_barriers],
+                        &layout_transition_barriers,
                     );
                 },
             );
-
-            let depth_image_view_info = vk::ImageViewCreateInfo::default()
-                .subresource_range(
-                    vk::ImageSubresourceRange::default()
-                        .aspect_mask(vk::ImageAspectFlags::DEPTH)
-                        .layer_count(1)
-                        .level_count(1),
-                )
-                .image(depth_image)
-                .format(depth_image_create_info.format)
-                .view_type(vk::ImageViewType::TYPE_2D);
-            let depth_image_view = device
-                .create_image_view(&depth_image_view_info, None)
-                .expect("failed to create depth");
-
-            let present_images = swapchain_device
-                .get_swapchain_images(swapchain)
-                .expect("failed to get present images");
+            let depth_images = depth_images
+                .drain(..)
+                .map(|(image, allocation)| {
+                    let depth_image_view_info = vk::ImageViewCreateInfo::default()
+                        .subresource_range(
+                            vk::ImageSubresourceRange::default()
+                                .aspect_mask(vk::ImageAspectFlags::DEPTH)
+                                .layer_count(1)
+                                .level_count(1),
+                        )
+                        .image(image)
+                        .format(Self::DEPTH_FORMAT)
+                        .view_type(vk::ImageViewType::TYPE_2D);
+                    let view = device
+                        .create_image_view(&depth_image_view_info, None)
+                        .expect("failed to create depth");
+                    DepthImageData {
+                        image,
+                        allocation,
+                        view,
+                    }
+                })
+                .collect::<Vec<_>>();
 
             let present_image_views = present_images
                 .iter()
@@ -189,8 +226,9 @@ impl PresentPass {
                 .collect::<Vec<_>>();
             let framebuffers = present_image_views
                 .iter()
-                .map(|present_image_view| {
-                    let framebuffer_attachments = [*present_image_view, depth_image_view];
+                .zip(depth_images.iter())
+                .map(|(present_image_view, depth_image)| {
+                    let framebuffer_attachments = [*present_image_view, depth_image.view];
                     let framebuffer_create_info = vk::FramebufferCreateInfo::default()
                         .render_pass(renderpass)
                         .attachments(&framebuffer_attachments)
@@ -312,15 +350,13 @@ impl PresentPass {
             Self {
                 graphics_pipeline,
                 pipeline_layout,
-                depth_image_allocation,
                 renderpass,
                 fragment_shader_module,
                 vertex_shader_module,
                 framebuffers,
                 present_image_views,
                 present_images,
-                depth_image_view,
-                depth_image,
+                depth_images,
                 viewport: viewports[0],
                 surface_resolution,
             }
@@ -438,12 +474,9 @@ impl PresentPass {
             for view in self.present_image_views.drain(..) {
                 device.destroy_image_view(view, None);
             }
-
-            device.destroy_image_view(self.depth_image_view, None);
-            allocator
-                .free(self.depth_image_allocation)
-                .expect("failed to free");
-            device.destroy_image(self.depth_image, None);
+            for image in self.depth_images.drain(..) {
+                image.free(device, allocator);
+            }
         }
     }
 }
