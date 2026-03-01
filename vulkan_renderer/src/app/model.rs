@@ -45,6 +45,13 @@ impl PresentVertex {
     }
 }
 
+pub struct PresentModelInfo<'a> {
+    pub device: &'a Device,
+    pub allocator: &'a mut Allocator,
+    pub setup_command_buffer: &'a mut SetupCommandBuffer,
+    pub present_queue: &'a vk::Queue,
+    pub descriptors: &'a Descriptors,
+}
 pub struct PresentModel {
     texture_image_view: vk::ImageView,
     sampler: vk::Sampler,
@@ -68,27 +75,60 @@ impl PresentModel {
     const fn vertex_alignment() -> usize {
         align_of::<PresentVertex>()
     }
+    pub fn new_rectangle(
+        width: f32,
+        height: f32,
+        z_index: f32,
+        texture_buffer: &[u8],
+        vulkan_info: &mut PresentModelInfo,
+    ) -> Self {
+        let vertices = [
+            PresentVertex {
+                pos: [-width, -height, z_index, 1.],
+                color: [1., 1., 1., 1.],
+                uv: [0., 0.],
+            },
+            PresentVertex {
+                pos: [-width, height, z_index, 1.],
+                color: [1., 1., 1., 1.],
+                uv: [0., 1.],
+            },
+            PresentVertex {
+                pos: [width, height, z_index, 1.],
+                color: [1., 1., 1., 1.],
+                uv: [1., 1.],
+            },
+            PresentVertex {
+                pos: [width, -height, z_index, 1.],
+                color: [1., 1., 0., 1.],
+                uv: [1., 0.],
+            },
+        ];
 
+        let indices = [0, 3, 1, 3, 2, 1];
+
+        Self::new(&vertices, &indices, texture_buffer, vulkan_info)
+    }
     pub fn new(
         vertices: &[PresentVertex],
         indices: &[u32],
-        device: &Device,
-        allocator: &mut Allocator,
-        setup_command_buffer: &mut SetupCommandBuffer,
-        present_queue: &vk::Queue,
-        descriptors: &Descriptors,
+        texture_buffer: &[u8],
+        vulkan_info: &mut PresentModelInfo,
     ) -> Self {
         unsafe {
             let index_buffer_info = vk::BufferCreateInfo::default()
                 .size(size_of_val(indices) as u64)
                 .usage(vk::BufferUsageFlags::INDEX_BUFFER)
                 .sharing_mode(vk::SharingMode::EXCLUSIVE);
-            let index_buffer = device
+            let index_buffer = vulkan_info
+                .device
                 .create_buffer(&index_buffer_info, None)
                 .expect("failed to get index buffer");
-            let index_buffer_memory_requirements =
-                device.get_buffer_memory_requirements(index_buffer);
-            let index_allocation = allocator
+            let index_buffer_memory_requirements = vulkan_info
+                .device
+                .get_buffer_memory_requirements(index_buffer);
+            let index_allocation = vulkan_info
+                .allocator
                 .allocate(&AllocationCreateDesc {
                     name: "Model Index Buffer",
                     requirements: index_buffer_memory_requirements,
@@ -108,7 +148,8 @@ impl PresentModel {
                 index_slice.copy_from_slice(indices);
             }
 
-            device
+            vulkan_info
+                .device
                 .bind_buffer_memory(
                     index_buffer,
                     index_allocation.memory(),
@@ -121,13 +162,16 @@ impl PresentModel {
                 .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
                 .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
-            let vertex_buffer = device
+            let vertex_buffer = vulkan_info
+                .device
                 .create_buffer(&vertex_input_buffer, None)
                 .expect("failed to create vertex buffer");
 
-            let vertex_buffer_memory_requirements =
-                device.get_buffer_memory_requirements(vertex_buffer);
-            let vertex_allocation = allocator
+            let vertex_buffer_memory_requirements = vulkan_info
+                .device
+                .get_buffer_memory_requirements(vertex_buffer);
+            let vertex_allocation = vulkan_info
+                .allocator
                 .allocate(&AllocationCreateDesc {
                     name: "vertex buffer allocation",
                     requirements: vertex_buffer_memory_requirements,
@@ -149,14 +193,15 @@ impl PresentModel {
                 vertex_slice.copy_from_slice(vertices);
             }
 
-            device
+            vulkan_info
+                .device
                 .bind_buffer_memory(
                     vertex_buffer,
                     vertex_allocation.memory(),
                     vertex_allocation.offset(),
                 )
                 .expect("failed to bind memory");
-            let image = image::load_from_memory(include_bytes!("../../temp_assets/rocket.png"))
+            let image = image::load_from_memory(texture_buffer)
                 .expect("failed to load")
                 .to_rgba8();
             let (width, height) = image.dimensions();
@@ -168,10 +213,15 @@ impl PresentModel {
                 sharing_mode: vk::SharingMode::EXCLUSIVE,
                 ..Default::default()
             };
-            let image_buffer = device.create_buffer(&image_buffer_info, None).unwrap();
-            let image_buffer_memory_requirements =
-                device.get_buffer_memory_requirements(image_buffer);
-            let image_allocation = allocator
+            let image_buffer = vulkan_info
+                .device
+                .create_buffer(&image_buffer_info, None)
+                .unwrap();
+            let image_buffer_memory_requirements = vulkan_info
+                .device
+                .get_buffer_memory_requirements(image_buffer);
+            let image_allocation = vulkan_info
+                .allocator
                 .allocate(&AllocationCreateDesc {
                     name: "image texture",
                     requirements: image_buffer_memory_requirements,
@@ -192,7 +242,8 @@ impl PresentModel {
                 );
                 image_slice.copy_from_slice(&image_data);
             }
-            device
+            vulkan_info
+                .device
                 .bind_buffer_memory(
                     image_buffer,
                     image_allocation.memory(),
@@ -211,9 +262,15 @@ impl PresentModel {
                 sharing_mode: vk::SharingMode::EXCLUSIVE,
                 ..Default::default()
             };
-            let texture_image = device.create_image(&texture_create_info, None).unwrap();
-            let texture_memory_req = device.get_image_memory_requirements(texture_image);
-            let texture_allocation = allocator
+            let texture_image = vulkan_info
+                .device
+                .create_image(&texture_create_info, None)
+                .unwrap();
+            let texture_memory_req = vulkan_info
+                .device
+                .get_image_memory_requirements(texture_image);
+            let texture_allocation = vulkan_info
+                .allocator
                 .allocate(&AllocationCreateDesc {
                     name: "texture allocation",
                     requirements: texture_memory_req,
@@ -222,7 +279,8 @@ impl PresentModel {
                     allocation_scheme: AllocationScheme::GpuAllocatorManaged,
                 })
                 .expect("failed to allocate");
-            device
+            vulkan_info
+                .device
                 .bind_image_memory(
                     texture_image,
                     texture_allocation.memory(),
@@ -236,9 +294,9 @@ impl PresentModel {
                         .layer_count(1),
                 )
                 .image_extent(image_extent.into());
-            setup_command_buffer.record_command_buffer(
-                device,
-                *present_queue,
+            vulkan_info.setup_command_buffer.record_command_buffer(
+                vulkan_info.device,
+                *vulkan_info.present_queue,
                 &[],
                 &[],
                 &[],
@@ -308,7 +366,10 @@ impl PresentModel {
                 compare_op: vk::CompareOp::NEVER,
                 ..Default::default()
             };
-            let sampler = device.create_sampler(&sampler_info, None).unwrap();
+            let sampler = vulkan_info
+                .device
+                .create_sampler(&sampler_info, None)
+                .unwrap();
             let tex_image_view_info = vk::ImageViewCreateInfo {
                 view_type: vk::ImageViewType::TYPE_2D,
                 format: texture_create_info.format,
@@ -327,14 +388,16 @@ impl PresentModel {
                 image: texture_image,
                 ..Default::default()
             };
-            let texture_image_view = device
+            let texture_image_view = vulkan_info
+                .device
                 .create_image_view(&tex_image_view_info, None)
                 .unwrap();
-            let layout = [descriptors.layout];
+            let layout = [vulkan_info.descriptors.layout];
             let descriptor_allocate_info = vk::DescriptorSetAllocateInfo::default()
-                .descriptor_pool(descriptors.pool)
+                .descriptor_pool(vulkan_info.descriptors.pool)
                 .set_layouts(&layout);
-            let descriptor_sets = device
+            let descriptor_sets = vulkan_info
+                .device
                 .allocate_descriptor_sets(&descriptor_allocate_info)
                 .expect("failed to allocate descriptor set");
             let texture_descriptor = [vk::DescriptorImageInfo {
@@ -347,7 +410,9 @@ impl PresentModel {
                 .descriptor_count(1)
                 .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
                 .image_info(&texture_descriptor)];
-            device.update_descriptor_sets(&write_descriptor_sets, &[]);
+            vulkan_info
+                .device
+                .update_descriptor_sets(&write_descriptor_sets, &[]);
             Self {
                 descriptor_sets,
                 texture_image_view,

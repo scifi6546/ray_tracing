@@ -8,7 +8,7 @@ use crate::app::command_buffer::SetupCommandBuffer;
 
 use super::utils::{record_submit_command_buffer, vulkan_debug_callback};
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
-use model::{PresentModel, PresentVertex};
+use model::{PresentModel, PresentModelInfo, PresentVertex};
 
 use descriptors::Descriptors;
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
@@ -23,8 +23,8 @@ use winit::{
 /// ImageMemoryBarriar
 pub struct App {
     present_pass: Option<PresentPass>,
+    present_models: Vec<PresentModel>,
 
-    triangle_model: Option<PresentModel>,
     descriptors: Descriptors,
     allocator: Option<Allocator>,
     setup_command_buffer: SetupCommandBuffer,
@@ -204,6 +204,7 @@ impl App {
                 .cloned()
                 .find(|mode| *mode == vk::PresentModeKHR::MAILBOX)
                 .unwrap_or(vk::PresentModeKHR::FIFO);
+
             let swapchain_device = khr::swapchain::Device::new(&instance, &device);
             let swapchain_create_info = vk::SwapchainCreateInfoKHR::default()
                 .surface(surface)
@@ -275,38 +276,26 @@ impl App {
             })
             .expect("failed to create allocator");
             let descriptors = Descriptors::new(&device);
-            let vertices = [
-                PresentVertex {
-                    pos: [-1., -1., 0., 1.],
-                    color: [1., 0., 0., 1.],
-                    uv: [0., 0.],
-                },
-                PresentVertex {
-                    pos: [-1., 1., 0., 1.],
-                    color: [0., 1., 0., 1.],
-                    uv: [0., 1.],
-                },
-                PresentVertex {
-                    pos: [1., 1., 0., 1.],
-                    color: [0., 1., 1., 1.],
-                    uv: [1., 1.],
-                },
-                PresentVertex {
-                    pos: [1., -1., 0., 1.],
-                    color: [1., 1., 0., 1.],
-                    uv: [1., 0.],
-                },
-            ];
-
-            let index_buffer_data = [0, 3, 1, 3, 2, 1];
-            let triangle_model = PresentModel::new(
-                &vertices,
-                &index_buffer_data,
-                &device,
-                &mut allocator,
-                &mut setup_command_buffer,
-                &present_queue,
-                &descriptors,
+            let mut present_vk_info = PresentModelInfo {
+                device: &device,
+                allocator: &mut allocator,
+                setup_command_buffer: &mut setup_command_buffer,
+                present_queue: &present_queue,
+                descriptors: &descriptors,
+            };
+            let triangle_model = PresentModel::new_rectangle(
+                1.,
+                1.,
+                0.6,
+                include_bytes!("../temp_assets/rocket.png"),
+                &mut present_vk_info,
+            );
+            let ui_element = PresentModel::new_rectangle(
+                0.3,
+                0.3,
+                0.1,
+                include_bytes!("../temp_assets/UI.png"),
+                &mut present_vk_info,
             );
 
             let present_pass = PresentPass::new(
@@ -323,7 +312,7 @@ impl App {
             Self {
                 frame_index: 0,
                 descriptors,
-                triangle_model: Some(triangle_model),
+                present_models: vec![triangle_model, ui_element],
                 present_pass: Some(present_pass),
                 allocator: Some(allocator),
                 draw_commands_reuse_fence,
@@ -371,7 +360,7 @@ impl App {
                 .expect("should not be freed")
                 .draw(
                     &self.device,
-                    self.triangle_model.as_ref().unwrap(),
+                    &self.present_models,
                     draw_command_buffer,
                     &self.present_queue,
                     draw_commandbuffer_reuse_fence,
@@ -408,10 +397,13 @@ impl Drop for App {
                     &self.device,
                     self.allocator.as_mut().expect("already dropped"),
                 );
-            self.triangle_model
-                .take()
-                .expect("was already freed")
-                .free(&self.device, self.allocator.as_mut().unwrap());
+            for model in self.present_models.drain(..) {
+                model.free(
+                    &self.device,
+                    self.allocator.as_mut().expect("allocator already freed"),
+                );
+            }
+
             self.descriptors.free(&self.device);
             for fence in self.draw_commands_reuse_fence {
                 self.device.destroy_fence(fence, None);

@@ -275,11 +275,11 @@ impl PresentPass {
                 .back(noop_stencil_state)
                 .max_depth_bounds(1.);
             let color_blend_attachment_states = [vk::PipelineColorBlendAttachmentState {
-                blend_enable: 0,
-                src_color_blend_factor: vk::BlendFactor::SRC_COLOR,
-                dst_color_blend_factor: vk::BlendFactor::ONE_MINUS_DST_COLOR,
+                blend_enable: 1,
+                src_color_blend_factor: vk::BlendFactor::SRC_ALPHA,
+                dst_color_blend_factor: vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
                 color_blend_op: vk::BlendOp::ADD,
-                src_alpha_blend_factor: vk::BlendFactor::ZERO,
+                src_alpha_blend_factor: vk::BlendFactor::ONE,
                 dst_alpha_blend_factor: vk::BlendFactor::ZERO,
                 alpha_blend_op: vk::BlendOp::ADD,
                 color_write_mask: vk::ColorComponentFlags::RGBA,
@@ -329,7 +329,7 @@ impl PresentPass {
     pub fn draw(
         &self,
         device: &Device,
-        model: &PresentModel,
+        models: &[PresentModel],
         draw_command_buffer: vk::CommandBuffer,
         present_queue: &vk::Queue,
         draw_commandbuffer_reuse_fence: vk::Fence,
@@ -378,14 +378,7 @@ impl PresentPass {
                         &renderpass_begin_info,
                         vk::SubpassContents::INLINE,
                     );
-                    device.cmd_bind_descriptor_sets(
-                        command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.pipeline_layout,
-                        0,
-                        &model.descriptor_sets,
-                        &[],
-                    );
+
                     device.cmd_bind_pipeline(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
@@ -394,14 +387,37 @@ impl PresentPass {
 
                     device.cmd_set_viewport(command_buffer, 0, &[self.viewport]);
                     device.cmd_set_scissor(command_buffer, 0, &[self.surface_resolution.into()]);
-                    device.cmd_bind_index_buffer(
-                        command_buffer,
-                        model.index_buffer,
-                        0,
-                        vk::IndexType::UINT32,
-                    );
-                    device.cmd_bind_vertex_buffers(command_buffer, 0, &[model.vertex_buffer], &[0]);
-                    device.cmd_draw_indexed(command_buffer, model.num_indices as u32, 1, 0, 0, 1);
+                    for model in models {
+                        device.cmd_bind_descriptor_sets(
+                            command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.pipeline_layout,
+                            0,
+                            &model.descriptor_sets,
+                            &[],
+                        );
+                        device.cmd_bind_index_buffer(
+                            command_buffer,
+                            model.index_buffer,
+                            0,
+                            vk::IndexType::UINT32,
+                        );
+                        device.cmd_bind_vertex_buffers(
+                            command_buffer,
+                            0,
+                            &[model.vertex_buffer],
+                            &[0],
+                        );
+                        device.cmd_draw_indexed(
+                            command_buffer,
+                            model.num_indices as u32,
+                            1,
+                            0,
+                            0,
+                            1,
+                        );
+                    }
+
                     device.cmd_end_render_pass(command_buffer);
                 },
             );

@@ -1,5 +1,3 @@
-use std::u64;
-
 use ash::{Device, vk};
 pub struct SetupCommandBuffer {
     pub command_buffer: vk::CommandBuffer,
