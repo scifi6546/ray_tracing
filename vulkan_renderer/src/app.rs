@@ -2,13 +2,14 @@ mod command_buffer;
 mod descriptors;
 mod model;
 mod present_pass;
-use present_pass::PresentPass;
-
+mod voxel_renderer;
 use crate::app::command_buffer::SetupCommandBuffer;
+use present_pass::PresentPass;
+use voxel_renderer::VoxelPass;
 
 use super::utils::{record_submit_command_buffer, vulkan_debug_callback};
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
-use model::{PresentModel, PresentModelInfo, PresentVertex};
+use model::{PresentModel, PresentModelInfo, PresentRectangle, PresentVertex};
 
 use descriptors::Descriptors;
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
@@ -22,6 +23,7 @@ use winit::{
 /// Things there is a v2 of:
 /// ImageMemoryBarriar
 pub struct App {
+    voxel_pass: Option<VoxelPass>,
     present_pass: Option<PresentPass>,
     present_models: Vec<PresentModel>,
 
@@ -169,9 +171,11 @@ impl App {
                 .create_device(physical_device, &device_create_info, None)
                 .expect("failed to create device");
             let present_queue = device.get_device_queue(queue_family_index, 0);
-            let surface_format = surface_instance
+            let all_formats = surface_instance
                 .get_physical_device_surface_formats(physical_device, surface)
-                .expect("failed to get formats")[0];
+                .expect("failed to get formats");
+            println!("availible surface formats: {:#?}", all_formats);
+            let surface_format = all_formats[0];
             let surface_capabilities = surface_instance
                 .get_physical_device_surface_capabilities(physical_device, surface)
                 .expect("failed to get capabilities");
@@ -283,17 +287,27 @@ impl App {
                 present_queue: &present_queue,
                 descriptors: &descriptors,
             };
+
             let triangle_model = PresentModel::new_rectangle(
-                1.,
-                1.,
-                0.6,
+                PresentRectangle {
+                    min_x: -1.,
+                    min_y: -1.,
+                    max_x: 1.,
+                    max_y: 1.,
+                    z_index: 0.6,
+                },
                 include_bytes!("../temp_assets/rocket.png"),
                 &mut present_vk_info,
             );
+
             let ui_element = PresentModel::new_rectangle(
-                0.3,
-                0.3,
-                0.1,
+                PresentRectangle {
+                    min_x: -1.,
+                    min_y: 0.7,
+                    max_x: 0.3,
+                    max_y: 1.0,
+                    z_index: 0.1,
+                },
                 include_bytes!("../temp_assets/UI.png"),
                 &mut present_vk_info,
             );
@@ -309,7 +323,15 @@ impl App {
                 surface_resolution,
                 surface_format,
             );
+            let voxel_pass = VoxelPass::new(
+                &device,
+                &mut allocator,
+                &mut setup_command_buffer,
+                present_queue,
+                surface_resolution,
+            );
             Self {
+                voxel_pass: Some(voxel_pass),
                 frame_index: 0,
                 descriptors,
                 present_models: vec![triangle_model, ui_element],
@@ -355,6 +377,10 @@ impl App {
                     vk::Fence::null(),
                 )
                 .expect("failed to acquire next image");
+            self.voxel_pass
+                .as_ref()
+                .expect("voxel pass already freed")
+                .draw();
             self.present_pass
                 .as_ref()
                 .expect("should not be freed")
@@ -390,6 +416,14 @@ impl Drop for App {
     fn drop(&mut self) {
         unsafe {
             self.device.device_wait_idle().expect("failed to wait idle");
+
+            self.voxel_pass
+                .take()
+                .expect("voxel pass already freed")
+                .free(
+                    &self.device,
+                    self.allocator.as_mut().expect("allocator already freed"),
+                );
             self.present_pass
                 .take()
                 .expect("should not already be freed")

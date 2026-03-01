@@ -67,6 +67,14 @@ pub struct PresentModel {
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub num_indices: usize,
 }
+#[derive(Clone, Copy)]
+pub struct PresentRectangle {
+    pub min_x: f32,
+    pub min_y: f32,
+    pub max_x: f32,
+    pub max_y: f32,
+    pub z_index: f32,
+}
 type Index = u32;
 impl PresentModel {
     const fn index_type_alignment() -> usize {
@@ -76,30 +84,28 @@ impl PresentModel {
         align_of::<PresentVertex>()
     }
     pub fn new_rectangle(
-        width: f32,
-        height: f32,
-        z_index: f32,
+        rectangle: PresentRectangle,
         texture_buffer: &[u8],
         vulkan_info: &mut PresentModelInfo,
     ) -> Self {
         let vertices = [
             PresentVertex {
-                pos: [-width, -height, z_index, 1.],
+                pos: [rectangle.min_x, rectangle.min_y, rectangle.z_index, 1.],
                 color: [1., 1., 1., 1.],
                 uv: [0., 0.],
             },
             PresentVertex {
-                pos: [-width, height, z_index, 1.],
+                pos: [rectangle.min_x, rectangle.max_y, rectangle.z_index, 1.],
                 color: [1., 1., 1., 1.],
                 uv: [0., 1.],
             },
             PresentVertex {
-                pos: [width, height, z_index, 1.],
+                pos: [rectangle.max_x, rectangle.max_y, rectangle.z_index, 1.],
                 color: [1., 1., 1., 1.],
                 uv: [1., 1.],
             },
             PresentVertex {
-                pos: [width, -height, z_index, 1.],
+                pos: [rectangle.max_x, rectangle.min_y, rectangle.z_index, 1.],
                 color: [1., 1., 0., 1.],
                 uv: [1., 0.],
             },
