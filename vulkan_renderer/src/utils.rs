@@ -66,18 +66,3 @@ pub unsafe extern "system" fn vulkan_debug_callback(
 
     vk::FALSE
 }
-pub fn find_memorytype_index(
-    memory_requirements: &vk::MemoryRequirements,
-    memory_properties: &vk::PhysicalDeviceMemoryProperties,
-    flags: vk::MemoryPropertyFlags,
-) -> Option<u32> {
-    memory_properties
-        .memory_types
-        .iter()
-        .enumerate()
-        .find(|(index, memory_type)| {
-            (1 << index) & memory_requirements.memory_type_bits != 0
-                && memory_type.property_flags & flags == flags
-        })
-        .map(|(index, _memory_type)| index as _)
-}

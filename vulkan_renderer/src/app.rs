@@ -1,11 +1,13 @@
+mod command_buffer;
 mod model;
 mod present_pass;
-use super::Vertex;
 use present_pass::PresentPass;
+
+use crate::app::command_buffer::SetupCommandBuffer;
 
 use super::utils::{record_submit_command_buffer, vulkan_debug_callback};
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
-use model::Model;
+use model::{PresentModel, PresentVertex};
 
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
 use winit::{
@@ -13,13 +15,16 @@ use winit::{
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::Window,
 };
-struct Base {}
+
 /// Contents are ordered in how they should be freed
+/// Things there is a v2 of:
+/// ImageMemoryBarriar
 pub struct App {
     present_pass: Option<PresentPass>,
 
-    triangle_model: Option<Model>,
+    triangle_model: Option<PresentModel>,
     allocator: Option<Allocator>,
+    setup_command_buffer: SetupCommandBuffer,
     draw_commands_reuse_fence: [vk::Fence; Self::MAX_FRAME_LATENCY],
     rendering_complete_semaphores: Vec<vk::Semaphore>,
     present_semaphores: [vk::Semaphore; Self::MAX_FRAME_LATENCY],
@@ -36,7 +41,7 @@ pub struct App {
     frame_index: usize,
 
     draw_command_buffers: [vk::CommandBuffer; Self::MAX_FRAME_LATENCY],
-    setup_command_buffer: vk::CommandBuffer,
+
     #[allow(dead_code)]
     app_setup_command_buffer: vk::CommandBuffer,
     #[allow(dead_code)]
@@ -226,7 +231,8 @@ impl App {
             let command_buffers = device
                 .allocate_command_buffers(&command_buffer_allocate_info)
                 .expect("failed to create command buffers");
-            let setup_command_buffer = command_buffers[0];
+
+            let mut setup_command_buffer = SetupCommandBuffer::new(command_buffers[0]);
             let app_setup_command_buffer = command_buffers[1];
             let draw_command_buffers = command_buffers[2..][..Self::MAX_FRAME_LATENCY]
                 .try_into()
@@ -267,25 +273,37 @@ impl App {
             .expect("failed to create allocator");
 
             let vertices = [
-                Vertex {
-                    pos: [-1.0, 1.0, 0.0, 1.0],
-                    color: [0.0, 1.0, 0.0, 1.0],
+                PresentVertex {
+                    pos: [-1., -1., 0., 1.],
+                    color: [1., 0., 0., 1.],
                 },
-                Vertex {
-                    pos: [1.0, 1.0, 0.0, 1.0],
-                    color: [0.0, 0.0, 1.0, 1.0],
+                PresentVertex {
+                    pos: [-1., 1., 0., 1.],
+                    color: [0., 1., 0., 1.],
                 },
-                Vertex {
-                    pos: [0.0, -1.0, 0.0, 1.0],
-                    color: [1.0, 0.0, 0.0, 1.0],
+                PresentVertex {
+                    pos: [1., 1., 0., 1.],
+                    color: [0., 1., 1., 1.],
+                },
+                PresentVertex {
+                    pos: [1., -1., 0., 1.],
+                    color: [1., 1., 0., 1.],
                 },
             ];
-            let index_buffer_data = [0u32, 1, 2];
-            let triangle_model = Model::new(&vertices, &index_buffer_data, &device, &mut allocator);
+
+            let index_buffer_data = [0, 3, 1, 3, 2, 1];
+            let triangle_model = PresentModel::new(
+                &vertices,
+                &index_buffer_data,
+                &device,
+                &mut allocator,
+                &mut setup_command_buffer,
+                &present_queue,
+            );
 
             let present_pass = PresentPass::new(
                 &device,
-                setup_command_buffer,
+                &mut setup_command_buffer,
                 &instance,
                 swapchain,
                 present_queue,
@@ -394,13 +412,8 @@ impl Drop for App {
             for semaphore in self.present_semaphores {
                 self.device.destroy_semaphore(semaphore, None);
             }
+            self.setup_command_buffer.free(&self.device);
 
-            self.device
-                .reset_command_buffer(
-                    self.setup_command_buffer,
-                    vk::CommandBufferResetFlags::RELEASE_RESOURCES,
-                )
-                .expect("failed to reset buffer");
             self.device.destroy_command_pool(self.command_pool, None);
             self.swapchain_device
                 .destroy_swapchain(self.swapchain, None);

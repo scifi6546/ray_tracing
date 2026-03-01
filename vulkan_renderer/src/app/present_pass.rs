@@ -1,10 +1,10 @@
-use super::{Model, Vertex, record_submit_command_buffer};
+use super::{PresentModel, PresentVertex, SetupCommandBuffer, record_submit_command_buffer};
 use ash::{Device, Instance, khr, util::read_spv, vk};
 use gpu_allocator::{
     MemoryLocation,
     vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
 };
-use std::{io::Cursor, mem::offset_of};
+use std::io::Cursor;
 pub struct PresentPass {
     pub graphics_pipeline: vk::Pipeline,
     pub pipeline_layout: vk::PipelineLayout,
@@ -27,7 +27,7 @@ pub struct PresentPass {
 impl PresentPass {
     pub fn new(
         device: &Device,
-        setup_command_buffer: vk::CommandBuffer,
+        setup_command_buffer: &mut SetupCommandBuffer,
         instance: &Instance,
         swapchain: vk::SwapchainKHR,
         present_queue: vk::Queue,
@@ -36,7 +36,7 @@ impl PresentPass {
         surface_format: vk::SurfaceFormatKHR,
     ) -> Self {
         unsafe {
-            let swapchain_device = khr::swapchain::Device::new(&instance, &device);
+            let swapchain_device = khr::swapchain::Device::new(instance, device);
             let renderpass_attachments = [
                 vk::AttachmentDescription::default()
                     .format(surface_format.format)
@@ -108,10 +108,8 @@ impl PresentPass {
                     depth_image_allocation.offset(),
                 )
                 .expect("failed to bind memory");
-            record_submit_command_buffer(
-                &device,
-                setup_command_buffer,
-                vk::Fence::null(),
+            setup_command_buffer.record_command_buffer(
+                device,
                 present_queue,
                 &[],
                 &[],
@@ -142,6 +140,7 @@ impl PresentPass {
                     );
                 },
             );
+
             let depth_image_view_info = vk::ImageViewCreateInfo::default()
                 .subresource_range(
                     vk::ImageSubresourceRange::default()
@@ -230,22 +229,10 @@ impl PresentPass {
                     .name(shader_entry_name)
                     .stage(vk::ShaderStageFlags::FRAGMENT),
             ];
-            let vertex_input_binding_description = [vk::VertexInputBindingDescription::default()
-                .binding(0)
-                .stride(size_of::<Vertex>() as u32)
-                .input_rate(vk::VertexInputRate::VERTEX)];
-            let vertex_input_attribute_descriptions = [
-                vk::VertexInputAttributeDescription::default()
-                    .location(0)
-                    .binding(0)
-                    .format(vk::Format::R32G32B32A32_SFLOAT)
-                    .offset(offset_of!(Vertex, pos) as u32),
-                vk::VertexInputAttributeDescription::default()
-                    .location(1)
-                    .binding(0)
-                    .format(vk::Format::R32G32B32A32_SFLOAT)
-                    .offset(offset_of!(Vertex, color) as u32),
-            ];
+
+            let vertex_input_binding_description = PresentVertex::input_binding_description();
+
+            let vertex_input_attribute_descriptions = PresentVertex::attribute_descriptions();
             let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::default()
                 .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
                 .vertex_binding_descriptions(&vertex_input_binding_description);
@@ -337,7 +324,7 @@ impl PresentPass {
     pub fn draw(
         &self,
         device: &Device,
-        model: &Model,
+        model: &PresentModel,
         draw_command_buffer: vk::CommandBuffer,
         present_queue: &vk::Queue,
         draw_commandbuffer_reuse_fence: vk::Fence,
@@ -371,6 +358,7 @@ impl PresentPass {
             device
                 .reset_fences(&[draw_commandbuffer_reuse_fence])
                 .expect("failed to reset fence");
+
             record_submit_command_buffer(
                 device,
                 draw_command_buffer,
@@ -400,7 +388,7 @@ impl PresentPass {
                         vk::IndexType::UINT32,
                     );
                     device.cmd_bind_vertex_buffers(command_buffer, 0, &[model.vertex_buffer], &[0]);
-                    device.cmd_draw_indexed(command_buffer, 3, 1, 0, 0, 1);
+                    device.cmd_draw_indexed(command_buffer, model.num_indices as u32, 1, 0, 0, 1);
                     device.cmd_end_render_pass(command_buffer);
                 },
             );
