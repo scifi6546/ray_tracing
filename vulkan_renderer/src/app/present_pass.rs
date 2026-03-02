@@ -24,6 +24,7 @@ impl DepthImageData {
     }
 }
 pub struct PresentPass {
+    signal_semaphores: Vec<vk::Semaphore>,
     pub graphics_pipeline: vk::Pipeline,
     pub pipeline_layout: vk::PipelineLayout,
     pub renderpass: vk::RenderPass,
@@ -347,7 +348,16 @@ impl PresentPass {
                     None,
                 )
                 .expect("failed to get graphics pipeline")[0];
+            let signal_semaphores = (0..present_images.len())
+                .map(|_| {
+                    let create_info = vk::SemaphoreCreateInfo::default();
+                    device
+                        .create_semaphore(&create_info, None)
+                        .expect("failed to create semaphore")
+                })
+                .collect();
             Self {
+                signal_semaphores,
                 graphics_pipeline,
                 pipeline_layout,
                 renderpass,
@@ -370,7 +380,6 @@ impl PresentPass {
         present_queue: &vk::Queue,
         draw_commandbuffer_reuse_fence: vk::Fence,
         present_complete_semaphore: vk::Semaphore,
-        rendering_complete_semaphore: vk::Semaphore,
         current_frame_index: usize,
     ) {
         unsafe {
@@ -399,7 +408,7 @@ impl PresentPass {
             device
                 .reset_fences(&[draw_commandbuffer_reuse_fence])
                 .expect("failed to reset fence");
-
+            let signal_semaphores = [self.signal_semaphore(current_frame_index)];
             record_submit_command_buffer(
                 device,
                 draw_command_buffer,
@@ -407,7 +416,7 @@ impl PresentPass {
                 *present_queue,
                 &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
                 &[present_complete_semaphore],
-                &[rendering_complete_semaphore],
+                &signal_semaphores,
                 |device, command_buffer| {
                     device.cmd_begin_render_pass(
                         command_buffer,
@@ -459,10 +468,15 @@ impl PresentPass {
             );
         }
     }
+    pub fn signal_semaphore(&self, current_frame_index: usize) -> vk::Semaphore {
+        self.signal_semaphores[current_frame_index]
+    }
     pub fn free(mut self, device: &Device, allocator: &mut Allocator) {
         unsafe {
             device.device_wait_idle().expect("failed to wait idle");
-
+            for semaphore in self.signal_semaphores.drain(..) {
+                device.destroy_semaphore(semaphore, None);
+            }
             device.destroy_pipeline(self.graphics_pipeline, None);
             device.destroy_pipeline_layout(self.pipeline_layout, None);
             device.destroy_shader_module(self.fragment_shader_module, None);

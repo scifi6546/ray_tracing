@@ -31,9 +31,8 @@ pub struct App {
     allocator: Option<Allocator>,
     setup_command_buffer: SetupCommandBuffer,
     draw_commands_reuse_fence: [vk::Fence; Self::MAX_FRAME_LATENCY],
-    rendering_complete_semaphores: Vec<vk::Semaphore>,
+
     present_semaphores: [vk::Semaphore; Self::MAX_FRAME_LATENCY],
-    voxel_pass_semaphores: Vec<vk::Semaphore>,
 
     command_pool: vk::CommandPool,
     swapchain: vk::SwapchainKHR,
@@ -246,9 +245,6 @@ impl App {
             let draw_command_buffers = command_buffers[2..][..Self::MAX_FRAME_LATENCY]
                 .try_into()
                 .unwrap();
-            let present_images = swapchain_device
-                .get_swapchain_images(swapchain)
-                .expect("failed to get present images");
 
             let semaphore_create_info = vk::SemaphoreCreateInfo::default();
 
@@ -257,13 +253,7 @@ impl App {
                     .create_semaphore(&semaphore_create_info, None)
                     .expect("failed to create present complete semaphore")
             });
-            let rendering_complete_semaphores = (0..present_images.len())
-                .map(|_| {
-                    device
-                        .create_semaphore(&semaphore_create_info, None)
-                        .expect("failed to create present complete semaphore")
-                })
-                .collect();
+
             let fence_create_info =
                 vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
             let draw_commands_reuse_fence = std::array::from_fn(|_| {
@@ -333,16 +323,7 @@ impl App {
                 surface_resolution,
             );
 
-            let voxel_pass_semaphores = (0..desired_image_count)
-                .map(|_| {
-                    let semaphore_info = vk::SemaphoreCreateInfo::default();
-                    device
-                        .create_semaphore(&semaphore_info, None)
-                        .expect("failed to create voxel pass semaphores")
-                })
-                .collect();
             Self {
-                voxel_pass_semaphores,
                 voxel_pass: Some(voxel_pass),
                 frame_index: 0,
                 descriptors,
@@ -350,7 +331,6 @@ impl App {
                 present_pass: Some(present_pass),
                 allocator: Some(allocator),
                 draw_commands_reuse_fence,
-                rendering_complete_semaphores,
                 command_pool,
                 swapchain,
                 device,
@@ -376,8 +356,6 @@ impl App {
         let draw_commandbuffer_reuse_fence = self.draw_commands_reuse_fence[current_frame_index];
 
         unsafe {
-            let rendering_complete_semaphore =
-                self.rendering_complete_semaphores[current_frame_index];
             let present_complete_semaphore = self.present_semaphores[current_frame_index];
             let draw_command_buffer = self.draw_command_buffers[current_frame_index];
             let (present_index, _) = self
@@ -398,9 +376,9 @@ impl App {
                     &self.present_queue,
                     draw_commandbuffer_reuse_fence,
                     present_complete_semaphore,
-                    self.voxel_pass_semaphores[current_frame_index],
                     current_frame_index,
                 );
+
             self.present_pass
                 .as_ref()
                 .expect("should not be freed")
@@ -410,12 +388,18 @@ impl App {
                     draw_command_buffer,
                     &self.present_queue,
                     draw_commandbuffer_reuse_fence,
-                    self.voxel_pass_semaphores[current_frame_index],
-                    rendering_complete_semaphore,
+                    self.voxel_pass
+                        .as_ref()
+                        .unwrap()
+                        .signal_semaphores(current_frame_index),
                     current_frame_index,
                 );
 
-            let wait_semaphore = [rendering_complete_semaphore];
+            let wait_semaphore = [self
+                .present_pass
+                .as_ref()
+                .unwrap()
+                .signal_semaphore(current_frame_index)];
 
             let swapchains = [self.swapchain];
             let present_indices = [present_index];
@@ -463,12 +447,7 @@ impl Drop for App {
             for fence in self.draw_commands_reuse_fence {
                 self.device.destroy_fence(fence, None);
             }
-            for semaphore in self.voxel_pass_semaphores.drain(..) {
-                self.device.destroy_semaphore(semaphore, None);
-            }
-            for semaphore in self.rendering_complete_semaphores.iter().copied() {
-                self.device.destroy_semaphore(semaphore, None);
-            }
+
             for semaphore in self.present_semaphores {
                 self.device.destroy_semaphore(semaphore, None);
             }

@@ -270,6 +270,7 @@ impl VoxelPassVertex {
     }
 }
 pub struct VoxelPass {
+    signal_semaphores: Vec<vk::Semaphore>,
     framebuffers: Vec<FramebufferImage>,
 
     graphics_pipeline: vk::Pipeline,
@@ -461,7 +462,16 @@ impl VoxelPass {
                 number_frames,
                 output_resolution,
             );
+            let signal_semaphores = (0..number_frames)
+                .map(|_| {
+                    let create_info = vk::SemaphoreCreateInfo::default();
+                    device
+                        .create_semaphore(&create_info, None)
+                        .expect("failed to create semaphore")
+                })
+                .collect();
             Self {
+                signal_semaphores,
                 framebuffers,
                 viewport: viewports[0],
                 graphics_pipeline,
@@ -473,14 +483,16 @@ impl VoxelPass {
             }
         }
     }
+    pub fn signal_semaphores(&self, current_frame_index: usize) -> vk::Semaphore {
+        self.signal_semaphores[current_frame_index]
+    }
     pub fn draw(
         &self,
         device: &Device,
         draw_command_buffer: vk::CommandBuffer,
         present_queue: &vk::Queue,
         draw_commandbuffer_reuse_fence: vk::Fence,
-        present_complete_semaphore: vk::Semaphore,
-        rendering_complete_semaphore: vk::Semaphore,
+        wait_semaphore: vk::Semaphore,
         current_frame_index: usize,
     ) {
         let clear_values = [
@@ -508,14 +520,15 @@ impl VoxelPass {
             device
                 .reset_fences(&[draw_commandbuffer_reuse_fence])
                 .expect("failed to reset fence");
+            let signal_semaphores = [self.signal_semaphores(current_frame_index)];
             record_submit_command_buffer(
                 device,
                 draw_command_buffer,
                 draw_commandbuffer_reuse_fence,
                 *present_queue,
                 &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
-                &[present_complete_semaphore],
-                &[rendering_complete_semaphore],
+                &[wait_semaphore],
+                &signal_semaphores,
                 |device, command_buffer| {
                     device.cmd_begin_render_pass(
                         command_buffer,
@@ -537,7 +550,9 @@ impl VoxelPass {
     pub fn free(mut self, device: &Device, allocator: &mut Allocator) {
         unsafe {
             device.device_wait_idle().expect("failed to wait idle");
-
+            for semaphore in self.signal_semaphores.drain(..) {
+                device.destroy_semaphore(semaphore, None);
+            }
             for framebuffer in self.framebuffers.drain(..) {
                 framebuffer.free(device, allocator);
             }
