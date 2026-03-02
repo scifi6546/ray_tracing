@@ -1,17 +1,16 @@
 mod command_buffer;
-mod descriptors;
-mod model;
+
 mod present_pass;
 mod voxel_renderer;
 use crate::app::command_buffer::SetupCommandBuffer;
-use present_pass::PresentPass;
+use present_pass::{
+    PresentDescriptors, PresentModel, PresentModelInfo, PresentPass, PresentRectangle,
+};
 use voxel_renderer::VoxelPass;
 
 use super::utils::{record_submit_command_buffer, vulkan_debug_callback};
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
-use model::{PresentModel, PresentModelInfo, PresentRectangle, PresentVertex};
 
-use descriptors::Descriptors;
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
 use winit::{
     event_loop::ActiveEventLoop,
@@ -27,7 +26,7 @@ pub struct App {
     present_pass: Option<PresentPass>,
     present_models: Vec<PresentModel>,
 
-    descriptors: Descriptors,
+    descriptors: PresentDescriptors,
     allocator: Option<Allocator>,
     setup_command_buffer: SetupCommandBuffer,
     draw_commands_reuse_fence: [vk::Fence; Self::MAX_FRAME_LATENCY],
@@ -270,7 +269,7 @@ impl App {
                 allocation_sizes: Default::default(),
             })
             .expect("failed to create allocator");
-            let descriptors = Descriptors::new(&device);
+            let descriptors = PresentDescriptors::new(&device);
             let mut present_vk_info = PresentModelInfo {
                 device: &device,
                 allocator: &mut allocator,

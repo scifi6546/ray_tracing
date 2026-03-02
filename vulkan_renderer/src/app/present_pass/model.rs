@@ -1,4 +1,4 @@
-use super::{Descriptors, SetupCommandBuffer};
+use super::{super::SetupCommandBuffer, descriptors::PresentDescriptors};
 use ash::{Device, util::Align, vk};
 use gpu_allocator::{
     MemoryLocation,
@@ -50,7 +50,7 @@ pub struct PresentModelInfo<'a> {
     pub allocator: &'a mut Allocator,
     pub setup_command_buffer: &'a mut SetupCommandBuffer,
     pub present_queue: &'a vk::Queue,
-    pub descriptors: &'a Descriptors,
+    pub descriptors: &'a PresentDescriptors,
 }
 struct PresentTexture {
     texture_image_view: vk::ImageView,

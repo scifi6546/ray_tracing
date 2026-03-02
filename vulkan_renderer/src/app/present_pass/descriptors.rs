@@ -1,9 +1,9 @@
 use ash::{Device, vk};
-pub struct Descriptors {
+pub struct PresentDescriptors {
     pub pool: vk::DescriptorPool,
     pub layout: vk::DescriptorSetLayout,
 }
-impl Descriptors {
+impl PresentDescriptors {
     const MAX_SETS: u32 = 100;
     pub fn new(device: &Device) -> Self {
         unsafe {

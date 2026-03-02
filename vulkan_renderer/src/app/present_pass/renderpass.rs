@@ -1,5 +1,7 @@
 use super::{
-    Descriptors, PresentModel, PresentVertex, SetupCommandBuffer, record_submit_command_buffer,
+    super::{SetupCommandBuffer, record_submit_command_buffer},
+    PresentModel, PresentVertex,
+    descriptors::PresentDescriptors,
 };
 use ash::{Device, Instance, khr, util::read_spv, vk};
 use gpu_allocator::{
@@ -50,7 +52,7 @@ impl PresentPass {
         swapchain: vk::SwapchainKHR,
         present_queue: vk::Queue,
         allocator: &mut Allocator,
-        descriptors: &Descriptors,
+        descriptors: &PresentDescriptors,
         surface_resolution: vk::Extent2D,
         surface_format: vk::SurfaceFormatKHR,
     ) -> Self {
@@ -242,8 +244,8 @@ impl PresentPass {
                 })
                 .collect();
 
-            let mut vertex_spv_file = Cursor::new(include_bytes!("../../shaders/vert.spv"));
-            let mut fragment_spv_file = Cursor::new(include_bytes!("../../shaders/frag.spv"));
+            let mut vertex_spv_file = Cursor::new(include_bytes!("../../../shaders/vert.spv"));
+            let mut fragment_spv_file = Cursor::new(include_bytes!("../../../shaders/frag.spv"));
             let vertex_code = read_spv(&mut vertex_spv_file).expect("failed to read vertex shader");
 
             let vertex_shader_info = vk::ShaderModuleCreateInfo::default().code(&vertex_code);
