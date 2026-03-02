@@ -1,9 +1,12 @@
+use crate::utils::record_submit_command_buffer;
+
 use super::super::SetupCommandBuffer;
 use ash::{
     Device,
     util::read_spv,
     vk::{self},
 };
+
 use gpu_allocator::{
     MemoryLocation,
     vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
@@ -15,6 +18,239 @@ use std::{
 #[repr(C)]
 struct VoxelPassVertex {
     pub position: [f32; 4],
+}
+struct FramebufferImageAttachment {
+    image: vk::Image,
+    view: vk::ImageView,
+    allocation: Allocation,
+}
+impl FramebufferImageAttachment {
+    fn free(self, device: &Device, allocator: &mut Allocator) {
+        unsafe {
+            device.destroy_image_view(self.view, None);
+            allocator
+                .free(self.allocation)
+                .expect("failed to free allocation");
+            device.destroy_image(self.image, None);
+        }
+    }
+}
+struct FramebufferImage {
+    framebuffer: vk::Framebuffer,
+    depth: FramebufferImageAttachment,
+    color: FramebufferImageAttachment,
+}
+impl FramebufferImage {
+    pub fn new_depth_and_color(
+        device: &Device,
+        allocator: &mut Allocator,
+        setup_buffer: &mut SetupCommandBuffer,
+        renderpass: &vk::RenderPass,
+        present_queue: vk::Queue,
+        number_frames: u32,
+        output_resolution: vk::Extent2D,
+    ) -> Vec<Self> {
+        unsafe {
+            let mut color_image = (0..number_frames)
+                .map(|_| {
+                    let color_image_create_info = vk::ImageCreateInfo::default()
+                        .image_type(vk::ImageType::TYPE_2D)
+                        .format(VoxelPass::COLOR_OUTPUT_FORMAT)
+                        .extent(output_resolution.into())
+                        .mip_levels(1)
+                        .array_layers(1)
+                        .samples(vk::SampleCountFlags::TYPE_1)
+                        .tiling(vk::ImageTiling::OPTIMAL)
+                        .usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+                        .sharing_mode(vk::SharingMode::EXCLUSIVE);
+                    let image = device
+                        .create_image(&color_image_create_info, None)
+                        .expect("failed to create image");
+                    let color_image_requirements = device.get_image_memory_requirements(image);
+                    let allocation = allocator
+                        .allocate(&AllocationCreateDesc {
+                            name: "voxel pass color buffer",
+                            requirements: color_image_requirements,
+                            location: MemoryLocation::GpuOnly,
+                            linear: true,
+                            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+                        })
+                        .expect("failed to allocate memory for color image");
+                    device
+                        .bind_image_memory(image, allocation.memory(), allocation.offset())
+                        .expect("failed to bind color image");
+
+                    let view_info = vk::ImageViewCreateInfo::default()
+                        .view_type(vk::ImageViewType::TYPE_2D)
+                        .format(VoxelPass::COLOR_OUTPUT_FORMAT)
+                        .components(vk::ComponentMapping {
+                            r: vk::ComponentSwizzle::R,
+                            g: vk::ComponentSwizzle::G,
+                            b: vk::ComponentSwizzle::B,
+                            a: vk::ComponentSwizzle::A,
+                        })
+                        .subresource_range(vk::ImageSubresourceRange {
+                            aspect_mask: vk::ImageAspectFlags::COLOR,
+                            base_mip_level: 0,
+                            level_count: 1,
+                            base_array_layer: 0,
+                            layer_count: 1,
+                        })
+                        .image(image);
+                    let view = device
+                        .create_image_view(&view_info, None)
+                        .expect("failed to create image view");
+                    FramebufferImageAttachment {
+                        image,
+                        view,
+                        allocation,
+                    }
+                })
+                .collect::<Vec<_>>();
+            let mut depth_images = (0..number_frames)
+                .map(|_| {
+                    let depth_image_create_info = vk::ImageCreateInfo::default()
+                        .image_type(vk::ImageType::TYPE_2D)
+                        .format(VoxelPass::DEPTH_FORMAT)
+                        .extent(output_resolution.into())
+                        .mip_levels(1)
+                        .array_layers(1)
+                        .samples(vk::SampleCountFlags::TYPE_1)
+                        .tiling(vk::ImageTiling::OPTIMAL)
+                        .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
+                        .sharing_mode(vk::SharingMode::EXCLUSIVE);
+                    let image = device
+                        .create_image(&depth_image_create_info, None)
+                        .expect("failed to create depth image");
+                    let depth_memory_requirements = device.get_image_memory_requirements(image);
+                    let allocation = allocator
+                        .allocate(&AllocationCreateDesc {
+                            name: "depth image allocation",
+                            requirements: depth_memory_requirements,
+                            location: MemoryLocation::GpuOnly,
+                            linear: true,
+                            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+                        })
+                        .expect("failed to allocate depth image");
+                    device
+                        .bind_image_memory(image, allocation.memory(), allocation.offset())
+                        .expect("failed to bind memory");
+                    let depth_image_view_info = vk::ImageViewCreateInfo::default()
+                        .subresource_range(
+                            vk::ImageSubresourceRange::default()
+                                .aspect_mask(vk::ImageAspectFlags::DEPTH)
+                                .layer_count(1)
+                                .level_count(1),
+                        )
+                        .image(image)
+                        .format(VoxelPass::DEPTH_FORMAT)
+                        .view_type(vk::ImageViewType::TYPE_2D);
+                    let view = device
+                        .create_image_view(&depth_image_view_info, None)
+                        .expect("failed to create depth");
+                    FramebufferImageAttachment {
+                        image,
+                        view,
+                        allocation,
+                    }
+                })
+                .collect::<Vec<_>>();
+            setup_buffer.record_command_buffer(
+                device,
+                present_queue,
+                &[],
+                &[],
+                &[],
+                |device, command_buffer| {
+                    let color_layout_transition_barriers = color_image
+                        .iter()
+                        .map(|image| {
+                            vk::ImageMemoryBarrier::default()
+                                .image(image.image)
+                                .dst_access_mask(
+                                    vk::AccessFlags::COLOR_ATTACHMENT_WRITE
+                                        | vk::AccessFlags::COLOR_ATTACHMENT_READ,
+                                )
+                                .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                                .old_layout(vk::ImageLayout::UNDEFINED)
+                                .subresource_range(
+                                    vk::ImageSubresourceRange::default()
+                                        .aspect_mask(vk::ImageAspectFlags::COLOR)
+                                        .layer_count(1)
+                                        .level_count(1),
+                                )
+                        })
+                        .collect::<Vec<_>>();
+
+                    device.cmd_pipeline_barrier(
+                        command_buffer,
+                        vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+                        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                        vk::DependencyFlags::empty(),
+                        &[],
+                        &[],
+                        &color_layout_transition_barriers,
+                    );
+                    let depth_layout_transition_barriers = depth_images
+                        .iter()
+                        .map(|depth| {
+                            vk::ImageMemoryBarrier::default()
+                                .image(depth.image)
+                                .dst_access_mask(
+                                    vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
+                                        | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                                )
+                                .new_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                                .old_layout(vk::ImageLayout::UNDEFINED)
+                                .subresource_range(
+                                    vk::ImageSubresourceRange::default()
+                                        .aspect_mask(vk::ImageAspectFlags::DEPTH)
+                                        .layer_count(1)
+                                        .level_count(1),
+                                )
+                        })
+                        .collect::<Vec<_>>();
+                    device.cmd_pipeline_barrier(
+                        command_buffer,
+                        vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+                        vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
+                        vk::DependencyFlags::empty(),
+                        &[],
+                        &[],
+                        &depth_layout_transition_barriers,
+                    );
+                },
+            );
+            color_image
+                .drain(..)
+                .zip(depth_images.drain(..))
+                .map(|(color, depth)| {
+                    let framebuffer_attachments = [color.view, depth.view];
+                    let framebuffer_create_info = vk::FramebufferCreateInfo::default()
+                        .render_pass(*renderpass)
+                        .attachments(&framebuffer_attachments)
+                        .width(output_resolution.width)
+                        .height(output_resolution.height)
+                        .layers(1);
+                    let framebuffer = device
+                        .create_framebuffer(&framebuffer_create_info, None)
+                        .expect("failed to create device");
+                    FramebufferImage {
+                        framebuffer,
+                        color,
+                        depth,
+                    }
+                })
+                .collect()
+        }
+    }
+    pub fn free(self, device: &Device, allocator: &mut Allocator) {
+        unsafe {
+            device.destroy_framebuffer(self.framebuffer, None);
+        }
+        self.color.free(device, allocator);
+        self.depth.free(device, allocator);
+    }
 }
 impl VoxelPassVertex {
     const fn input_binding_description() -> [vk::VertexInputBindingDescription; 1] {
@@ -34,13 +270,17 @@ impl VoxelPassVertex {
     }
 }
 pub struct VoxelPass {
-    color_image_allocation: Allocation,
-    color_image: vk::Image,
+    framebuffers: Vec<FramebufferImage>,
+
     graphics_pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
     renderpass: vk::RenderPass,
     fragment_shader_module: vk::ShaderModule,
     vertex_shader_module: vk::ShaderModule,
+
+    //does not need to be freed
+    viewport: vk::Viewport,
+    output_resolution: vk::Extent2D,
 }
 impl VoxelPass {
     //const COLOR_OUTPUT_FORMAT: vk::Format = vk::Format::R8G8B8A8_SRGB;
@@ -50,6 +290,7 @@ impl VoxelPass {
         device: &Device,
         allocator: &mut Allocator,
         setup_buffer: &mut SetupCommandBuffer,
+        number_frames: u32,
         present_queue: vk::Queue,
         output_resolution: vk::Extent2D,
     ) -> Self {
@@ -211,80 +452,37 @@ impl VoxelPass {
                 )
                 .expect("failed to get graphics pipeline")[0];
 
-            let color_image_create_info = vk::ImageCreateInfo::default()
-                .image_type(vk::ImageType::TYPE_2D)
-                .format(Self::COLOR_OUTPUT_FORMAT)
-                .extent(output_resolution.into())
-                .mip_levels(1)
-                .array_layers(1)
-                .samples(vk::SampleCountFlags::TYPE_1)
-                .tiling(vk::ImageTiling::OPTIMAL)
-                .usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-                .sharing_mode(vk::SharingMode::EXCLUSIVE);
-            let color_image = device
-                .create_image(&color_image_create_info, None)
-                .expect("failed to create image");
-            let color_image_requirements = device.get_image_memory_requirements(color_image);
-            let color_image_allocation = allocator
-                .allocate(&AllocationCreateDesc {
-                    name: "voxel pass color buffer",
-                    requirements: color_image_requirements,
-                    location: MemoryLocation::GpuOnly,
-                    linear: true,
-                    allocation_scheme: AllocationScheme::GpuAllocatorManaged,
-                })
-                .expect("failed to allocate memory for color image");
-            device
-                .bind_image_memory(
-                    color_image,
-                    color_image_allocation.memory(),
-                    color_image_allocation.offset(),
-                )
-                .expect("failed to bind color image");
-            setup_buffer.record_command_buffer(
+            let framebuffers = FramebufferImage::new_depth_and_color(
                 device,
+                allocator,
+                setup_buffer,
+                &renderpass,
                 present_queue,
-                &[],
-                &[],
-                &[],
-                |device, command_buffer| {
-                    let layout_transition_barrier = vk::ImageMemoryBarrier::default()
-                        .image(color_image)
-                        .dst_access_mask(
-                            vk::AccessFlags::COLOR_ATTACHMENT_WRITE
-                                | vk::AccessFlags::COLOR_ATTACHMENT_READ,
-                        )
-                        .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                        .old_layout(vk::ImageLayout::UNDEFINED)
-                        .subresource_range(
-                            vk::ImageSubresourceRange::default()
-                                .aspect_mask(vk::ImageAspectFlags::COLOR)
-                                .layer_count(1)
-                                .level_count(1),
-                        );
-                    device.cmd_pipeline_barrier(
-                        command_buffer,
-                        vk::PipelineStageFlags::BOTTOM_OF_PIPE,
-                        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-                        vk::DependencyFlags::empty(),
-                        &[],
-                        &[],
-                        &[layout_transition_barrier],
-                    );
-                },
+                number_frames,
+                output_resolution,
             );
             Self {
-                color_image_allocation,
-                color_image,
+                framebuffers,
+                viewport: viewports[0],
                 graphics_pipeline,
                 pipeline_layout,
                 renderpass,
                 fragment_shader_module,
                 vertex_shader_module,
+                output_resolution,
             }
         }
     }
-    pub fn draw(&self) {
+    pub fn draw(
+        &self,
+        device: &Device,
+        draw_command_buffer: vk::CommandBuffer,
+        present_queue: &vk::Queue,
+        draw_commandbuffer_reuse_fence: vk::Fence,
+        present_complete_semaphore: vk::Semaphore,
+        rendering_complete_semaphore: vk::Semaphore,
+        current_frame_index: usize,
+    ) {
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -298,14 +496,52 @@ impl VoxelPass {
                 },
             },
         ];
+        let renderpass_begin_info = vk::RenderPassBeginInfo::default()
+            .render_pass(self.renderpass)
+            .framebuffer(self.framebuffers[current_frame_index].framebuffer)
+            .render_area(self.output_resolution.into())
+            .clear_values(&clear_values);
+        unsafe {
+            device
+                .wait_for_fences(&[draw_commandbuffer_reuse_fence], true, u64::MAX)
+                .expect("failed to wait for fence");
+            device
+                .reset_fences(&[draw_commandbuffer_reuse_fence])
+                .expect("failed to reset fence");
+            record_submit_command_buffer(
+                device,
+                draw_command_buffer,
+                draw_commandbuffer_reuse_fence,
+                *present_queue,
+                &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
+                &[present_complete_semaphore],
+                &[rendering_complete_semaphore],
+                |device, command_buffer| {
+                    device.cmd_begin_render_pass(
+                        command_buffer,
+                        &renderpass_begin_info,
+                        vk::SubpassContents::INLINE,
+                    );
+                    device.cmd_bind_pipeline(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.graphics_pipeline,
+                    );
+                    device.cmd_set_viewport(command_buffer, 0, &[self.viewport]);
+                    device.cmd_set_scissor(command_buffer, 0, &[self.output_resolution.into()]);
+                    device.cmd_end_render_pass(command_buffer);
+                },
+            );
+        }
     }
-    pub fn free(self, device: &Device, allocator: &mut Allocator) {
+    pub fn free(mut self, device: &Device, allocator: &mut Allocator) {
         unsafe {
             device.device_wait_idle().expect("failed to wait idle");
-            allocator
-                .free(self.color_image_allocation)
-                .expect("failed to free color image allocation");
-            device.destroy_image(self.color_image, None);
+
+            for framebuffer in self.framebuffers.drain(..) {
+                framebuffer.free(device, allocator);
+            }
+
             device.destroy_pipeline(self.graphics_pipeline, None);
             device.destroy_pipeline_layout(self.pipeline_layout, None);
             device.destroy_render_pass(self.renderpass, None);

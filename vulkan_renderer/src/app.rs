@@ -33,6 +33,7 @@ pub struct App {
     draw_commands_reuse_fence: [vk::Fence; Self::MAX_FRAME_LATENCY],
     rendering_complete_semaphores: Vec<vk::Semaphore>,
     present_semaphores: [vk::Semaphore; Self::MAX_FRAME_LATENCY],
+    voxel_pass_semaphores: Vec<vk::Semaphore>,
 
     command_pool: vk::CommandPool,
     swapchain: vk::SwapchainKHR,
@@ -327,10 +328,21 @@ impl App {
                 &device,
                 &mut allocator,
                 &mut setup_command_buffer,
+                desired_image_count,
                 present_queue,
                 surface_resolution,
             );
+
+            let voxel_pass_semaphores = (0..desired_image_count)
+                .map(|_| {
+                    let semaphore_info = vk::SemaphoreCreateInfo::default();
+                    device
+                        .create_semaphore(&semaphore_info, None)
+                        .expect("failed to create voxel pass semaphores")
+                })
+                .collect();
             Self {
+                voxel_pass_semaphores,
                 voxel_pass: Some(voxel_pass),
                 frame_index: 0,
                 descriptors,
@@ -380,7 +392,15 @@ impl App {
             self.voxel_pass
                 .as_ref()
                 .expect("voxel pass already freed")
-                .draw();
+                .draw(
+                    &self.device,
+                    draw_command_buffer,
+                    &self.present_queue,
+                    draw_commandbuffer_reuse_fence,
+                    present_complete_semaphore,
+                    self.voxel_pass_semaphores[current_frame_index],
+                    current_frame_index,
+                );
             self.present_pass
                 .as_ref()
                 .expect("should not be freed")
@@ -390,12 +410,13 @@ impl App {
                     draw_command_buffer,
                     &self.present_queue,
                     draw_commandbuffer_reuse_fence,
-                    present_complete_semaphore,
+                    self.voxel_pass_semaphores[current_frame_index],
                     rendering_complete_semaphore,
                     current_frame_index,
                 );
 
             let wait_semaphore = [rendering_complete_semaphore];
+
             let swapchains = [self.swapchain];
             let present_indices = [present_index];
             let present_info = vk::PresentInfoKHR::default()
@@ -441,6 +462,9 @@ impl Drop for App {
             self.descriptors.free(&self.device);
             for fence in self.draw_commands_reuse_fence {
                 self.device.destroy_fence(fence, None);
+            }
+            for semaphore in self.voxel_pass_semaphores.drain(..) {
+                self.device.destroy_semaphore(semaphore, None);
             }
             for semaphore in self.rendering_complete_semaphores.iter().copied() {
                 self.device.destroy_semaphore(semaphore, None);

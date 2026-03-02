@@ -11,12 +11,17 @@ pub unsafe fn record_submit_command_buffer<F: FnOnce(&Device, vk::CommandBuffer)
     f: F,
 ) {
     unsafe {
-        device
-            .reset_command_buffer(
-                command_buffer,
-                vk::CommandBufferResetFlags::RELEASE_RESOURCES,
-            )
-            .expect("reset command buffer failed");
+        /*
+               device
+           .reset_command_buffer(
+               command_buffer,
+               vk::CommandBufferResetFlags::RELEASE_RESOURCES,
+           )
+           .expect("reset command buffer failed");
+
+
+        */
+
         let command_buffer_begin_info = vk::CommandBufferBeginInfo::default()
             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
         device
@@ -37,6 +42,7 @@ pub unsafe fn record_submit_command_buffer<F: FnOnce(&Device, vk::CommandBuffer)
             .expect("failed to submit queue");
     }
 }
+
 pub unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
