@@ -1,3 +1,5 @@
+use std::u64;
+
 use ash::{Device, vk};
 pub struct SetupCommandBuffer {
     pub command_buffer: vk::CommandBuffer,
@@ -65,6 +67,15 @@ impl SetupCommandBuffer {
             device
                 .queue_submit(submit_queue, &[submit_info], self.wait_fence.unwrap())
                 .expect("failed to submit queue");
+        }
+    }
+    pub fn wait_for_command_completion(&self, device: &Device) {
+        if let Some(fence) = self.wait_fence {
+            unsafe {
+                device
+                    .wait_for_fences(&[fence], true, u64::MAX)
+                    .expect("failed to wait for fence")
+            }
         }
     }
     pub fn free(&self, device: &Device) {

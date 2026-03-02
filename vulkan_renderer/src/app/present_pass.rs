@@ -438,7 +438,7 @@ impl PresentPass {
                             vk::PipelineBindPoint::GRAPHICS,
                             self.pipeline_layout,
                             0,
-                            &model.descriptor_sets,
+                            model.descriptor_sets(),
                             &[],
                         );
                         device.cmd_bind_index_buffer(

@@ -52,161 +52,16 @@ pub struct PresentModelInfo<'a> {
     pub present_queue: &'a vk::Queue,
     pub descriptors: &'a Descriptors,
 }
-pub struct PresentModel {
+struct PresentTexture {
     texture_image_view: vk::ImageView,
     sampler: vk::Sampler,
     texture_allocation: Allocation,
     texture_image: vk::Image,
-    image_buffer: vk::Buffer,
-    image_allocation: Allocation,
-    pub vertex_allocation: Allocation,
-    pub vertex_buffer: vk::Buffer,
-    pub index_allocation: Allocation,
-    pub index_buffer: vk::Buffer,
-    // does not need to get freed
-    pub descriptor_sets: Vec<vk::DescriptorSet>,
-    pub num_indices: usize,
+    descriptor_sets: Vec<vk::DescriptorSet>,
 }
-#[derive(Clone, Copy)]
-pub struct PresentRectangle {
-    pub min_x: f32,
-    pub min_y: f32,
-    pub max_x: f32,
-    pub max_y: f32,
-    pub z_index: f32,
-}
-type Index = u32;
-impl PresentModel {
-    const fn index_type_alignment() -> usize {
-        align_of::<Index>()
-    }
-    const fn vertex_alignment() -> usize {
-        align_of::<PresentVertex>()
-    }
-    pub fn new_rectangle(
-        rectangle: PresentRectangle,
-        texture_buffer: &[u8],
-        vulkan_info: &mut PresentModelInfo,
-    ) -> Self {
-        let vertices = [
-            PresentVertex {
-                pos: [rectangle.min_x, rectangle.min_y, rectangle.z_index, 1.],
-                color: [1., 1., 1., 1.],
-                uv: [0., 0.],
-            },
-            PresentVertex {
-                pos: [rectangle.min_x, rectangle.max_y, rectangle.z_index, 1.],
-                color: [1., 1., 1., 1.],
-                uv: [0., 1.],
-            },
-            PresentVertex {
-                pos: [rectangle.max_x, rectangle.max_y, rectangle.z_index, 1.],
-                color: [1., 1., 1., 1.],
-                uv: [1., 1.],
-            },
-            PresentVertex {
-                pos: [rectangle.max_x, rectangle.min_y, rectangle.z_index, 1.],
-                color: [1., 1., 0., 1.],
-                uv: [1., 0.],
-            },
-        ];
-
-        let indices = [0, 3, 1, 3, 2, 1];
-
-        Self::new(&vertices, &indices, texture_buffer, vulkan_info)
-    }
-    pub fn new(
-        vertices: &[PresentVertex],
-        indices: &[u32],
-        texture_buffer: &[u8],
-        vulkan_info: &mut PresentModelInfo,
-    ) -> Self {
+impl PresentTexture {
+    pub fn new(vulkan_info: &mut PresentModelInfo, texture_buffer: &[u8]) -> Self {
         unsafe {
-            let index_buffer_info = vk::BufferCreateInfo::default()
-                .size(size_of_val(indices) as u64)
-                .usage(vk::BufferUsageFlags::INDEX_BUFFER)
-                .sharing_mode(vk::SharingMode::EXCLUSIVE);
-            let index_buffer = vulkan_info
-                .device
-                .create_buffer(&index_buffer_info, None)
-                .expect("failed to get index buffer");
-            let index_buffer_memory_requirements = vulkan_info
-                .device
-                .get_buffer_memory_requirements(index_buffer);
-            let index_allocation = vulkan_info
-                .allocator
-                .allocate(&AllocationCreateDesc {
-                    name: "Model Index Buffer",
-                    requirements: index_buffer_memory_requirements,
-                    location: MemoryLocation::CpuToGpu,
-                    linear: true,
-                    allocation_scheme: AllocationScheme::GpuAllocatorManaged,
-                })
-                .expect("failed to allocate");
-            {
-                let index_ptr = index_allocation.mapped_ptr().unwrap();
-
-                let mut index_slice = Align::new(
-                    index_ptr.as_ptr(),
-                    Self::index_type_alignment() as u64,
-                    index_buffer_memory_requirements.size,
-                );
-                index_slice.copy_from_slice(indices);
-            }
-
-            vulkan_info
-                .device
-                .bind_buffer_memory(
-                    index_buffer,
-                    index_allocation.memory(),
-                    index_allocation.offset(),
-                )
-                .expect("failed to bind index buffer memory to index buffer");
-
-            let vertex_input_buffer = vk::BufferCreateInfo::default()
-                .size(size_of_val(vertices) as u64)
-                .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
-                .sharing_mode(vk::SharingMode::EXCLUSIVE);
-
-            let vertex_buffer = vulkan_info
-                .device
-                .create_buffer(&vertex_input_buffer, None)
-                .expect("failed to create vertex buffer");
-
-            let vertex_buffer_memory_requirements = vulkan_info
-                .device
-                .get_buffer_memory_requirements(vertex_buffer);
-            let vertex_allocation = vulkan_info
-                .allocator
-                .allocate(&AllocationCreateDesc {
-                    name: "vertex buffer allocation",
-                    requirements: vertex_buffer_memory_requirements,
-                    location: MemoryLocation::CpuToGpu,
-                    linear: true,
-                    allocation_scheme: AllocationScheme::GpuAllocatorManaged,
-                })
-                .expect("failed to create allocation");
-
-            {
-                let vertex_ptr = vertex_allocation
-                    .mapped_ptr()
-                    .expect("failed to get a vertex pointer");
-                let mut vertex_slice = Align::new(
-                    vertex_ptr.as_ptr(),
-                    Self::vertex_alignment() as u64,
-                    index_buffer_memory_requirements.size,
-                );
-                vertex_slice.copy_from_slice(vertices);
-            }
-
-            vulkan_info
-                .device
-                .bind_buffer_memory(
-                    vertex_buffer,
-                    vertex_allocation.memory(),
-                    vertex_allocation.offset(),
-                )
-                .expect("failed to bind memory");
             let image = image::load_from_memory(texture_buffer)
                 .expect("failed to load")
                 .to_rgba8();
@@ -419,14 +274,187 @@ impl PresentModel {
             vulkan_info
                 .device
                 .update_descriptor_sets(&write_descriptor_sets, &[]);
-            Self {
-                descriptor_sets,
+            vulkan_info
+                .setup_command_buffer
+                .wait_for_command_completion(vulkan_info.device);
+            vulkan_info.device.destroy_buffer(image_buffer, None);
+            vulkan_info
+                .allocator
+                .free(image_allocation)
+                .expect("failed to free image");
+            PresentTexture {
                 texture_image_view,
                 sampler,
                 texture_allocation,
                 texture_image,
-                image_allocation,
-                image_buffer,
+                descriptor_sets,
+            }
+        }
+    }
+    pub fn free(self, device: &Device, allocator: &mut Allocator) {
+        unsafe {
+            device.destroy_image_view(self.texture_image_view, None);
+            device.destroy_sampler(self.sampler, None);
+            allocator
+                .free(self.texture_allocation)
+                .expect("failed to free texture allocation");
+            device.destroy_image(self.texture_image, None);
+        }
+    }
+}
+pub struct PresentModel {
+    texture: PresentTexture,
+    pub vertex_allocation: Allocation,
+    pub vertex_buffer: vk::Buffer,
+    pub index_allocation: Allocation,
+    pub index_buffer: vk::Buffer,
+    // does not need to get freed
+    //pub descriptor_sets: Vec<vk::DescriptorSet>,
+    pub num_indices: usize,
+}
+#[derive(Clone, Copy)]
+pub struct PresentRectangle {
+    pub min_x: f32,
+    pub min_y: f32,
+    pub max_x: f32,
+    pub max_y: f32,
+    pub z_index: f32,
+}
+type Index = u32;
+impl PresentModel {
+    const fn index_type_alignment() -> usize {
+        align_of::<Index>()
+    }
+    const fn vertex_alignment() -> usize {
+        align_of::<PresentVertex>()
+    }
+    pub fn new_rectangle(
+        rectangle: PresentRectangle,
+        texture_buffer: &[u8],
+        vulkan_info: &mut PresentModelInfo,
+    ) -> Self {
+        let vertices = [
+            PresentVertex {
+                pos: [rectangle.min_x, rectangle.min_y, rectangle.z_index, 1.],
+                color: [1., 1., 1., 1.],
+                uv: [0., 0.],
+            },
+            PresentVertex {
+                pos: [rectangle.min_x, rectangle.max_y, rectangle.z_index, 1.],
+                color: [1., 1., 1., 1.],
+                uv: [0., 1.],
+            },
+            PresentVertex {
+                pos: [rectangle.max_x, rectangle.max_y, rectangle.z_index, 1.],
+                color: [1., 1., 1., 1.],
+                uv: [1., 1.],
+            },
+            PresentVertex {
+                pos: [rectangle.max_x, rectangle.min_y, rectangle.z_index, 1.],
+                color: [1., 1., 0., 1.],
+                uv: [1., 0.],
+            },
+        ];
+
+        let indices = [0, 3, 1, 3, 2, 1];
+
+        Self::new(&vertices, &indices, texture_buffer, vulkan_info)
+    }
+    pub fn new(
+        vertices: &[PresentVertex],
+        indices: &[u32],
+        texture_buffer: &[u8],
+        vulkan_info: &mut PresentModelInfo,
+    ) -> Self {
+        unsafe {
+            let index_buffer_info = vk::BufferCreateInfo::default()
+                .size(size_of_val(indices) as u64)
+                .usage(vk::BufferUsageFlags::INDEX_BUFFER)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE);
+            let index_buffer = vulkan_info
+                .device
+                .create_buffer(&index_buffer_info, None)
+                .expect("failed to get index buffer");
+            let index_buffer_memory_requirements = vulkan_info
+                .device
+                .get_buffer_memory_requirements(index_buffer);
+            let index_allocation = vulkan_info
+                .allocator
+                .allocate(&AllocationCreateDesc {
+                    name: "Model Index Buffer",
+                    requirements: index_buffer_memory_requirements,
+                    location: MemoryLocation::CpuToGpu,
+                    linear: true,
+                    allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+                })
+                .expect("failed to allocate");
+            {
+                let index_ptr = index_allocation.mapped_ptr().unwrap();
+
+                let mut index_slice = Align::new(
+                    index_ptr.as_ptr(),
+                    Self::index_type_alignment() as u64,
+                    index_buffer_memory_requirements.size,
+                );
+                index_slice.copy_from_slice(indices);
+            }
+
+            vulkan_info
+                .device
+                .bind_buffer_memory(
+                    index_buffer,
+                    index_allocation.memory(),
+                    index_allocation.offset(),
+                )
+                .expect("failed to bind index buffer memory to index buffer");
+
+            let vertex_input_buffer = vk::BufferCreateInfo::default()
+                .size(size_of_val(vertices) as u64)
+                .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE);
+
+            let vertex_buffer = vulkan_info
+                .device
+                .create_buffer(&vertex_input_buffer, None)
+                .expect("failed to create vertex buffer");
+
+            let vertex_buffer_memory_requirements = vulkan_info
+                .device
+                .get_buffer_memory_requirements(vertex_buffer);
+            let vertex_allocation = vulkan_info
+                .allocator
+                .allocate(&AllocationCreateDesc {
+                    name: "vertex buffer allocation",
+                    requirements: vertex_buffer_memory_requirements,
+                    location: MemoryLocation::CpuToGpu,
+                    linear: true,
+                    allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+                })
+                .expect("failed to create allocation");
+
+            {
+                let vertex_ptr = vertex_allocation
+                    .mapped_ptr()
+                    .expect("failed to get a vertex pointer");
+                let mut vertex_slice = Align::new(
+                    vertex_ptr.as_ptr(),
+                    Self::vertex_alignment() as u64,
+                    index_buffer_memory_requirements.size,
+                );
+                vertex_slice.copy_from_slice(vertices);
+            }
+
+            vulkan_info
+                .device
+                .bind_buffer_memory(
+                    vertex_buffer,
+                    vertex_allocation.memory(),
+                    vertex_allocation.offset(),
+                )
+                .expect("failed to bind memory");
+            let texture = PresentTexture::new(vulkan_info, texture_buffer);
+            Self {
+                texture,
                 vertex_allocation,
                 num_indices: indices.len(),
                 vertex_buffer,
@@ -435,20 +463,14 @@ impl PresentModel {
             }
         }
     }
+    pub fn descriptor_sets(&self) -> &[vk::DescriptorSet] {
+        &self.texture.descriptor_sets
+    }
     pub fn free(self, device: &Device, allocator: &mut Allocator) {
         unsafe {
             device.device_wait_idle().expect("failed to free");
 
-            device.destroy_image_view(self.texture_image_view, None);
-            device.destroy_sampler(self.sampler, None);
-            allocator
-                .free(self.texture_allocation)
-                .expect("failed to free texture allocation");
-            device.destroy_image(self.texture_image, None);
-            allocator
-                .free(self.image_allocation)
-                .expect("failed to free image");
-            device.destroy_buffer(self.image_buffer, None);
+            self.texture.free(device, allocator);
 
             allocator
                 .free(self.vertex_allocation)
