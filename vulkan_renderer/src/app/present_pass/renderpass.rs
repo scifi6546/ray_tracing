@@ -374,10 +374,10 @@ impl PresentPass {
             }
         }
     }
-    pub fn draw(
+    pub fn draw<'a, I: Iterator<Item = &'a PresentModel>>(
         &self,
         device: &Device,
-        models: &[PresentModel],
+        models: I,
         draw_command_buffer: vk::CommandBuffer,
         present_queue: &vk::Queue,
         draw_commandbuffer_reuse_fence: vk::Fence,

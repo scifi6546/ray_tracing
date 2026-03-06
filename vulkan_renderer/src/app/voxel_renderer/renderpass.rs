@@ -1,6 +1,6 @@
 use crate::utils::record_submit_command_buffer;
 
-use super::super::SetupCommandBuffer;
+use super::super::{ForeignTextureInput, SetupCommandBuffer};
 use ash::{
     Device,
     util::read_spv,
@@ -39,6 +39,7 @@ struct FramebufferImage {
     framebuffer: vk::Framebuffer,
     depth: FramebufferImageAttachment,
     color: FramebufferImageAttachment,
+    color_sampler: vk::Sampler,
 }
 impl FramebufferImage {
     pub fn new_depth_and_color(
@@ -61,7 +62,7 @@ impl FramebufferImage {
                         .array_layers(1)
                         .samples(vk::SampleCountFlags::TYPE_1)
                         .tiling(vk::ImageTiling::OPTIMAL)
-                        .usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+                        .usage(vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED)
                         .sharing_mode(vk::SharingMode::EXCLUSIVE);
                     let image = device
                         .create_image(&color_image_create_info, None)
@@ -171,7 +172,8 @@ impl FramebufferImage {
                                     vk::AccessFlags::COLOR_ATTACHMENT_WRITE
                                         | vk::AccessFlags::COLOR_ATTACHMENT_READ,
                                 )
-                                .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                                //  .new_layout(VoxelPass::COLOR_WRITE_ATTACHMENT_LAYOUT /* COLOR_ATTACHMENT_OPTIMAL */)
+                                .new_layout(VoxelPass::COLOR_READ_ATTACHMENT_LAYOUT)
                                 .old_layout(vk::ImageLayout::UNDEFINED)
                                 .subresource_range(
                                     vk::ImageSubresourceRange::default()
@@ -221,6 +223,7 @@ impl FramebufferImage {
                     );
                 },
             );
+            setup_buffer.wait_for_command_completion(device);
             color_image
                 .drain(..)
                 .zip(depth_images.drain(..))
@@ -235,10 +238,26 @@ impl FramebufferImage {
                     let framebuffer = device
                         .create_framebuffer(&framebuffer_create_info, None)
                         .expect("failed to create device");
+                    let sampler_info = vk::SamplerCreateInfo {
+                        mag_filter: vk::Filter::LINEAR,
+                        min_filter: vk::Filter::LINEAR,
+                        mipmap_mode: vk::SamplerMipmapMode::LINEAR,
+                        address_mode_u: vk::SamplerAddressMode::MIRRORED_REPEAT,
+                        address_mode_v: vk::SamplerAddressMode::MIRRORED_REPEAT,
+                        address_mode_w: vk::SamplerAddressMode::MIRRORED_REPEAT,
+                        max_anisotropy: 1.0,
+                        border_color: vk::BorderColor::FLOAT_OPAQUE_WHITE,
+                        compare_op: vk::CompareOp::NEVER,
+                        ..Default::default()
+                    };
+                    let color_sampler = device
+                        .create_sampler(&sampler_info, None)
+                        .expect("failed to create sampler");
                     FramebufferImage {
                         framebuffer,
                         color,
                         depth,
+                        color_sampler,
                     }
                 })
                 .collect()
@@ -247,6 +266,7 @@ impl FramebufferImage {
     pub fn free(self, device: &Device, allocator: &mut Allocator) {
         unsafe {
             device.destroy_framebuffer(self.framebuffer, None);
+            device.destroy_sampler(self.color_sampler, None);
         }
         self.color.free(device, allocator);
         self.depth.free(device, allocator);
@@ -284,8 +304,11 @@ pub struct VoxelPass {
     output_resolution: vk::Extent2D,
 }
 impl VoxelPass {
-    //const COLOR_OUTPUT_FORMAT: vk::Format = vk::Format::R8G8B8A8_SRGB;
     const COLOR_OUTPUT_FORMAT: vk::Format = vk::Format::R8G8B8A8_UNORM;
+    pub const COLOR_WRITE_ATTACHMENT_LAYOUT: vk::ImageLayout =
+        vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
+    pub const COLOR_READ_ATTACHMENT_LAYOUT: vk::ImageLayout =
+        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
     const DEPTH_FORMAT: vk::Format = vk::Format::D16_UNORM;
     pub fn new(
         device: &Device,
@@ -315,7 +338,9 @@ impl VoxelPass {
 
             let color_attachments = [vk::AttachmentReference2::default()
                 .attachment(0)
-                .layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .layout(
+                    Self::COLOR_WRITE_ATTACHMENT_LAYOUT, /* COLOR_ATTACHMENT_OPTIMAL */
+                )
                 .aspect_mask(vk::ImageAspectFlags::COLOR)];
 
             let depth_stencil_attachment = vk::AttachmentReference2::default()
@@ -487,7 +512,7 @@ impl VoxelPass {
         self.signal_semaphores[current_frame_index]
     }
     pub fn draw(
-        &self,
+        &mut self,
         device: &Device,
         draw_command_buffer: vk::CommandBuffer,
         present_queue: &vk::Queue,
@@ -498,7 +523,7 @@ impl VoxelPass {
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
-                    float32: [0., 0.5, 0., 0.],
+                    float32: [0., 0.5, 0., 1.],
                 },
             },
             vk::ClearValue {
@@ -530,6 +555,29 @@ impl VoxelPass {
                 &[wait_semaphore],
                 &signal_semaphores,
                 |device, command_buffer| {
+                    let texture_barrier = vk::ImageMemoryBarrier::default()
+                        .src_access_mask(vk::AccessFlags::MEMORY_READ)
+                        .dst_access_mask(vk::AccessFlags::MEMORY_WRITE)
+                        .old_layout(Self::COLOR_READ_ATTACHMENT_LAYOUT)
+                        .new_layout(Self::COLOR_WRITE_ATTACHMENT_LAYOUT)
+                        .image(self.framebuffers[current_frame_index].color.image)
+                        .subresource_range(vk::ImageSubresourceRange {
+                            aspect_mask: vk::ImageAspectFlags::COLOR,
+                            level_count: 1,
+                            layer_count: 1,
+                            ..Default::default()
+                        });
+
+                    device.cmd_pipeline_barrier(
+                        command_buffer,
+                        vk::PipelineStageFlags::ALL_COMMANDS,
+                        vk::PipelineStageFlags::ALL_COMMANDS,
+                        vk::DependencyFlags::empty(),
+                        &[],
+                        &[],
+                        &[texture_barrier],
+                    );
+
                     device.cmd_begin_render_pass(
                         command_buffer,
                         &renderpass_begin_info,
@@ -543,9 +591,41 @@ impl VoxelPass {
                     device.cmd_set_viewport(command_buffer, 0, &[self.viewport]);
                     device.cmd_set_scissor(command_buffer, 0, &[self.output_resolution.into()]);
                     device.cmd_end_render_pass(command_buffer);
+                    let texture_barrier = vk::ImageMemoryBarrier::default()
+                        .src_access_mask(vk::AccessFlags::MEMORY_WRITE)
+                        .dst_access_mask(vk::AccessFlags::MEMORY_READ)
+                        .old_layout(Self::COLOR_WRITE_ATTACHMENT_LAYOUT)
+                        .new_layout(Self::COLOR_READ_ATTACHMENT_LAYOUT)
+                        .image(self.framebuffers[current_frame_index].color.image)
+                        .subresource_range(vk::ImageSubresourceRange {
+                            aspect_mask: vk::ImageAspectFlags::COLOR,
+                            level_count: 1,
+                            layer_count: 1,
+                            ..Default::default()
+                        });
+
+                    device.cmd_pipeline_barrier(
+                        command_buffer,
+                        vk::PipelineStageFlags::ALL_COMMANDS,
+                        vk::PipelineStageFlags::ALL_COMMANDS,
+                        vk::DependencyFlags::empty(),
+                        &[],
+                        &[],
+                        &[texture_barrier],
+                    );
                 },
             );
         }
+    }
+    pub fn textures(&self) -> Vec<ForeignTextureInput> {
+        self.framebuffers
+            .iter()
+            .map(|frame_buffer| ForeignTextureInput {
+                image_view: frame_buffer.color.view,
+                sampler: frame_buffer.color_sampler,
+                layout: Self::COLOR_READ_ATTACHMENT_LAYOUT,
+            })
+            .collect()
     }
     pub fn free(mut self, device: &Device, allocator: &mut Allocator) {
         unsafe {

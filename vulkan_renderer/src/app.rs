@@ -4,7 +4,8 @@ mod present_pass;
 mod voxel_renderer;
 use crate::app::command_buffer::SetupCommandBuffer;
 use present_pass::{
-    PresentDescriptors, PresentModel, PresentModelInfo, PresentPass, PresentRectangle,
+    ForeignTextureInput, PresentDescriptors, PresentModel, PresentModelInfo, PresentPass,
+    PresentRectangle, PresentTexture,
 };
 use voxel_renderer::VoxelPass;
 
@@ -12,16 +13,17 @@ use super::utils::{record_submit_command_buffer, vulkan_debug_callback};
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
 
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
+use std::iter;
 use winit::{
     event_loop::ActiveEventLoop,
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::Window,
 };
-
 /// Contents are ordered in how they should be freed
 /// Things there is a v2 of:
 /// ImageMemoryBarriar
 pub struct App {
+    voxel_output_surfaces: Vec<PresentModel>,
     voxel_pass: Option<VoxelPass>,
     present_pass: Option<PresentPass>,
     present_models: Vec<PresentModel>,
@@ -79,12 +81,13 @@ impl App {
             .unwrap()
             .to_vec();
             extension_names.push(debug_utils::NAME.as_ptr());
+
             let app_info = vk::ApplicationInfo::default()
                 .application_name(app_name)
                 .application_version(0)
                 .engine_name(app_name)
                 .engine_version(0)
-                .api_version(vk::make_api_version(0, 1, 3, 0));
+                .api_version(vk::make_api_version(0, 1, 4, 0));
             let create_flags = vk::InstanceCreateFlags::default();
             let create_info = vk::InstanceCreateInfo::default()
                 .application_info(&app_info)
@@ -153,7 +156,9 @@ impl App {
                         })
                 })
                 .expect("failed to get phusical device");
-            let device_extension_names_raw = [khr::swapchain::NAME.as_ptr()];
+            let synchronization = c"VK_KHR_synchronization2";
+            let device_extension_names_raw =
+                [khr::swapchain::NAME.as_ptr(), synchronization.as_ptr()];
             let priorities = [1.0];
             let queue_info = vk::DeviceQueueCreateInfo::default()
                 .queue_family_index(queue_family_index)
@@ -162,6 +167,20 @@ impl App {
                 shader_clip_distance: 1,
                 ..Default::default()
             };
+            {
+                let extensions = instance
+                    .enumerate_device_extension_properties(physical_device)
+                    .expect("failed to get physical device");
+                for e in extensions {
+                    let extension_name = e
+                        .extension_name_as_c_str()
+                        .expect("failed to get extension name")
+                        .to_str()
+                        .expect("failed to convert to string");
+                    println!("supported extension: {}", extension_name);
+                }
+            }
+
             let device_create_info = vk::DeviceCreateInfo::default()
                 .queue_create_infos(std::slice::from_ref(&queue_info))
                 .enabled_extension_names(&device_extension_names_raw)
@@ -278,7 +297,7 @@ impl App {
                 descriptors: &descriptors,
             };
 
-            let triangle_model = PresentModel::new_rectangle(
+            let triangle_model = PresentModel::new_rectangle_with_buffer(
                 PresentRectangle {
                     min_x: -1.,
                     min_y: -1.,
@@ -290,7 +309,7 @@ impl App {
                 &mut present_vk_info,
             );
 
-            let ui_element = PresentModel::new_rectangle(
+            let ui_element = PresentModel::new_rectangle_with_buffer(
                 PresentRectangle {
                     min_x: -1.,
                     min_y: 0.7,
@@ -321,8 +340,35 @@ impl App {
                 present_queue,
                 surface_resolution,
             );
+            let voxel_output_surfaces = voxel_pass
+                .textures()
+                .into_iter()
+                .map(|data| {
+                    let mut vulkan_info = PresentModelInfo {
+                        device: &device,
+                        allocator: &mut allocator,
+
+                        setup_command_buffer: &mut setup_command_buffer,
+                        present_queue: &present_queue,
+                        descriptors: &descriptors,
+                    };
+                    let texture = PresentTexture::from_foreign_data(&vulkan_info, data);
+                    PresentModel::new_rectangle(
+                        PresentRectangle {
+                            min_x: -1.,
+                            max_x: 1.,
+                            min_y: -1.,
+                            max_y: 1.,
+                            z_index: 0.2,
+                        },
+                        texture,
+                        &mut vulkan_info,
+                    )
+                })
+                .collect::<Vec<_>>();
 
             Self {
+                voxel_output_surfaces,
                 voxel_pass: Some(voxel_pass),
                 frame_index: 0,
                 descriptors,
@@ -367,7 +413,7 @@ impl App {
                 )
                 .expect("failed to acquire next image");
             self.voxel_pass
-                .as_ref()
+                .as_mut()
                 .expect("voxel pass already freed")
                 .draw(
                     &self.device,
@@ -377,22 +423,26 @@ impl App {
                     present_complete_semaphore,
                     current_frame_index,
                 );
+            {
+                let voxel_model = iter::once(&self.voxel_output_surfaces[current_frame_index]);
 
-            self.present_pass
-                .as_ref()
-                .expect("should not be freed")
-                .draw(
-                    &self.device,
-                    &self.present_models,
-                    draw_command_buffer,
-                    &self.present_queue,
-                    draw_commandbuffer_reuse_fence,
-                    self.voxel_pass
-                        .as_ref()
-                        .unwrap()
-                        .signal_semaphores(current_frame_index),
-                    current_frame_index,
-                );
+                let models = self.present_models.iter().chain(voxel_model);
+                self.present_pass
+                    .as_ref()
+                    .expect("should not be freed")
+                    .draw(
+                        &self.device,
+                        models,
+                        draw_command_buffer,
+                        &self.present_queue,
+                        draw_commandbuffer_reuse_fence,
+                        self.voxel_pass
+                            .as_ref()
+                            .unwrap()
+                            .signal_semaphores(current_frame_index),
+                        current_frame_index,
+                    );
+            }
 
             let wait_semaphore = [self
                 .present_pass
@@ -420,7 +470,12 @@ impl Drop for App {
     fn drop(&mut self) {
         unsafe {
             self.device.device_wait_idle().expect("failed to wait idle");
-
+            for model in self.voxel_output_surfaces.drain(..) {
+                model.free(
+                    &self.device,
+                    self.allocator.as_mut().expect("allocator already freed"),
+                );
+            }
             self.voxel_pass
                 .take()
                 .expect("voxel pass already freed")

@@ -4,11 +4,34 @@ use gpu_allocator::{
     MemoryLocation,
     vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
 };
+
+enum TextureData {
+    Local(vk::ImageView, vk::Sampler, Allocation, vk::Image),
+    Foreign,
+}
+pub struct ForeignTextureInput {
+    pub image_view: vk::ImageView,
+    pub sampler: vk::Sampler,
+    pub layout: vk::ImageLayout,
+}
+impl TextureData {
+    pub fn free(self, device: &Device, allocator: &mut Allocator) {
+        match self {
+            Self::Local(image_view, sampler, allocation, image) => unsafe {
+                device.destroy_image_view(image_view, None);
+                device.destroy_sampler(sampler, None);
+                allocator
+                    .free(allocation)
+                    .expect("failed to free texture allocation");
+                device.destroy_image(image, None);
+            },
+            Self::Foreign => {}
+        }
+    }
+}
+
 pub struct PresentTexture {
-    texture_image_view: vk::ImageView,
-    sampler: vk::Sampler,
-    texture_allocation: Allocation,
-    texture_image: vk::Image,
+    data: TextureData,
     descriptor_sets: Vec<vk::DescriptorSet>,
 }
 impl PresentTexture {
@@ -234,11 +257,43 @@ impl PresentTexture {
                 .allocator
                 .free(image_allocation)
                 .expect("failed to free image");
+
             PresentTexture {
-                texture_image_view,
-                sampler,
-                texture_allocation,
-                texture_image,
+                data: TextureData::Local(
+                    texture_image_view,
+                    sampler,
+                    texture_allocation,
+                    texture_image,
+                ),
+                descriptor_sets,
+            }
+        }
+    }
+    pub fn from_foreign_data(vulkan_info: &PresentModelInfo, data: ForeignTextureInput) -> Self {
+        unsafe {
+            let layout = [vulkan_info.descriptors.layout];
+            let descriptor_allocate_info = vk::DescriptorSetAllocateInfo::default()
+                .descriptor_pool(vulkan_info.descriptors.pool)
+                .set_layouts(&layout);
+            let descriptor_sets = vulkan_info
+                .device
+                .allocate_descriptor_sets(&descriptor_allocate_info)
+                .expect("failed to allocate descriptor set");
+            let texture_descriptor = [vk::DescriptorImageInfo {
+                image_layout: data.layout,
+                image_view: data.image_view,
+                sampler: data.sampler,
+            }];
+            let write_descriptor_sets = [vk::WriteDescriptorSet::default()
+                .dst_set(descriptor_sets[0])
+                .descriptor_count(1)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .image_info(&texture_descriptor)];
+            vulkan_info
+                .device
+                .update_descriptor_sets(&write_descriptor_sets, &[]);
+            PresentTexture {
+                data: TextureData::Foreign,
                 descriptor_sets,
             }
         }
@@ -247,13 +302,6 @@ impl PresentTexture {
         &self.descriptor_sets
     }
     pub fn free(self, device: &Device, allocator: &mut Allocator) {
-        unsafe {
-            device.destroy_image_view(self.texture_image_view, None);
-            device.destroy_sampler(self.sampler, None);
-            allocator
-                .free(self.texture_allocation)
-                .expect("failed to free texture allocation");
-            device.destroy_image(self.texture_image, None);
-        }
+        self.data.free(device, allocator);
     }
 }

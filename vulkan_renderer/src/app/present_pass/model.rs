@@ -81,7 +81,7 @@ impl PresentModel {
     }
     pub fn new_rectangle(
         rectangle: PresentRectangle,
-        texture_buffer: &[u8],
+        texture: PresentTexture,
         vulkan_info: &mut PresentModelInfo,
     ) -> Self {
         let vertices = [
@@ -108,13 +108,20 @@ impl PresentModel {
         ];
 
         let indices = [0, 3, 1, 3, 2, 1];
-
-        Self::new(&vertices, &indices, texture_buffer, vulkan_info)
+        Self::new(&vertices, &indices, texture, vulkan_info)
+    }
+    pub fn new_rectangle_with_buffer(
+        rectangle: PresentRectangle,
+        texture_buffer: &[u8],
+        vulkan_info: &mut PresentModelInfo,
+    ) -> Self {
+        let texture = PresentTexture::new(vulkan_info, texture_buffer);
+        Self::new_rectangle(rectangle, texture, vulkan_info)
     }
     pub fn new(
         vertices: &[PresentVertex],
         indices: &[u32],
-        texture_buffer: &[u8],
+        texture: PresentTexture,
         vulkan_info: &mut PresentModelInfo,
     ) -> Self {
         unsafe {
@@ -203,7 +210,7 @@ impl PresentModel {
                     vertex_allocation.offset(),
                 )
                 .expect("failed to bind memory");
-            let texture = PresentTexture::new(vulkan_info, texture_buffer);
+
             Self {
                 texture,
                 vertex_allocation,
