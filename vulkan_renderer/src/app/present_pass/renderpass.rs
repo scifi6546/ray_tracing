@@ -1,5 +1,5 @@
 use super::{
-    super::{SetupCommandBuffer, record_submit_command_buffer},
+    super::{DrawCommandBuffer, SetupCommandBuffer},
     PresentModel, PresentVertex,
     descriptors::PresentDescriptors,
 };
@@ -378,10 +378,7 @@ impl PresentPass {
         &self,
         device: &Device,
         models: I,
-        draw_command_buffer: vk::CommandBuffer,
-        present_queue: &vk::Queue,
-        draw_commandbuffer_reuse_fence: vk::Fence,
-        present_complete_semaphore: vk::Semaphore,
+        draw_command_buffer: &DrawCommandBuffer,
         current_frame_index: usize,
     ) {
         unsafe {
@@ -404,70 +401,43 @@ impl PresentPass {
                 .framebuffer(self.framebuffers[current_frame_index])
                 .render_area(self.surface_resolution.into())
                 .clear_values(&clear_values);
-            device
-                .wait_for_fences(&[draw_commandbuffer_reuse_fence], true, u64::MAX)
-                .expect("failed to wait for fence");
-            device
-                .reset_fences(&[draw_commandbuffer_reuse_fence])
-                .expect("failed to reset fence");
-            let signal_semaphores = [self.signal_semaphore(current_frame_index)];
-            record_submit_command_buffer(
-                device,
-                draw_command_buffer,
-                draw_commandbuffer_reuse_fence,
-                *present_queue,
-                &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
-                &[present_complete_semaphore],
-                &signal_semaphores,
-                |device, command_buffer| {
-                    device.cmd_begin_render_pass(
-                        command_buffer,
-                        &renderpass_begin_info,
-                        vk::SubpassContents::INLINE,
-                    );
 
-                    device.cmd_bind_pipeline(
+            draw_command_buffer.record_command_buffer(device, |device, command_buffer| {
+                device.cmd_begin_render_pass(
+                    command_buffer,
+                    &renderpass_begin_info,
+                    vk::SubpassContents::INLINE,
+                );
+
+                device.cmd_bind_pipeline(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.graphics_pipeline,
+                );
+
+                device.cmd_set_viewport(command_buffer, 0, &[self.viewport]);
+                device.cmd_set_scissor(command_buffer, 0, &[self.surface_resolution.into()]);
+                for model in models {
+                    device.cmd_bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
-                        self.graphics_pipeline,
+                        self.pipeline_layout,
+                        0,
+                        model.descriptor_sets(),
+                        &[],
                     );
+                    device.cmd_bind_index_buffer(
+                        command_buffer,
+                        model.index_buffer,
+                        0,
+                        vk::IndexType::UINT32,
+                    );
+                    device.cmd_bind_vertex_buffers(command_buffer, 0, &[model.vertex_buffer], &[0]);
+                    device.cmd_draw_indexed(command_buffer, model.num_indices as u32, 1, 0, 0, 1);
+                }
 
-                    device.cmd_set_viewport(command_buffer, 0, &[self.viewport]);
-                    device.cmd_set_scissor(command_buffer, 0, &[self.surface_resolution.into()]);
-                    for model in models {
-                        device.cmd_bind_descriptor_sets(
-                            command_buffer,
-                            vk::PipelineBindPoint::GRAPHICS,
-                            self.pipeline_layout,
-                            0,
-                            model.descriptor_sets(),
-                            &[],
-                        );
-                        device.cmd_bind_index_buffer(
-                            command_buffer,
-                            model.index_buffer,
-                            0,
-                            vk::IndexType::UINT32,
-                        );
-                        device.cmd_bind_vertex_buffers(
-                            command_buffer,
-                            0,
-                            &[model.vertex_buffer],
-                            &[0],
-                        );
-                        device.cmd_draw_indexed(
-                            command_buffer,
-                            model.num_indices as u32,
-                            1,
-                            0,
-                            0,
-                            1,
-                        );
-                    }
-
-                    device.cmd_end_render_pass(command_buffer);
-                },
-            );
+                device.cmd_end_render_pass(command_buffer);
+            });
         }
     }
     pub fn signal_semaphore(&self, current_frame_index: usize) -> vk::Semaphore {

@@ -94,3 +94,113 @@ impl SetupCommandBuffer {
         }
     }
 }
+#[derive(PartialEq, Eq, Debug)]
+enum DrawCommandBufferState {
+    Initial,
+    Recording,
+    Submitted,
+}
+pub struct DrawCommandBuffer {
+    pub command_buffer: vk::CommandBuffer,
+    pub command_buffer_reuse_fence: Option<vk::Fence>,
+    state: DrawCommandBufferState,
+}
+impl DrawCommandBuffer {
+    pub fn new(command_buffer: vk::CommandBuffer) -> Self {
+        Self {
+            command_buffer,
+            command_buffer_reuse_fence: None,
+            state: DrawCommandBufferState::Initial,
+        }
+    }
+    /// starts the command buffer and waits for the completion of the previous iteration of the command buffer
+    /// command buffer **MUST** be started before the next image is acquired
+    pub fn start_command_buffer(&mut self, device: &Device) {
+        self.state = match self.state {
+            DrawCommandBufferState::Initial => DrawCommandBufferState::Recording,
+            DrawCommandBufferState::Recording => {
+                panic!("invalid command buffer state must be initial")
+            }
+            DrawCommandBufferState::Submitted => DrawCommandBufferState::Recording,
+        };
+        unsafe {
+            if let Some(fence) = self.command_buffer_reuse_fence {
+                device
+                    .wait_for_fences(&[fence], true, u64::MAX)
+                    .expect("failed to wait for command buffer reuse fence");
+                device
+                    .reset_fences(&[fence])
+                    .expect("failed to reset fence")
+            } else {
+                let fence_info = vk::FenceCreateInfo::default();
+
+                self.command_buffer_reuse_fence = Some(
+                    device
+                        .create_fence(&fence_info, None)
+                        .expect("failed to create command buffer reuse fence"),
+                );
+            }
+
+            let command_buffer_begin_info = vk::CommandBufferBeginInfo::default()
+                .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+            device
+                .begin_command_buffer(self.command_buffer, &command_buffer_begin_info)
+                .expect("failed to begin command buffer");
+        }
+    }
+    pub fn record_command_buffer<F: FnOnce(&Device, vk::CommandBuffer)>(
+        &self,
+        device: &Device,
+        run_fn: F,
+    ) {
+        run_fn(device, self.command_buffer);
+    }
+    pub fn submit_command_buffer(
+        &mut self,
+        device: &Device,
+        submit_queue: vk::Queue,
+        wait_mask: &[vk::PipelineStageFlags],
+        wait_semaphores: &[vk::Semaphore],
+        signal_semaphores: &[vk::Semaphore],
+    ) {
+        self.state = match self.state {
+            DrawCommandBufferState::Initial => panic!("recording must be started"),
+            DrawCommandBufferState::Recording => DrawCommandBufferState::Submitted,
+            DrawCommandBufferState::Submitted => panic!("must start new command buffer"),
+        };
+
+        unsafe {
+            device
+                .end_command_buffer(self.command_buffer)
+                .expect("failed to create command buffer");
+            let command_buffers = [self.command_buffer];
+            let submit_info = vk::SubmitInfo::default()
+                .wait_semaphores(wait_semaphores)
+                .wait_dst_stage_mask(wait_mask)
+                .command_buffers(&command_buffers)
+                .signal_semaphores(signal_semaphores);
+            device
+                .queue_submit(
+                    submit_queue,
+                    &[submit_info],
+                    self.command_buffer_reuse_fence.expect("should exist"),
+                )
+                .expect("failed to submit queue");
+        }
+    }
+    pub fn free(&self, device: &Device) {
+        unsafe {
+            device.device_wait_idle().expect("failed to wait idle");
+            if let Some(fence) = self.command_buffer_reuse_fence {
+                device.destroy_fence(fence, None);
+            }
+
+            device
+                .reset_command_buffer(
+                    self.command_buffer,
+                    vk::CommandBufferResetFlags::RELEASE_RESOURCES,
+                )
+                .expect("failed to reset buffer");
+        }
+    }
+}

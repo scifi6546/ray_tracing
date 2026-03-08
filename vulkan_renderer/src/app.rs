@@ -2,14 +2,15 @@ mod command_buffer;
 
 mod present_pass;
 mod voxel_renderer;
-use crate::app::command_buffer::SetupCommandBuffer;
+
+use command_buffer::{DrawCommandBuffer, SetupCommandBuffer};
 use present_pass::{
     ForeignTextureInput, PresentDescriptors, PresentModel, PresentModelInfo, PresentPass,
     PresentRectangle, PresentTexture,
 };
 use voxel_renderer::VoxelPass;
 
-use super::utils::{record_submit_command_buffer, vulkan_debug_callback};
+use super::utils::vulkan_debug_callback;
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
 
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
@@ -46,8 +47,7 @@ pub struct App {
 
     frame_index: usize,
 
-    draw_command_buffers: [vk::CommandBuffer; Self::MAX_FRAME_LATENCY],
-
+    draw_command_buffers: Vec<DrawCommandBuffer>,
     #[allow(dead_code)]
     app_setup_command_buffer: vk::CommandBuffer,
     #[allow(dead_code)]
@@ -260,10 +260,12 @@ impl App {
 
             let mut setup_command_buffer = SetupCommandBuffer::new(command_buffers[0]);
             let app_setup_command_buffer = command_buffers[1];
-            let draw_command_buffers = command_buffers[2..][..Self::MAX_FRAME_LATENCY]
-                .try_into()
-                .unwrap();
 
+            let draw_command_buffers = command_buffers[2..]
+                .iter()
+                .copied()
+                .map(|command_buffer| DrawCommandBuffer::new(command_buffer))
+                .collect();
             let semaphore_create_info = vk::SemaphoreCreateInfo::default();
 
             let present_semaphores = std::array::from_fn(|_| {
@@ -398,11 +400,11 @@ impl App {
     }
     pub fn request_redraw(&mut self) {
         let current_frame_index = self.frame_index % Self::MAX_FRAME_LATENCY;
-        let draw_commandbuffer_reuse_fence = self.draw_commands_reuse_fence[current_frame_index];
 
         unsafe {
             let present_complete_semaphore = self.present_semaphores[current_frame_index];
-            let draw_command_buffer = self.draw_command_buffers[current_frame_index];
+            let draw_command_buffer = &mut self.draw_command_buffers[current_frame_index];
+            draw_command_buffer.start_command_buffer(&self.device);
             let (present_index, _) = self
                 .swapchain_device
                 .acquire_next_image(
@@ -412,21 +414,16 @@ impl App {
                     vk::Fence::null(),
                 )
                 .expect("failed to acquire next image");
+
             self.voxel_pass
                 .as_mut()
                 .expect("voxel pass already freed")
-                .draw(
-                    &self.device,
-                    draw_command_buffer,
-                    &self.present_queue,
-                    draw_commandbuffer_reuse_fence,
-                    present_complete_semaphore,
-                    current_frame_index,
-                );
+                .draw(&self.device, draw_command_buffer, current_frame_index);
             {
                 let voxel_model = iter::once(&self.voxel_output_surfaces[current_frame_index]);
 
                 let models = self.present_models.iter().chain(voxel_model);
+
                 self.present_pass
                     .as_ref()
                     .expect("should not be freed")
@@ -434,12 +431,6 @@ impl App {
                         &self.device,
                         models,
                         draw_command_buffer,
-                        &self.present_queue,
-                        draw_commandbuffer_reuse_fence,
-                        self.voxel_pass
-                            .as_ref()
-                            .unwrap()
-                            .signal_semaphores(current_frame_index),
                         current_frame_index,
                     );
             }
@@ -449,6 +440,13 @@ impl App {
                 .as_ref()
                 .unwrap()
                 .signal_semaphore(current_frame_index)];
+            draw_command_buffer.submit_command_buffer(
+                &self.device,
+                self.present_queue,
+                &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
+                &[present_complete_semaphore],
+                &wait_semaphore,
+            );
 
             let swapchains = [self.swapchain];
             let present_indices = [present_index];
@@ -500,6 +498,9 @@ impl Drop for App {
             self.descriptors.free(&self.device);
             for fence in self.draw_commands_reuse_fence {
                 self.device.destroy_fence(fence, None);
+            }
+            for buffer in self.draw_command_buffers.drain(..) {
+                buffer.free(&self.device);
             }
 
             for semaphore in self.present_semaphores {

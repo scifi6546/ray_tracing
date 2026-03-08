@@ -1,6 +1,4 @@
-use crate::utils::record_submit_command_buffer;
-
-use super::super::{ForeignTextureInput, SetupCommandBuffer};
+use super::super::{DrawCommandBuffer, ForeignTextureInput, SetupCommandBuffer};
 use ash::{
     Device,
     util::read_spv,
@@ -290,7 +288,6 @@ impl VoxelPassVertex {
     }
 }
 pub struct VoxelPass {
-    signal_semaphores: Vec<vk::Semaphore>,
     framebuffers: Vec<FramebufferImage>,
 
     graphics_pipeline: vk::Pipeline,
@@ -487,16 +484,8 @@ impl VoxelPass {
                 number_frames,
                 output_resolution,
             );
-            let signal_semaphores = (0..number_frames)
-                .map(|_| {
-                    let create_info = vk::SemaphoreCreateInfo::default();
-                    device
-                        .create_semaphore(&create_info, None)
-                        .expect("failed to create semaphore")
-                })
-                .collect();
+
             Self {
-                signal_semaphores,
                 framebuffers,
                 viewport: viewports[0],
                 graphics_pipeline,
@@ -508,16 +497,12 @@ impl VoxelPass {
             }
         }
     }
-    pub fn signal_semaphores(&self, current_frame_index: usize) -> vk::Semaphore {
-        self.signal_semaphores[current_frame_index]
-    }
+
     pub fn draw(
         &mut self,
         device: &Device,
-        draw_command_buffer: vk::CommandBuffer,
-        present_queue: &vk::Queue,
-        draw_commandbuffer_reuse_fence: vk::Fence,
-        wait_semaphore: vk::Semaphore,
+        draw_command_buffer: &DrawCommandBuffer,
+
         current_frame_index: usize,
     ) {
         let clear_values = [
@@ -539,82 +524,66 @@ impl VoxelPass {
             .render_area(self.output_resolution.into())
             .clear_values(&clear_values);
         unsafe {
-            device
-                .wait_for_fences(&[draw_commandbuffer_reuse_fence], true, u64::MAX)
-                .expect("failed to wait for fence");
-            device
-                .reset_fences(&[draw_commandbuffer_reuse_fence])
-                .expect("failed to reset fence");
-            let signal_semaphores = [self.signal_semaphores(current_frame_index)];
-            record_submit_command_buffer(
-                device,
-                draw_command_buffer,
-                draw_commandbuffer_reuse_fence,
-                *present_queue,
-                &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
-                &[wait_semaphore],
-                &signal_semaphores,
-                |device, command_buffer| {
-                    let texture_barrier = vk::ImageMemoryBarrier::default()
-                        .src_access_mask(vk::AccessFlags::MEMORY_READ)
-                        .dst_access_mask(vk::AccessFlags::MEMORY_WRITE)
-                        .old_layout(Self::COLOR_READ_ATTACHMENT_LAYOUT)
-                        .new_layout(Self::COLOR_WRITE_ATTACHMENT_LAYOUT)
-                        .image(self.framebuffers[current_frame_index].color.image)
-                        .subresource_range(vk::ImageSubresourceRange {
-                            aspect_mask: vk::ImageAspectFlags::COLOR,
-                            level_count: 1,
-                            layer_count: 1,
-                            ..Default::default()
-                        });
+            draw_command_buffer.record_command_buffer(device, |device, command_buffer| {
+                let texture_barrier = vk::ImageMemoryBarrier::default()
+                    .src_access_mask(vk::AccessFlags::MEMORY_READ)
+                    .dst_access_mask(vk::AccessFlags::MEMORY_WRITE)
+                    .old_layout(Self::COLOR_READ_ATTACHMENT_LAYOUT)
+                    .new_layout(Self::COLOR_WRITE_ATTACHMENT_LAYOUT)
+                    .image(self.framebuffers[current_frame_index].color.image)
+                    .subresource_range(vk::ImageSubresourceRange {
+                        aspect_mask: vk::ImageAspectFlags::COLOR,
+                        level_count: 1,
+                        layer_count: 1,
+                        ..Default::default()
+                    });
 
-                    device.cmd_pipeline_barrier(
-                        command_buffer,
-                        vk::PipelineStageFlags::ALL_COMMANDS,
-                        vk::PipelineStageFlags::ALL_COMMANDS,
-                        vk::DependencyFlags::empty(),
-                        &[],
-                        &[],
-                        &[texture_barrier],
-                    );
+                device.cmd_pipeline_barrier(
+                    command_buffer,
+                    vk::PipelineStageFlags::ALL_COMMANDS,
+                    vk::PipelineStageFlags::ALL_COMMANDS,
+                    vk::DependencyFlags::empty(),
+                    &[],
+                    &[],
+                    &[texture_barrier],
+                );
 
-                    device.cmd_begin_render_pass(
-                        command_buffer,
-                        &renderpass_begin_info,
-                        vk::SubpassContents::INLINE,
-                    );
-                    device.cmd_bind_pipeline(
-                        command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.graphics_pipeline,
-                    );
-                    device.cmd_set_viewport(command_buffer, 0, &[self.viewport]);
-                    device.cmd_set_scissor(command_buffer, 0, &[self.output_resolution.into()]);
-                    device.cmd_end_render_pass(command_buffer);
-                    let texture_barrier = vk::ImageMemoryBarrier::default()
-                        .src_access_mask(vk::AccessFlags::MEMORY_WRITE)
-                        .dst_access_mask(vk::AccessFlags::MEMORY_READ)
-                        .old_layout(Self::COLOR_WRITE_ATTACHMENT_LAYOUT)
-                        .new_layout(Self::COLOR_READ_ATTACHMENT_LAYOUT)
-                        .image(self.framebuffers[current_frame_index].color.image)
-                        .subresource_range(vk::ImageSubresourceRange {
-                            aspect_mask: vk::ImageAspectFlags::COLOR,
-                            level_count: 1,
-                            layer_count: 1,
-                            ..Default::default()
-                        });
+                device.cmd_begin_render_pass(
+                    command_buffer,
+                    &renderpass_begin_info,
+                    vk::SubpassContents::INLINE,
+                );
+                device.cmd_bind_pipeline(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.graphics_pipeline,
+                );
+                device.cmd_set_viewport(command_buffer, 0, &[self.viewport]);
+                device.cmd_set_scissor(command_buffer, 0, &[self.output_resolution.into()]);
+                device.cmd_end_render_pass(command_buffer);
+                let texture_barrier = vk::ImageMemoryBarrier::default()
+                    .src_access_mask(vk::AccessFlags::MEMORY_WRITE)
+                    .dst_access_mask(vk::AccessFlags::MEMORY_READ)
+                    .old_layout(Self::COLOR_WRITE_ATTACHMENT_LAYOUT)
+                    .new_layout(Self::COLOR_READ_ATTACHMENT_LAYOUT)
+                    .image(self.framebuffers[current_frame_index].color.image)
+                    .subresource_range(vk::ImageSubresourceRange {
+                        aspect_mask: vk::ImageAspectFlags::COLOR,
+                        level_count: 1,
+                        layer_count: 1,
+                        ..Default::default()
+                    });
 
-                    device.cmd_pipeline_barrier(
-                        command_buffer,
-                        vk::PipelineStageFlags::ALL_COMMANDS,
-                        vk::PipelineStageFlags::ALL_COMMANDS,
-                        vk::DependencyFlags::empty(),
-                        &[],
-                        &[],
-                        &[texture_barrier],
-                    );
-                },
-            );
+                device.cmd_pipeline_barrier(
+                    command_buffer,
+                    vk::PipelineStageFlags::ALL_COMMANDS,
+                    vk::PipelineStageFlags::ALL_COMMANDS,
+                    vk::DependencyFlags::empty(),
+                    &[],
+                    &[],
+                    &[texture_barrier],
+                );
+            });
         }
     }
     pub fn textures(&self) -> Vec<ForeignTextureInput> {
@@ -630,9 +599,7 @@ impl VoxelPass {
     pub fn free(mut self, device: &Device, allocator: &mut Allocator) {
         unsafe {
             device.device_wait_idle().expect("failed to wait idle");
-            for semaphore in self.signal_semaphores.drain(..) {
-                device.destroy_semaphore(semaphore, None);
-            }
+
             for framebuffer in self.framebuffers.drain(..) {
                 framebuffer.free(device, allocator);
             }
