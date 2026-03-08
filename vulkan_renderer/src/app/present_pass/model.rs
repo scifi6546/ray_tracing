@@ -60,7 +60,6 @@ pub struct PresentModel {
     pub index_allocation: Allocation,
     pub index_buffer: vk::Buffer,
     // does not need to get freed
-    //pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub num_indices: usize,
 }
 #[derive(Clone, Copy)]

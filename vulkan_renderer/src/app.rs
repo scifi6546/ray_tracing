@@ -2,7 +2,6 @@ mod command_buffer;
 
 mod present_pass;
 mod voxel_renderer;
-
 use command_buffer::{DrawCommandBuffer, SetupCommandBuffer};
 use present_pass::{
     ForeignTextureInput, PresentDescriptors, PresentModel, PresentModelInfo, PresentPass,

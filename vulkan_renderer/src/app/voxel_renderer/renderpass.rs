@@ -1,4 +1,7 @@
-use super::super::{DrawCommandBuffer, ForeignTextureInput, SetupCommandBuffer};
+use super::{
+    super::{DrawCommandBuffer, ForeignTextureInput, SetupCommandBuffer},
+    model::{RenderModel, RenderModelVertex},
+};
 use ash::{
     Device,
     util::read_spv,
@@ -9,14 +12,8 @@ use gpu_allocator::{
     MemoryLocation,
     vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
 };
-use std::{
-    io::Cursor,
-    mem::{offset_of, size_of},
-};
-#[repr(C)]
-struct VoxelPassVertex {
-    pub position: [f32; 4],
-}
+use std::io::Cursor;
+
 struct FramebufferImageAttachment {
     image: vk::Image,
     view: vk::ImageView,
@@ -270,24 +267,9 @@ impl FramebufferImage {
         self.depth.free(device, allocator);
     }
 }
-impl VoxelPassVertex {
-    const fn input_binding_description() -> [vk::VertexInputBindingDescription; 1] {
-        [vk::VertexInputBindingDescription {
-            binding: 0,
-            stride: size_of::<Self>() as u32,
-            input_rate: vk::VertexInputRate::VERTEX,
-        }]
-    }
-    const fn attribute_descriptions() -> [vk::VertexInputAttributeDescription; 1] {
-        [vk::VertexInputAttributeDescription {
-            location: 0,
-            binding: 0,
-            format: vk::Format::R32G32B32A32_SFLOAT,
-            offset: offset_of!(Self, position) as u32,
-        }]
-    }
-}
+
 pub struct VoxelPass {
+    render_model: RenderModel,
     framebuffers: Vec<FramebufferImage>,
 
     graphics_pipeline: vk::Pipeline,
@@ -401,8 +383,8 @@ impl VoxelPass {
                     .name(shader_entry_name)
                     .stage(vk::ShaderStageFlags::FRAGMENT),
             ];
-            let vertex_input_binding_description = VoxelPassVertex::input_binding_description();
-            let vertex_input_attribute_descriptions = VoxelPassVertex::attribute_descriptions();
+            let vertex_input_binding_description = RenderModelVertex::input_binding_description();
+            let vertex_input_attribute_descriptions = RenderModelVertex::attribute_descriptions();
             let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::default()
                 .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
                 .vertex_binding_descriptions(&vertex_input_binding_description);
@@ -484,8 +466,9 @@ impl VoxelPass {
                 number_frames,
                 output_resolution,
             );
-
+            let render_model = RenderModel::new_rectangle(device, allocator);
             Self {
+                render_model,
                 framebuffers,
                 viewport: viewports[0],
                 graphics_pipeline,
@@ -560,6 +543,26 @@ impl VoxelPass {
                 );
                 device.cmd_set_viewport(command_buffer, 0, &[self.viewport]);
                 device.cmd_set_scissor(command_buffer, 0, &[self.output_resolution.into()]);
+                device.cmd_bind_index_buffer(
+                    command_buffer,
+                    self.render_model.index_buffer,
+                    0,
+                    RenderModel::VK_INDEX_TYPE,
+                );
+                device.cmd_bind_vertex_buffers(
+                    command_buffer,
+                    0,
+                    &[self.render_model.vertex_buffer],
+                    &[0],
+                );
+                device.cmd_draw_indexed(
+                    command_buffer,
+                    self.render_model.number_indices() as u32,
+                    1,
+                    0,
+                    0,
+                    1,
+                );
                 device.cmd_end_render_pass(command_buffer);
                 let texture_barrier = vk::ImageMemoryBarrier::default()
                     .src_access_mask(vk::AccessFlags::MEMORY_WRITE)
@@ -599,7 +602,7 @@ impl VoxelPass {
     pub fn free(mut self, device: &Device, allocator: &mut Allocator) {
         unsafe {
             device.device_wait_idle().expect("failed to wait idle");
-
+            self.render_model.free(device, allocator);
             for framebuffer in self.framebuffers.drain(..) {
                 framebuffer.free(device, allocator);
             }
