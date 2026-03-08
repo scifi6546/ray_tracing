@@ -264,7 +264,7 @@ impl App {
             let draw_command_buffers = command_buffers[2..]
                 .iter()
                 .copied()
-                .map(|command_buffer| DrawCommandBuffer::new(command_buffer))
+                .map(|command_buffer| DrawCommandBuffer::new(&device, command_buffer))
                 .collect();
             let semaphore_create_info = vk::SemaphoreCreateInfo::default();
 
@@ -435,23 +435,17 @@ impl App {
                     );
             }
 
-            let wait_semaphore = [self
-                .present_pass
-                .as_ref()
-                .unwrap()
-                .signal_semaphore(current_frame_index)];
             draw_command_buffer.submit_command_buffer(
                 &self.device,
                 self.present_queue,
                 &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
                 &[present_complete_semaphore],
-                &wait_semaphore,
             );
-
+            let wait_semaphores = [draw_command_buffer.rendering_complete_semaphore()];
             let swapchains = [self.swapchain];
             let present_indices = [present_index];
             let present_info = vk::PresentInfoKHR::default()
-                .wait_semaphores(&wait_semaphore)
+                .wait_semaphores(&wait_semaphores)
                 .swapchains(&swapchains)
                 .image_indices(&present_indices);
             self.swapchain_device

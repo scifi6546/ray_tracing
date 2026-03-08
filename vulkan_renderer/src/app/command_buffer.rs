@@ -103,13 +103,20 @@ enum DrawCommandBufferState {
 pub struct DrawCommandBuffer {
     pub command_buffer: vk::CommandBuffer,
     pub command_buffer_reuse_fence: Option<vk::Fence>,
+    rendering_complete_semaphore: vk::Semaphore,
     state: DrawCommandBufferState,
 }
 impl DrawCommandBuffer {
-    pub fn new(command_buffer: vk::CommandBuffer) -> Self {
+    pub fn new(device: &Device, command_buffer: vk::CommandBuffer) -> Self {
+        let rendering_complete_semaphore = unsafe {
+            let create_info = vk::SemaphoreCreateInfo::default();
+            device.create_semaphore(&create_info, None)
+        }
+        .expect("failed to create semaphore");
         Self {
             command_buffer,
             command_buffer_reuse_fence: None,
+            rendering_complete_semaphore,
             state: DrawCommandBufferState::Initial,
         }
     }
@@ -161,14 +168,13 @@ impl DrawCommandBuffer {
         submit_queue: vk::Queue,
         wait_mask: &[vk::PipelineStageFlags],
         wait_semaphores: &[vk::Semaphore],
-        signal_semaphores: &[vk::Semaphore],
     ) {
         self.state = match self.state {
             DrawCommandBufferState::Initial => panic!("recording must be started"),
             DrawCommandBufferState::Recording => DrawCommandBufferState::Submitted,
             DrawCommandBufferState::Submitted => panic!("must start new command buffer"),
         };
-
+        let signal_semaphores = [self.rendering_complete_semaphore];
         unsafe {
             device
                 .end_command_buffer(self.command_buffer)
@@ -178,7 +184,7 @@ impl DrawCommandBuffer {
                 .wait_semaphores(wait_semaphores)
                 .wait_dst_stage_mask(wait_mask)
                 .command_buffers(&command_buffers)
-                .signal_semaphores(signal_semaphores);
+                .signal_semaphores(&signal_semaphores);
             device
                 .queue_submit(
                     submit_queue,
@@ -188,13 +194,16 @@ impl DrawCommandBuffer {
                 .expect("failed to submit queue");
         }
     }
+    pub fn rendering_complete_semaphore(&self) -> vk::Semaphore {
+        self.rendering_complete_semaphore
+    }
     pub fn free(&self, device: &Device) {
         unsafe {
             device.device_wait_idle().expect("failed to wait idle");
             if let Some(fence) = self.command_buffer_reuse_fence {
                 device.destroy_fence(fence, None);
             }
-
+            device.destroy_semaphore(self.rendering_complete_semaphore, None);
             device
                 .reset_command_buffer(
                     self.command_buffer,
