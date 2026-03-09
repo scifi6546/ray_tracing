@@ -355,7 +355,7 @@ impl VoxelPass {
                 .expect("failed to create pipeline layout");
 
             let mut fragment_spv_file =
-                Cursor::new(include_bytes!("../../../shaders/voxel_frag.spv"));
+                Cursor::new(include_bytes!("../../../shaders/slang/voxel-frag.spv"));
             let fragment_code =
                 read_spv(&mut fragment_spv_file).expect("failed to parse fragment shader file");
 
@@ -364,7 +364,7 @@ impl VoxelPass {
                 .create_shader_module(&fragment_shader_info, None)
                 .expect("failed to create fragment shader module");
             let mut vertex_spv_file =
-                Cursor::new(include_bytes!("../../../shaders/voxel_vert.spv"));
+                Cursor::new(include_bytes!("../../../shaders/slang/voxel-frag.spv"));
             let vertex_code =
                 read_spv(&mut vertex_spv_file).expect("failed to parse vertex shader file");
             let vertex_shader_module_info =
@@ -372,15 +372,16 @@ impl VoxelPass {
             let vertex_shader_module = device
                 .create_shader_module(&vertex_shader_module_info, None)
                 .expect("failed to create voxel vertex shader module");
-            let shader_entry_name = c"main";
+            let vertex_entry_name = c"vertexMain";
+            let fragment_entry_name = c"fragmentMain";
             let shader_stage_create_infos = [
                 vk::PipelineShaderStageCreateInfo::default()
                     .module(vertex_shader_module)
-                    .name(&shader_entry_name)
+                    .name(&vertex_entry_name)
                     .stage(vk::ShaderStageFlags::VERTEX),
                 vk::PipelineShaderStageCreateInfo::default()
                     .module(fragment_shader_module)
-                    .name(shader_entry_name)
+                    .name(fragment_entry_name)
                     .stage(vk::ShaderStageFlags::FRAGMENT),
             ];
             let vertex_input_binding_description = RenderModelVertex::input_binding_description();
