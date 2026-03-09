@@ -29,8 +29,7 @@ pub struct PresentPass {
     pub graphics_pipeline: vk::Pipeline,
     pub pipeline_layout: vk::PipelineLayout,
     pub renderpass: vk::RenderPass,
-    pub fragment_shader_module: vk::ShaderModule,
-    pub vertex_shader_module: vk::ShaderModule,
+    shader_module: vk::ShaderModule,
     pub framebuffers: Vec<vk::Framebuffer>,
 
     pub present_image_views: Vec<vk::ImageView>,
@@ -242,37 +241,28 @@ impl PresentPass {
                         .expect("failed to create device")
                 })
                 .collect();
+            let mut spv_file = Cursor::new(include_bytes!("../../../shaders/slang/present.spv"));
+            let spv_code = read_spv(&mut spv_file).expect("failed to read shader");
+            let shader_info = vk::ShaderModuleCreateInfo::default().code(&spv_code);
+            let shader_module = device
+                .create_shader_module(&shader_info, None)
+                .expect("failed to create shader module for present pass");
 
-            let mut vertex_spv_file = Cursor::new(include_bytes!("../../../shaders/vert.spv"));
-            let mut fragment_spv_file =
-                Cursor::new(include_bytes!("../../../shaders/slang/present.spv"));
-            let vertex_code = read_spv(&mut vertex_spv_file).expect("failed to read vertex shader");
-
-            let vertex_shader_info = vk::ShaderModuleCreateInfo::default().code(&vertex_code);
-            let vertex_shader_module = device
-                .create_shader_module(&vertex_shader_info, None)
-                .expect("Failed to create vertex shader");
-            let fragment_code =
-                read_spv(&mut fragment_spv_file).expect("failed to read fragment shader");
-            let fragment_shader_info = vk::ShaderModuleCreateInfo::default().code(&fragment_code);
-            let fragment_shader_module = device
-                .create_shader_module(&fragment_shader_info, None)
-                .expect("failed to create fragment shader module");
             let set_layouts = [descriptors.layout];
             let layout_create_info =
                 vk::PipelineLayoutCreateInfo::default().set_layouts(&set_layouts);
             let pipeline_layout = device
                 .create_pipeline_layout(&layout_create_info, None)
                 .expect("failed to create layout");
-            let fragment_entry_name = c"main";
-            let shader_entry_name = c"main";
+            let fragment_entry_name = c"fragmentMain";
+            let vertex_entry_name = c"vertexMain";
             let shader_stage_create_infos = [
                 vk::PipelineShaderStageCreateInfo::default()
-                    .module(vertex_shader_module)
-                    .name(&shader_entry_name)
+                    .module(shader_module)
+                    .name(&vertex_entry_name)
                     .stage(vk::ShaderStageFlags::VERTEX),
                 vk::PipelineShaderStageCreateInfo::default()
-                    .module(fragment_shader_module)
+                    .module(shader_module)
                     .name(fragment_entry_name)
                     .stage(vk::ShaderStageFlags::FRAGMENT),
             ];
@@ -356,8 +346,7 @@ impl PresentPass {
                 graphics_pipeline,
                 pipeline_layout,
                 renderpass,
-                fragment_shader_module,
-                vertex_shader_module,
+                shader_module,
                 framebuffers,
                 present_image_views,
                 present_images,
@@ -440,8 +429,8 @@ impl PresentPass {
 
             device.destroy_pipeline(self.graphics_pipeline, None);
             device.destroy_pipeline_layout(self.pipeline_layout, None);
-            device.destroy_shader_module(self.fragment_shader_module, None);
-            device.destroy_shader_module(self.vertex_shader_module, None);
+            device.destroy_shader_module(self.shader_module, None);
+
             device.destroy_render_pass(self.renderpass, None);
             for framebuffer in self.framebuffers.drain(..) {
                 device.destroy_framebuffer(framebuffer, None);

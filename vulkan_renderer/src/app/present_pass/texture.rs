@@ -288,11 +288,7 @@ impl PresentTexture {
                 .device
                 .allocate_descriptor_sets(&descriptor_allocate_info)
                 .expect("failed to allocate descriptor set");
-            let texture_descriptor = [vk::DescriptorImageInfo {
-                image_layout: data.layout,
-                image_view: data.image_view,
-                sampler: data.sampler,
-            }];
+
             let sampler_image_info = [vk::DescriptorImageInfo::default().sampler(data.sampler)];
             let image_info = [vk::DescriptorImageInfo::default()
                 .image_layout(data.layout)
