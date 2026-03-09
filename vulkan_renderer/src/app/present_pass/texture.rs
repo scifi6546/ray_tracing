@@ -236,16 +236,25 @@ impl PresentTexture {
                 .device
                 .allocate_descriptor_sets(&descriptor_allocate_info)
                 .expect("failed to allocate descriptor set");
-            let texture_descriptor = [vk::DescriptorImageInfo {
-                image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                image_view: texture_image_view,
-                sampler,
-            }];
-            let write_descriptor_sets = [vk::WriteDescriptorSet::default()
-                .dst_set(descriptor_sets[0])
-                .descriptor_count(1)
-                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                .image_info(&texture_descriptor)];
+
+            let sampler_info = [vk::DescriptorImageInfo::default().sampler(sampler)];
+            let texture_info = [vk::DescriptorImageInfo::default()
+                .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+                .image_view(texture_image_view)];
+            let write_descriptor_sets = [
+                vk::WriteDescriptorSet::default()
+                    .dst_set(descriptor_sets[0])
+                    .descriptor_count(1)
+                    .descriptor_type(vk::DescriptorType::SAMPLER)
+                    .image_info(&sampler_info)
+                    .dst_binding(0),
+                vk::WriteDescriptorSet::default()
+                    .dst_set(descriptor_sets[0])
+                    .descriptor_count(1)
+                    .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
+                    .image_info(&texture_info)
+                    .dst_binding(1),
+            ];
             vulkan_info
                 .device
                 .update_descriptor_sets(&write_descriptor_sets, &[]);
@@ -284,11 +293,24 @@ impl PresentTexture {
                 image_view: data.image_view,
                 sampler: data.sampler,
             }];
-            let write_descriptor_sets = [vk::WriteDescriptorSet::default()
-                .dst_set(descriptor_sets[0])
-                .descriptor_count(1)
-                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                .image_info(&texture_descriptor)];
+            let sampler_image_info = [vk::DescriptorImageInfo::default().sampler(data.sampler)];
+            let image_info = [vk::DescriptorImageInfo::default()
+                .image_layout(data.layout)
+                .image_view(data.image_view)];
+            let write_descriptor_sets = [
+                vk::WriteDescriptorSet::default()
+                    .dst_set(descriptor_sets[0])
+                    .descriptor_count(1)
+                    .descriptor_type(vk::DescriptorType::SAMPLER)
+                    .image_info(&sampler_image_info)
+                    .dst_binding(0),
+                vk::WriteDescriptorSet::default()
+                    .dst_set(descriptor_sets[0])
+                    .descriptor_count(1)
+                    .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
+                    .image_info(&image_info)
+                    .dst_binding(1),
+            ];
             vulkan_info
                 .device
                 .update_descriptor_sets(&write_descriptor_sets, &[]);

@@ -244,7 +244,8 @@ impl PresentPass {
                 .collect();
 
             let mut vertex_spv_file = Cursor::new(include_bytes!("../../../shaders/vert.spv"));
-            let mut fragment_spv_file = Cursor::new(include_bytes!("../../../shaders/frag.spv"));
+            let mut fragment_spv_file =
+                Cursor::new(include_bytes!("../../../shaders/slang/present.spv"));
             let vertex_code = read_spv(&mut vertex_spv_file).expect("failed to read vertex shader");
 
             let vertex_shader_info = vk::ShaderModuleCreateInfo::default().code(&vertex_code);
@@ -263,6 +264,7 @@ impl PresentPass {
             let pipeline_layout = device
                 .create_pipeline_layout(&layout_create_info, None)
                 .expect("failed to create layout");
+            let fragment_entry_name = c"main";
             let shader_entry_name = c"main";
             let shader_stage_create_infos = [
                 vk::PipelineShaderStageCreateInfo::default()
@@ -271,7 +273,7 @@ impl PresentPass {
                     .stage(vk::ShaderStageFlags::VERTEX),
                 vk::PipelineShaderStageCreateInfo::default()
                     .module(fragment_shader_module)
-                    .name(shader_entry_name)
+                    .name(fragment_entry_name)
                     .stage(vk::ShaderStageFlags::FRAGMENT),
             ];
 
