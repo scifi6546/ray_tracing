@@ -275,8 +275,7 @@ pub struct VoxelPass {
     graphics_pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
     renderpass: vk::RenderPass,
-    fragment_shader_module: vk::ShaderModule,
-    vertex_shader_module: vk::ShaderModule,
+    shader_module: vk::ShaderModule,
 
     //does not need to be freed
     viewport: vk::Viewport,
@@ -353,34 +352,22 @@ impl VoxelPass {
             let pipeline_layout = device
                 .create_pipeline_layout(&pipeline_layout_info, None)
                 .expect("failed to create pipeline layout");
+            let mut spv_file = Cursor::new(include_bytes!("../../../shaders/slang/voxel-frag.spv"));
+            let shader_code = read_spv(&mut spv_file).expect("failed to read spv");
+            let shader_info = vk::ShaderModuleCreateInfo::default().code(&shader_code);
+            let shader_module = device
+                .create_shader_module(&shader_info, None)
+                .expect("failed to create shader module");
 
-            let mut fragment_spv_file =
-                Cursor::new(include_bytes!("../../../shaders/slang/voxel-frag.spv"));
-            let fragment_code =
-                read_spv(&mut fragment_spv_file).expect("failed to parse fragment shader file");
-
-            let fragment_shader_info = vk::ShaderModuleCreateInfo::default().code(&fragment_code);
-            let fragment_shader_module = device
-                .create_shader_module(&fragment_shader_info, None)
-                .expect("failed to create fragment shader module");
-            let mut vertex_spv_file =
-                Cursor::new(include_bytes!("../../../shaders/slang/voxel-frag.spv"));
-            let vertex_code =
-                read_spv(&mut vertex_spv_file).expect("failed to parse vertex shader file");
-            let vertex_shader_module_info =
-                vk::ShaderModuleCreateInfo::default().code(&vertex_code);
-            let vertex_shader_module = device
-                .create_shader_module(&vertex_shader_module_info, None)
-                .expect("failed to create voxel vertex shader module");
             let vertex_entry_name = c"vertexMain";
             let fragment_entry_name = c"fragmentMain";
             let shader_stage_create_infos = [
                 vk::PipelineShaderStageCreateInfo::default()
-                    .module(vertex_shader_module)
+                    .module(shader_module)
                     .name(&vertex_entry_name)
                     .stage(vk::ShaderStageFlags::VERTEX),
                 vk::PipelineShaderStageCreateInfo::default()
-                    .module(fragment_shader_module)
+                    .module(shader_module)
                     .name(fragment_entry_name)
                     .stage(vk::ShaderStageFlags::FRAGMENT),
             ];
@@ -475,8 +462,7 @@ impl VoxelPass {
                 graphics_pipeline,
                 pipeline_layout,
                 renderpass,
-                fragment_shader_module,
-                vertex_shader_module,
+                shader_module,
                 output_resolution,
             }
         }
@@ -611,8 +597,8 @@ impl VoxelPass {
             device.destroy_pipeline(self.graphics_pipeline, None);
             device.destroy_pipeline_layout(self.pipeline_layout, None);
             device.destroy_render_pass(self.renderpass, None);
-            device.destroy_shader_module(self.fragment_shader_module, None);
-            device.destroy_shader_module(self.vertex_shader_module, None);
+
+            device.destroy_shader_module(self.shader_module, None);
         }
     }
 }
