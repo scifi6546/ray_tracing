@@ -1,13 +1,14 @@
 mod command_buffer;
-
 mod present_pass;
 mod voxel_renderer;
+mod world;
 use command_buffer::{DrawCommandBuffer, SetupCommandBuffer};
 use present_pass::{
     ForeignTextureInput, PresentDescriptors, PresentModel, PresentModelInfo, PresentPass,
     PresentRectangle, PresentTexture,
 };
 use voxel_renderer::VoxelPass;
+use world::World;
 
 use super::utils::vulkan_debug_callback;
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
@@ -23,6 +24,7 @@ use winit::{
 /// Things there is a v2 of:
 /// ImageMemoryBarriar
 pub struct App {
+    world: World,
     voxel_output_surfaces: Vec<PresentModel>,
     voxel_pass: Option<VoxelPass>,
     present_pass: Option<PresentPass>,
@@ -367,8 +369,9 @@ impl App {
                     )
                 })
                 .collect::<Vec<_>>();
-
+            let world = World::default();
             Self {
+                world,
                 voxel_output_surfaces,
                 voxel_pass: Some(voxel_pass),
                 frame_index: 0,
@@ -398,6 +401,7 @@ impl App {
         }
     }
     pub fn request_redraw(&mut self) {
+        self.world.update();
         let current_frame_index = self.frame_index % Self::MAX_FRAME_LATENCY;
 
         unsafe {
@@ -417,7 +421,12 @@ impl App {
             self.voxel_pass
                 .as_mut()
                 .expect("voxel pass already freed")
-                .draw(&self.device, draw_command_buffer, current_frame_index);
+                .draw(
+                    &self.world,
+                    &self.device,
+                    draw_command_buffer,
+                    current_frame_index,
+                );
             {
                 let voxel_model = iter::once(&self.voxel_output_surfaces[current_frame_index]);
 

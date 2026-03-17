@@ -1,5 +1,7 @@
 use super::{
-    super::{DrawCommandBuffer, ForeignTextureInput, SetupCommandBuffer},
+    super::{
+        super::utils::Vector4, DrawCommandBuffer, ForeignTextureInput, SetupCommandBuffer, World,
+    },
     model::{RenderModel, RenderModelVertex},
 };
 use ash::{
@@ -13,7 +15,10 @@ use gpu_allocator::{
     vulkan::{Allocation, AllocationCreateDesc, AllocationScheme, Allocator},
 };
 use std::io::Cursor;
-
+#[repr(C)]
+pub struct PushConstant {
+    pub origin: Vector4,
+}
 struct FramebufferImageAttachment {
     image: vk::Image,
     view: vk::ImageView,
@@ -347,8 +352,12 @@ impl VoxelPass {
             let renderpass = device
                 .create_render_pass2(&renderpass_create_info, None)
                 .expect("failed to create renderpass");
-
-            let pipeline_layout_info = vk::PipelineLayoutCreateInfo::default();
+            let push_constant_ranges = [vk::PushConstantRange::default()
+                .offset(0)
+                .size(size_of::<PushConstant>() as u32)
+                .stage_flags(vk::ShaderStageFlags::FRAGMENT)];
+            let pipeline_layout_info =
+                vk::PipelineLayoutCreateInfo::default().push_constant_ranges(&push_constant_ranges);
             let pipeline_layout = device
                 .create_pipeline_layout(&pipeline_layout_info, None)
                 .expect("failed to create pipeline layout");
@@ -470,6 +479,7 @@ impl VoxelPass {
 
     pub fn draw(
         &mut self,
+        world: &World,
         device: &Device,
         draw_command_buffer: &DrawCommandBuffer,
 
@@ -541,6 +551,14 @@ impl VoxelPass {
                     0,
                     &[self.render_model.vertex_buffer],
                     &[0],
+                );
+                let push_constant = world.camera.to_bytes();
+                device.cmd_push_constants(
+                    command_buffer,
+                    self.pipeline_layout,
+                    vk::ShaderStageFlags::FRAGMENT,
+                    0,
+                    &push_constant,
                 );
                 device.cmd_draw_indexed(
                     command_buffer,

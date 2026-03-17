@@ -2,6 +2,11 @@ struct VSOutput {
   float4 Position : SV_Position;
   float4 shaderPosition : WORLD_POSITION;
 };
+struct PushConstant {
+  float4 origin;
+};
+[[vk_push_constant]]
+PushConstant push_constants;
 static float3 ORIGIN = float3(6., 1., -10.);
 static uint[6] axis = { 0, 0, 1, 1, 2, 2 };
 static float BOX_SIZE = 2.;
@@ -15,19 +20,27 @@ VSOutput vertexMain(float4 position) {
   output.shaderPosition.z = 1.;
   return output;
 }
+struct Ray {
+  float3 origin;
+  float3 direction;
+};
 func intersect_axis(axis: uint, direction: float3, origin: float3, at: float)
     ->float {
   return (float(at) - origin[axis]) / direction[axis];
 }
+func at(direction: float3, origin: float3, t: float)->float3 {
+  return origin + direction * t;
+}
 [shader("fragment")]
 func fragmentMain(float4 shaderPosition: WORLD_POSITION)->float4 {
   var direction = float3(shaderPosition.x, shaderPosition.y, 1.);
-  float[6] values = { intersect_axis(0, direction, ORIGIN, 0.),
-                      intersect_axis(0, direction, ORIGIN, BOX_SIZE),
-                      intersect_axis(1, direction, ORIGIN, 0.),
-                      intersect_axis(1, direction, ORIGIN, BOX_SIZE),
-                      intersect_axis(2, direction, ORIGIN, 0.),
-                      intersect_axis(2, direction, ORIGIN, BOX_SIZE) };
+  float3 origin = float3(push_constants.origin.xyz);
+  float[6] values = { intersect_axis(0, direction, origin, 0.),
+                      intersect_axis(0, direction, origin, BOX_SIZE),
+                      intersect_axis(1, direction, origin, 0.),
+                      intersect_axis(1, direction, origin, BOX_SIZE),
+                      intersect_axis(2, direction, origin, 0.),
+                      intersect_axis(2, direction, origin, BOX_SIZE) };
   int min_x_index;
   int max_x_index;
 
@@ -81,19 +94,12 @@ func fragmentMain(float4 shaderPosition: WORLD_POSITION)->float4 {
     max_index = max_z_index;
   }
   if (values[max_index] >= values[min_index] && values[min_index] >= 0.) {
+    var position = at(direction, origin, values[min_index]);
+    var block_position = floor(position);
+    var color = block_position / BOX_SIZE;
+    return float4(color, 1.);
 
-    return float4(1., 1., 1., 1, );
   } else {
-    return float4(0., 0., 0.2, 1.);
+    return float4(0., 0., 0.2, 0.0);
   }
-  // var box_min = float3(0., 0., 0.);
-  // var box_max = float3(4., 4., 4.);
-  //
-  // bool in_box = rayDirection.x > box_min.x && rayDirection.x < box_max.x &&
-  //              rayDirection.y > box_min.y && rayDirection.y < box_max.y;
-  // if (in_box) {
-  //  return float4(1., 1., 1., 1, );
-  //} else {
-  //  return float4(1., 0., 0., 1, );
-  //}
 }
