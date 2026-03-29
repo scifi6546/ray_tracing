@@ -8,7 +8,7 @@ use present_pass::{
     PresentRectangle, PresentTexture,
 };
 use voxel_renderer::VoxelPass;
-use world::World;
+use world::{World, WorldEvent};
 
 use super::utils::vulkan_debug_callback;
 use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
@@ -16,7 +16,9 @@ use ash::{Device, Entry, Instance, ext::debug_utils, khr, vk};
 use gpu_allocator::vulkan::{Allocator, AllocatorCreateDesc};
 use std::iter;
 use winit::{
+    event::KeyEvent,
     event_loop::ActiveEventLoop,
+    keyboard::{KeyCode, PhysicalKey},
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::Window,
 };
@@ -463,7 +465,24 @@ impl App {
 
         self.frame_index += 1;
 
-        //self.window.request_redraw()
+        self.window.request_redraw()
+    }
+    pub fn handle_keyboard_input(&mut self, event: KeyEvent) {
+        let event = match event.physical_key {
+            PhysicalKey::Code(code) => match code {
+                KeyCode::KeyQ => Some(WorldEvent::Roll { amount: 1. }),
+                KeyCode::KeyE => Some(WorldEvent::Roll { amount: -1. }),
+                KeyCode::KeyA => Some(WorldEvent::Yaw { amount: -1. }),
+                KeyCode::KeyD => Some(WorldEvent::Yaw { amount: 1. }),
+                KeyCode::KeyW => Some(WorldEvent::Pitch { amount: 1. }),
+                KeyCode::KeyS => Some(WorldEvent::Pitch { amount: -1. }),
+                _ => None,
+            },
+            PhysicalKey::Unidentified(_) => None,
+        };
+        if let Some(event) = event {
+            self.world.react_event(event);
+        }
     }
 }
 impl Drop for App {

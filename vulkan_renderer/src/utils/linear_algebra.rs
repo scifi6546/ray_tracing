@@ -33,6 +33,9 @@ impl Vector4 {
     pub const fn w(&self) -> f32 {
         self.data[3]
     }
+    pub fn dot(&self, rhs: Self) -> f32 {
+        self.x() * rhs.x() + self.y() * rhs.y() + self.z() * rhs.z() + self.w() * rhs.w()
+    }
 }
 impl Mul<Vector4> for f32 {
     type Output = Vector4;
@@ -66,7 +69,18 @@ impl Mul<Vector4> for Matrix4 {
 impl Mul<Matrix4> for Matrix4 {
     type Output = Self;
     fn mul(self, rhs: Matrix4) -> Self::Output {
-        todo!()
+        let mut rows = [Vector4::ZERO; 4];
+        for row in 0..=3 {
+            for col in 0..=3 {
+                let l_vector = self.rows[row];
+                let r_vector =
+                    Vector4::new(rhs[(0, col)], rhs[(1, col)], rhs[(2, col)], rhs[(3, col)]);
+                let value = l_vector.dot(r_vector);
+                rows[row][col] = value;
+            }
+        }
+
+        Self { rows }
     }
 }
 impl Index<(usize, usize)> for Matrix4 {
@@ -104,6 +118,17 @@ impl Vector3 {
         self.z
     }
 }
+#[derive(Clone, Copy)]
+pub struct Rotation {
+    pub roll: f32,
+    pub pitch: f32,
+    pub yaw: f32,
+}
+impl Rotation {
+    pub fn new(roll: f32, pitch: f32, yaw: f32) -> Self {
+        Self { roll, pitch, yaw }
+    }
+}
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Matrix4 {
@@ -138,6 +163,35 @@ impl Matrix4 {
             ],
         }
     }
+    // using https://en.wikipedia.org/wiki/Rotation_matrix#Basic_3D_rotations
+    pub fn rotation(rotation: Rotation) -> Self {
+        let roll_mat = Matrix4 {
+            rows: [
+                Vector4::new(rotation.roll.cos(), -rotation.roll.sin(), 0., 0.),
+                Vector4::new(rotation.roll.sin(), rotation.roll.cos(), 0., 0.),
+                Vector4::new(0., 0., 1., 0.),
+                Vector4::new(0., 0., 0., 1.),
+            ],
+        };
+        let yaw_mat = Matrix4 {
+            rows: [
+                Vector4::new(rotation.yaw.cos(), 0., rotation.yaw.sin(), 0.),
+                Vector4::new(0., 1., 0., 0.),
+                Vector4::new(-rotation.yaw.sin(), 0., rotation.yaw.cos(), 0.),
+                Vector4::new(0., 0., 0., 1.),
+            ],
+        };
+        let pitch_mat = Matrix4 {
+            rows: [
+                Vector4::new(1., 0., 0., 0.),
+                Vector4::new(0., rotation.pitch.cos(), -rotation.pitch.sin(), 0.),
+                Vector4::new(0., rotation.pitch.sin(), rotation.pitch.cos(), 0.),
+                Vector4::new(0., 0., 0., 1.),
+            ],
+        };
+        // println!("todo: roll and pitch");
+        roll_mat * pitch_mat * yaw_mat
+    }
     pub fn as_bytes(&self) -> &[u8] {
         unsafe {
             std::slice::from_raw_parts(
@@ -157,9 +211,10 @@ mod test {
             panic!("a: {} != b: {}", a, b)
         }
     }
+
     fn mat_approx_eq(a: Matrix4, b: Matrix4) {
-        for i in 0..3 {
-            for j in 0..3 {
+        for i in 0..=3 {
+            for j in 0..=3 {
                 let a_val = a[(i, j)];
                 let b_val = b[(i, j)];
                 approx_eq(a_val, b_val);
@@ -195,6 +250,38 @@ mod test {
         approx_eq(v[1], 2.);
         approx_eq(v[2], 3.);
         approx_eq(v[3], 4.);
+    }
+    #[test]
+    fn vec4_dot() {
+        let zero = Vector4::ZERO;
+
+        approx_eq(zero.dot(zero), 0.);
+        let one = Vector4::new(1., 0., 0., 0.);
+        approx_eq(one.dot(one), 1.);
+
+        let one = Vector4::new(0., 1., 0., 0.);
+        approx_eq(one.dot(one), 1.);
+
+        let one = Vector4::new(0., 0., 1., 0.);
+        approx_eq(one.dot(one), 1.);
+
+        let one = Vector4::new(0., 0., 0., 1.);
+        approx_eq(one.dot(one), 1.);
+    }
+    #[test]
+    fn mul_mat4() {
+        let rotation = Matrix4::rotation(Rotation::new(1., 23., 321.));
+        let identity = Matrix4::identity();
+        let zero = Matrix4::zero();
+
+        mat_approx_eq(identity * identity, identity);
+        mat_approx_eq(identity * rotation, rotation);
+        mat_approx_eq(rotation * identity, rotation);
+        mat_approx_eq(zero * identity, zero);
+        mat_approx_eq(identity * zero, zero);
+
+        mat_approx_eq(zero * rotation, zero);
+        mat_approx_eq(rotation * zero * rotation, zero);
     }
     #[test]
     fn matrix_zero() {

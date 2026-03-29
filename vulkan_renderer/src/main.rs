@@ -17,16 +17,22 @@ impl ApplicationHandler for WindowContainer {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.app = Some(App::new(event_loop, 1024, 800));
     }
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        if let Some(app) = self.app.as_mut() {
-            app.request_redraw();
-        }
-    }
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {}
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
                 event_loop.exit();
+            }
+            WindowEvent::RedrawRequested => {
+                if let Some(app) = self.app.as_mut() {
+                    app.request_redraw();
+                }
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                if let Some(app) = self.app.as_mut() {
+                    app.handle_keyboard_input(event);
+                }
             }
             _ => (),
         }
