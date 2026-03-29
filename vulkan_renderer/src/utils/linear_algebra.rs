@@ -51,7 +51,14 @@ impl Mul<Vector4> for f32 {
 impl Mul<Matrix4> for f32 {
     type Output = Matrix4;
     fn mul(self, rhs: Matrix4) -> Self::Output {
-        todo!()
+        Matrix4 {
+            rows: [
+                self * rhs.rows[0],
+                self * rhs.rows[1],
+                self * rhs.rows[2],
+                self * rhs.rows[3],
+            ],
+        }
     }
 }
 impl Mul<Vector4> for Matrix4 {
@@ -269,6 +276,22 @@ mod test {
         vec4_approx_eq(s * v, v);
         let v = Vector4::new(1., 2., 3., 4.);
         vec4_approx_eq(2. * v, Vector4::new(2., 4., 6., 8.));
+    }
+    #[test]
+    fn scalar_mat4_mul() {
+        let m = Matrix4::from_rows([
+            Vector4::new(0., 1., 2., 3.),
+            Vector4::new(4., 5., 6., 7.),
+            Vector4::new(8., 9., 10., 11.),
+            Vector4::new(12., 13., 14., 15.),
+        ]);
+        let r = Matrix4::from_rows([
+            Vector4::new(2. * 0., 2. * 1., 2. * 2., 2. * 3.),
+            Vector4::new(2. * 4., 2. * 5., 2. * 6., 2. * 7.),
+            Vector4::new(2. * 8., 2. * 9., 2. * 10., 2. * 11.),
+            Vector4::new(2. * 12., 2. * 13., 2. * 14., 2. * 15.),
+        ]);
+        mat_approx_eq(2. * m, r);
     }
     #[test]
     fn vec4_dot() {
