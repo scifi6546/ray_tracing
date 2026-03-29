@@ -86,20 +86,22 @@ impl Index<usize> for Matrix4 {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Vector3 {
-    data: [f32; 3],
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 impl Vector3 {
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
-        Self { data: [x, y, z] }
+        Self { x, y, z }
     }
     pub const fn x(&self) -> f32 {
-        self.data[0]
+        self.x
     }
     pub const fn y(&self) -> f32 {
-        self.data[1]
+        self.y
     }
     pub const fn z(&self) -> f32 {
-        self.data[2]
+        self.z
     }
 }
 #[repr(C)]
@@ -136,6 +138,14 @@ impl Matrix4 {
             ],
         }
     }
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            std::slice::from_raw_parts(
+                std::ptr::from_ref(self) as *const u8,
+                std::mem::size_of::<Self>(),
+            )
+        }
+    }
 }
 #[cfg(test)]
 mod test {
@@ -147,8 +157,17 @@ mod test {
             panic!("a: {} != b: {}", a, b)
         }
     }
+    fn mat_approx_eq(a: Matrix4, b: Matrix4) {
+        for i in 0..3 {
+            for j in 0..3 {
+                let a_val = a[(i, j)];
+                let b_val = b[(i, j)];
+                approx_eq(a_val, b_val);
+            }
+        }
+    }
     #[test]
-    fn vec_new() {
+    fn vec4_new() {
         let x = 0.;
         let y = 0.;
         let z = 2.;
@@ -230,9 +249,11 @@ mod test {
     }
     #[test]
     fn vec3_new() {
+        assert_eq!(size_of::<Vector3>(), 3 * size_of::<f32>());
         let data_list = [[0., 0., 0.], [1., 1., 1.], [1., 2., 3.]];
         for data in data_list {
             let v = Vector3::new(data[0], data[1], data[2]);
+
             approx_eq(v.x(), data[0]);
             approx_eq(v.y(), data[1]);
             approx_eq(v.z(), data[2]);
@@ -247,5 +268,15 @@ mod test {
         approx_eq(translated.y(), 3.);
         approx_eq(translated.z(), 5.);
         approx_eq(translated.w(), 1.);
+    }
+    #[test]
+    fn as_bytes() {
+        let identity = Matrix4::identity();
+        let bytes = identity.as_bytes();
+        assert_eq!(bytes.len(), 16 * size_of::<f32>());
+        unsafe {
+            let read_mat = std::ptr::read_volatile(bytes.as_ptr() as *const Matrix4);
+            mat_approx_eq(identity, read_mat);
+        }
     }
 }

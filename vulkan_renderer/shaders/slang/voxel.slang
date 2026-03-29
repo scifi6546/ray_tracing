@@ -3,13 +3,19 @@ struct VSOutput {
   float4 shaderPosition : WORLD_POSITION;
 };
 struct PushConstant {
-  float4 origin;
+  float4 row0;
+  float4 row1;
+  float4 row2;
+  float4 row3;
 };
+
 [[vk_push_constant]]
 PushConstant push_constants;
+
 static float3 ORIGIN = float3(6., 1., -10.);
 static uint[6] axis = { 0, 0, 1, 1, 2, 2 };
 static float BOX_SIZE = 2.;
+
 [shader("vertex")]
 VSOutput vertexMain(float4 position) {
   var output = VSOutput();
@@ -23,10 +29,18 @@ VSOutput vertexMain(float4 position) {
 struct Ray {
   float3 origin;
   float3 direction;
+  __init(float3 in_origin, float3 in_direction) {
+    origin = in_origin;
+    direction = in_direction;
+  }
+  func transform(transform_matrix: matrix<float, 4, 4>)->Ray {
+    let origin_vec4 = mul(transform_matrix, float4(origin, 1.));
+    let direction_vec4 = mul(transform_matrix, float4(direction, 0.));
+    return Ray(origin_vec4.xyz, normalize(direction_vec4.xyz));
+  }
 };
-func intersect_axis(axis: uint, direction: float3, origin: float3, at: float)
-    ->float {
-  return (float(at) - origin[axis]) / direction[axis];
+func intersect_axis(axis: uint, ray: Ray, at: float)->float {
+  return (float(at) - ray.origin[axis]) / ray.direction[axis];
 }
 func at(direction: float3, origin: float3, t: float)->float3 {
   return origin + direction * t;
@@ -34,13 +48,20 @@ func at(direction: float3, origin: float3, t: float)->float3 {
 [shader("fragment")]
 func fragmentMain(float4 shaderPosition: WORLD_POSITION)->float4 {
   var direction = float3(shaderPosition.x, shaderPosition.y, 1.);
-  float3 origin = float3(push_constants.origin.xyz);
-  float[6] values = { intersect_axis(0, direction, origin, 0.),
-                      intersect_axis(0, direction, origin, BOX_SIZE),
-                      intersect_axis(1, direction, origin, 0.),
-                      intersect_axis(1, direction, origin, BOX_SIZE),
-                      intersect_axis(2, direction, origin, 0.),
-                      intersect_axis(2, direction, origin, BOX_SIZE) };
+  matrix<float, 4, 4> m =
+      matrix<float, 4, 4>(push_constants.row0, push_constants.row1,
+                          push_constants.row2, push_constants.row3);
+  Ray ray = Ray(float3(0., 0., 0.), direction);
+  ray = ray.transform(m);
+  float4 og_origin = mul(m, float4(1., 1., -10., 1));
+
+  float3 origin = og_origin.xyz;
+
+  float[6] values = {
+    intersect_axis(0, ray, 0.), intersect_axis(0, ray, BOX_SIZE),
+    intersect_axis(1, ray, 0.), intersect_axis(1, ray, BOX_SIZE),
+    intersect_axis(2, ray, 0.), intersect_axis(2, ray, BOX_SIZE)
+  };
   int min_x_index;
   int max_x_index;
 

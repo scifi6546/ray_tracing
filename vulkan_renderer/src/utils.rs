@@ -1,7 +1,7 @@
 use ash::vk;
 use std::{borrow::Cow, ffi};
 mod linear_algebra;
-pub use linear_algebra::{Matrix4, Vector4};
+pub use linear_algebra::{Matrix4, Vector3, Vector4};
 const PANIC_ON_ERROR: bool = true;
 pub unsafe extern "system" fn vulkan_debug_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,

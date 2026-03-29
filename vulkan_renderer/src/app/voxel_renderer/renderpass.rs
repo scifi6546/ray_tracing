@@ -1,6 +1,7 @@
 use super::{
     super::{
-        super::utils::Vector4, DrawCommandBuffer, ForeignTextureInput, SetupCommandBuffer, World,
+        super::utils::{Matrix4, Vector4},
+        DrawCommandBuffer, ForeignTextureInput, SetupCommandBuffer, World,
     },
     model::{RenderModel, RenderModelVertex},
 };
@@ -17,7 +18,7 @@ use gpu_allocator::{
 use std::io::Cursor;
 #[repr(C)]
 pub struct PushConstant {
-    pub origin: Vector4,
+    pub transform_matrix_rows: [Vector4; 4],
 }
 struct FramebufferImageAttachment {
     image: vk::Image,
@@ -552,13 +553,15 @@ impl VoxelPass {
                     &[self.render_model.vertex_buffer],
                     &[0],
                 );
-                let push_constant = world.camera.to_bytes();
+
+                let push_constant = world.camera.to_matrix();
+                let m = Matrix4::identity();
                 device.cmd_push_constants(
                     command_buffer,
                     self.pipeline_layout,
                     vk::ShaderStageFlags::FRAGMENT,
                     0,
-                    &push_constant,
+                    push_constant.as_bytes(),
                 );
                 device.cmd_draw_indexed(
                     command_buffer,
